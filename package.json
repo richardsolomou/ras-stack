@@ -30,6 +30,14 @@
       "types": "./dist/auth/index.d.ts",
       "default": "./dist/auth/index.js"
     },
+    "./auth/client": {
+      "types": "./dist/auth/client.d.ts",
+      "default": "./dist/auth/client.js"
+    },
+    "./auth/react": {
+      "types": "./dist/auth/react.d.ts",
+      "default": "./dist/auth/react.js"
+    },
     "./email": {
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
