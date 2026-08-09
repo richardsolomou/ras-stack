@@ -1,0 +1,41 @@
+name: Publish trusted preview artifact
+description: Download a fork-built image artifact in trusted workflow context and publish it to GHCR.
+
+inputs:
+  artifact-name:
+    description: Fork image artifact name.
+    required: true
+  run-id:
+    description: Untrusted build workflow run ID.
+    required: true
+  source-image:
+    description: Image tag stored inside the artifact.
+    required: true
+  target-image:
+    description: Trusted GHCR image tag.
+    required: true
+  token:
+    description: GitHub token with artifact read and package write permissions.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download preview artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ runner.temp }}/ras-stack-preview-image
+        github-token: ${{ inputs.token }}
+        run-id: ${{ inputs.run-id }}
+    - name: Publish preview image
+      shell: bash
+      env:
+        GHCR_TOKEN: ${{ inputs.token }}
+        SOURCE_IMAGE: ${{ inputs.source-image }}
+        TARGET_IMAGE: ${{ inputs.target-image }}
+      run: |
+        docker load --input "$RUNNER_TEMP/ras-stack-preview-image/preview-image.tar"
+        docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE"
+        echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+        docker push "$TARGET_IMAGE"
