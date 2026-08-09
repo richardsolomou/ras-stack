@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.23.0
+
+### Minor Changes
+
+- a34d0e2: Synchronize declared ras-stack, workflow, Node, pnpm, and Just adoption versions without downgrading newer references.
+
 ## 0.22.0
 
 ### Minor Changes
