@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { syncRepositoryPolicy } from './index.js'
+import { adoptionDrift, syncRepositoryPolicy } from './index.js'
 
 describe('repository policy synchronization', () => {
   it('writes only selected policy files with local overrides', async () => {
@@ -45,6 +45,38 @@ describe('repository policy synchronization', () => {
   it('rejects invalid policy configuration', async () => {
     const root = await repository({ pnpm: { minimumReleaseAge: -1 } })
     await expect(syncRepositoryPolicy(root, 'check')).rejects.toThrow('pnpm.minimumReleaseAge must be a non-negative integer')
+  })
+
+  it('detects stale package, workflow, and toolchain versions', async () => {
+    const root = await repository({})
+    await writeFile(
+      join(root, 'package.json'),
+      JSON.stringify({
+        dependencies: { 'ras-stack': '^0.7.0' },
+        engines: { node: '>=22' },
+        packageManager: 'pnpm@10.0.0',
+      }),
+    )
+    await mkdir(join(root, '.github/workflows'), { recursive: true })
+    await writeFile(join(root, '.github/workflows/ci.yml'), 'uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.6.0\n')
+    expect(await adoptionDrift(root, { minimumRasStackVersion: '0.8.3', node: '>=24 <25', pnpm: '11.15.0', just: '1.58.0' })).toEqual([
+      'toolchain drift: package.json engines.node must be >=24 <25',
+      'toolchain drift: package.json packageManager must be pnpm@11.15.0',
+      'ras-stack drift: package.json uses 0.7.0, minimum is 0.8.3',
+      'ras-stack drift: workflows/ci.yml uses v0.6.0, minimum is v0.8.3',
+      'toolchain drift: no workflow declares just-version 1.58.0',
+    ])
+  })
+
+  it('accepts compatible versions and an intentional absent package dependency', async () => {
+    const root = await repository({})
+    await writeFile(join(root, 'package.json'), JSON.stringify({ engines: { node: '>=24 <25' }, packageManager: 'pnpm@11.15.0' }))
+    await mkdir(join(root, '.github/workflows'), { recursive: true })
+    await writeFile(
+      join(root, '.github/workflows/ci.yml'),
+      "uses: richardsolomou/ras-stack/actions/setup-js@v0.8.3\njust-version: '1.58.0'\n",
+    )
+    expect(await adoptionDrift(root, { minimumRasStackVersion: '0.8.3', node: '>=24 <25', pnpm: '11.15.0', just: '1.58.0' })).toEqual([])
   })
 })
 
