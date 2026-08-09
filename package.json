@@ -59,6 +59,10 @@
       "types": "./dist/database/postgres.d.ts",
       "default": "./dist/database/postgres.js"
     },
+    "./conformance": {
+      "types": "./dist/conformance/index.d.ts",
+      "default": "./dist/conformance/index.js"
+    },
     "./policy": {
       "types": "./dist/policy/index.d.ts",
       "default": "./dist/policy/index.js"

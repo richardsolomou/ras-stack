@@ -170,6 +170,15 @@ if (target.provider === 'postgres') {
 
 The package does not make SQLite and PostgreSQL queries look identical. Applications keep driver-specific transaction and compatibility behavior while sharing target validation, pool defaults, numeric parsing, migrations, credential-safe display URLs, and shutdown.
 
+Consumer tests can verify the real provider selection and provider-specific safety settings without sharing a schema or repository:
+
+```ts
+import { assertDatabaseTargetConformance, assertSqliteConformance } from 'ras-stack/conformance'
+
+await assertDatabaseTargetConformance(databaseTarget)
+await assertSqliteConformance((name) => sqliteClient.pragma(name, { simple: true }))
+```
+
 ## Realtime updates
 
 Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication, signed tokens, and repeated browser lifecycle mechanics:
