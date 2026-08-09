@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createStackQueryClient, queryErrorMessage } from './query.js'
-import { createTanStackRpc, requireTanStackMutationOrigin } from './server.js'
+import {
+  betterAuthHandlers,
+  canonicalHostRequest,
+  createTanStackRpc,
+  requireTanStackMutationOrigin,
+  tanStackHealthHandler,
+} from './server.js'
 
 describe('TanStack RPC integration', () => {
   it('uses the ambient request for mutation policy', async () => {
@@ -19,6 +25,42 @@ describe('TanStack RPC integration', () => {
     })
 
     expect(() => requireTanStackMutationOrigin({}, request)).not.toThrow()
+  })
+
+  it('delegates both Better Auth methods to the resolved application', async () => {
+    const handler = vi.fn(() => Response.json({ ok: true }))
+    const handlers = betterAuthHandlers(() => ({ handler }))
+    const request = new Request('https://example.com/api/auth/session')
+    await handlers.GET({ request })
+    await handlers.POST({ request })
+    expect(handler).toHaveBeenCalledTimes(2)
+  })
+
+  it('builds a health handler around an application-owned check', async () => {
+    const handler = tanStackHealthHandler(() => {
+      throw new Error('offline')
+    })
+    expect((await handler()).status).toBe(503)
+  })
+
+  it('redirects a non-canonical request without calling the application', () => {
+    const next = vi.fn(() => new Response('application'))
+    const response = canonicalHostRequest(new Request('https://old.example/path?q=1'), next, {
+      canonicalUrl: 'https://example.com',
+    })
+    expect({ location: response.headers.get('location'), nextCalls: next.mock.calls.length, status: response.status }).toEqual({
+      location: 'https://example.com/path?q=1',
+      nextCalls: 0,
+      status: 301,
+    })
+  })
+
+  it('continues requests already served on an allowed host', async () => {
+    const response = canonicalHostRequest(new Request('https://old.example/api/health'), () => new Response('healthy'), {
+      canonicalUrl: 'https://example.com',
+      pathsServedOnAnyHost: new Set(['/api/health']),
+    })
+    expect(await response.text()).toBe('healthy')
   })
 })
 
