@@ -182,6 +182,32 @@ Extend the supplied configuration and override anything specific to the applicat
 
 TypeScript bases are also available at `ras-stack/config/typescript/browser` and `ras-stack/config/typescript/library`.
 
+## Repository policy
+
+Policy files which cannot inherit can stay committed while being checked against the shared source. Select only the policies a repository wants in `ras-stack.policy.json`:
+
+```json
+{
+  "changesets": {
+    "overrides": {
+      "access": "restricted",
+      "privatePackages": { "version": true, "tag": true }
+    }
+  },
+  "dependabot": true,
+  "pnpm": {}
+}
+```
+
+Then generate or verify the effective files:
+
+```sh
+pnpm exec ras-stack-policy sync
+pnpm exec ras-stack-policy check
+```
+
+`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+
 ## GitHub Actions
 
 The JavaScript setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:

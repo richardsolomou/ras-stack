@@ -1,0 +1,7 @@
+{
+  "changesets": true,
+  "dependabot": true,
+  "pnpm": {
+    "minimumReleaseAge": 0
+  }
+}
