@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.3.4
+
+### Patch Changes
+
+- fbed13e: Dispatch npm publishing through its top-level OIDC-trusted workflow.
+
 ## 0.3.3
 
 ### Patch Changes
