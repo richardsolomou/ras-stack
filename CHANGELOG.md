@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.27.0
+
+### Minor Changes
+
+- afa18a3: Share safe GitHub check-run and pull-request comment state for application previews.
+
 ## 0.26.0
 
 ### Minor Changes
