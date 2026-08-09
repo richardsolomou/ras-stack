@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.22.0
+
+### Minor Changes
+
+- db68279: Report adoption and toolchain drift across a declared repository fleet.
+
 ## 0.21.0
 
 ### Minor Changes
