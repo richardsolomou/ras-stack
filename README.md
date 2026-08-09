@@ -153,18 +153,38 @@ TypeScript bases are also available at `ras-stack/config/typescript/browser` and
 
 ## GitHub Actions
 
-The setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
+The JavaScript setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
 
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.1.0
-    with:
-      just-version: '1.58.0'
+  - uses: richardsolomou/ras-stack/actions/setup-js@v0.2.0
   - run: pnpm check
 ```
 
-Pin the action to a release tag and let Dependabot propose upgrades.
+Just is independent of the application language and is installed separately when a repository uses it:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/setup-just@v0.2.0
+  with:
+    version: '1.58.0'
+```
+
+Applications using Changesets can call the reusable release workflow after their own required checks:
+
+```yaml
+release:
+  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  needs: [check]
+  permissions:
+    contents: write
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.2.0
+  secrets: inherit
+```
+
+The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
+
+Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
 
 ## Development
 

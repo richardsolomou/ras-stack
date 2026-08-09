@@ -1,13 +1,10 @@
 name: Set up JavaScript toolchain
-description: Install the repository's declared Node and pnpm versions, restore the pnpm cache, and optionally install dependencies and just.
+description: Install the repository's declared Node and pnpm versions, restore the pnpm cache, and optionally install dependencies.
 
 inputs:
   install:
     description: Run pnpm install with the frozen lockfile.
     default: 'true'
-  just-version:
-    description: Install this version of just when provided.
-    default: ''
 
 runs:
   using: composite
@@ -21,11 +18,6 @@ runs:
       with:
         node-version-file: package.json
         cache: pnpm
-    - name: Install just
-      if: inputs.just-version != ''
-      uses: extractions/setup-just@v4
-      with:
-        just-version: ${{ inputs.just-version }}
     - name: Install dependencies
       if: inputs.install == 'true'
       shell: bash
