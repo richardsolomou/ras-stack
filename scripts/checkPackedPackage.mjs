@@ -28,6 +28,7 @@ try {
         'drizzle-orm': packageJson.devDependencies['drizzle-orm'],
         nodemailer: packageJson.devDependencies.nodemailer,
         postgres: packageJson.devDependencies.postgres,
+        react: packageJson.devDependencies.react,
         'ras-stack': `file:${archive}`,
         'tus-js-client': packageJson.devDependencies['tus-js-client'],
       },
@@ -45,7 +46,7 @@ try {
 
   writeFileSync(
     path.join(temporary, 'browser.js'),
-    "import { sameOriginWebSocketUrl } from 'ras-stack/realtime/client'\nvoid sameOriginWebSocketUrl\n",
+    "import { sameOriginWebSocketUrl } from 'ras-stack/realtime/client'\nimport { useConnectedRealtimeClient } from 'ras-stack/realtime/react'\nvoid sameOriginWebSocketUrl\nvoid useConnectedRealtimeClient\n",
   )
   writeFileSync(path.join(temporary, 'index.html'), '<script type="module" src="/browser.js"></script>\n')
   exec('npx', ['vite', 'build', '--outDir', 'browser-dist'], temporary)
