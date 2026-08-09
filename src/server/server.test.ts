@@ -14,7 +14,7 @@ describe('canonical redirects', () => {
     expect(
       canonicalRedirect('http://internal/api/health', {
         canonicalUrl: 'https://example.com',
-        servedOnAnyHost: new Set(['/api/health']),
+        pathsServedOnAnyHost: new Set(['/api/health']),
       }),
     ).toBeNull()
   })

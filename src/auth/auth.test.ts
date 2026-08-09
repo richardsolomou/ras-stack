@@ -87,7 +87,40 @@ describe('request origins', () => {
       headers: { host: 'app:3000', origin: 'https://example.com', 'x-forwarded-host': 'example.com', 'x-forwarded-proto': 'https' },
     })
     expect(forwardedOrigin(request)).toBe('https://example.com')
-    expect(validSameOriginRequest(request)).toBe(true)
+    expect(validSameOriginRequest(request, { trustForwardedHeaders: true })).toBe(true)
+  })
+
+  it('does not trust forwarded headers by default', () => {
+    const request = new Request('http://app:3000/action', {
+      headers: { origin: 'https://evil.example', 'x-forwarded-host': 'evil.example', 'x-forwarded-proto': 'https' },
+    })
+    expect(validSameOriginRequest(request)).toBe(false)
+  })
+
+  it('rejects requests without an origin', () => {
+    expect(validSameOriginRequest(new Request('https://example.com/action'))).toBe(false)
+  })
+
+  it('rejects an origin that does not match the request', () => {
+    const request = new Request('https://example.com/action', { headers: { origin: 'https://other.example' } })
+    expect(validSameOriginRequest(request)).toBe(false)
+  })
+
+  it('ignores malformed and partial forwarded headers', () => {
+    const malformed = new Request('http://app:3000/action', {
+      headers: { origin: 'https://example.com', 'x-forwarded-host': 'example.com', 'x-forwarded-proto': 'file' },
+    })
+    const partial = new Request('http://app:3000/action', {
+      headers: { origin: 'https://example.com', 'x-forwarded-host': 'example.com' },
+    })
+    expect(validSameOriginRequest(malformed, { trustForwardedHeaders: true })).toBe(false)
+    expect(validSameOriginRequest(partial, { trustForwardedHeaders: true })).toBe(false)
+  })
+
+  it('uses the Referer only when explicitly enabled', () => {
+    const request = new Request('https://example.com/action', { headers: { referer: 'https://example.com/page' } })
+    expect(validSameOriginRequest(request)).toBe(false)
+    expect(validSameOriginRequest(request, { allowReferer: true })).toBe(true)
   })
 
   it('rejects cross-site requests even when their origin is configured', () => {
@@ -109,7 +142,7 @@ describe('request origins', () => {
     const request = new Request('http://app:3000/action', {
       headers: { 'x-forwarded-host': 'example.com', 'x-forwarded-proto': 'https' },
     })
-    expect(trustedOrigins({ configured: ['https://admin.example.com'] })(request)).toEqual([
+    expect(trustedOrigins({ configured: ['https://admin.example.com'], trustForwardedHeaders: true })(request)).toEqual([
       'https://example.com',
       'https://admin.example.com',
     ])

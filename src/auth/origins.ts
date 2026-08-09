@@ -1,6 +1,7 @@
 export type OriginOptions = {
   configured?: readonly (string | undefined)[]
   allowReferer?: boolean
+  trustForwardedHeaders?: boolean
 }
 
 export function parseOrigin(value: string | undefined) {
@@ -19,9 +20,11 @@ export function forwardedOrigin(request: Request) {
 }
 
 export function acceptedOrigins(request: Request, options: OriginOptions = {}) {
-  return [new URL(request.url).origin, forwardedOrigin(request), ...(options.configured ?? []).map(parseOrigin)].filter(
-    (origin): origin is string => Boolean(origin),
-  )
+  return [
+    new URL(request.url).origin,
+    ...(options.trustForwardedHeaders ? [forwardedOrigin(request)] : []),
+    ...(options.configured ?? []).map(parseOrigin),
+  ].filter((origin): origin is string => Boolean(origin))
 }
 
 export function validSameOriginRequest(request: Request, options: OriginOptions = {}) {

@@ -17,7 +17,7 @@ const auth = betterAuth({
   plugins,
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
-  trustedOrigins: trustedOrigins({ configured: [process.env.APP_URL] }),
+  trustedOrigins: trustedOrigins({ configured: [process.env.APP_URL], trustForwardedHeaders: true }),
 })
 ```
 
@@ -34,9 +34,11 @@ import { createRpc } from '@richardsolomou/ras-stack/server'
 
 export const { rpc, mutationRpc } = createRpc({
   getRequest,
-  requireMutation: (request) => requireSameOrigin(request, { configured: [process.env.APP_URL] }),
+  requireMutation: (request) => requireSameOrigin(request, { configured: [process.env.APP_URL], trustForwardedHeaders: true }),
 })
 ```
+
+Only enable `trustForwardedHeaders` when the application is deployed behind a proxy that replaces incoming forwarded headers.
 
 ## Realtime
 
@@ -48,11 +50,15 @@ import { CentrifugoPublisher, signRealtimeToken } from '@richardsolomou/ras-stac
 const publisher = new CentrifugoPublisher({
   apiUrl,
   apiKey,
+  maxConcurrentChannels: 8,
+  maxPendingChannels: 1024,
   onError: (error, channel) => logger.error({ error, channel }, 'realtime publication failed'),
 })
 publisher.publish(`battle:${battle.id}`, { type: 'change' })
 
 const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret })
+
+await publisher.close()
 ```
 
 ## Email and uploads

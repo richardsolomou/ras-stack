@@ -5,32 +5,78 @@ export type CentrifugoPublisherOptions = {
   timeoutMs?: number
   retryMs?: number
   maxRetries?: number
+  maxConcurrentChannels?: number
+  maxPendingChannels?: number
   onError: (error: unknown, channel: string) => void
   onRetry?: (error: unknown, channel: string) => void
 }
 
-type PendingPublication = { dirty: boolean; data: unknown }
+type PendingPublication = { dirty: boolean; data: unknown; running: boolean }
 
 export class CentrifugoPublisher {
   private readonly pending = new Map<string, PendingPublication>()
+  private readonly queue: string[] = []
+  private readonly idleWaiters = new Set<() => void>()
   private readonly request: typeof fetch
+  private readonly maxConcurrentChannels: number
+  private readonly maxPendingChannels: number
+  private active = 0
+  private closed = false
 
   constructor(private readonly options: CentrifugoPublisherOptions) {
     this.request = options.fetch ?? fetch
+    this.maxConcurrentChannels = positiveInteger(options.maxConcurrentChannels ?? 8, 'maxConcurrentChannels')
+    this.maxPendingChannels = positiveInteger(options.maxPendingChannels ?? 1_024, 'maxPendingChannels')
   }
 
   publish(channel: string, data: unknown) {
-    if (!this.options.apiUrl) return
+    if (!this.options.apiUrl) return false
+    if (this.closed) {
+      this.reportError(new Error('Realtime publisher is closed'), channel)
+      return false
+    }
     const pending = this.pending.get(channel)
     if (pending) {
       pending.dirty = true
       pending.data = data
-      return
+      return true
+    }
+    if (this.pending.size >= this.maxPendingChannels) {
+      this.reportError(new Error('Realtime publisher queue is full'), channel)
+      return false
     }
 
-    const state = { dirty: true, data }
+    const state = { dirty: true, data, running: false }
     this.pending.set(channel, state)
-    void this.flush(channel, state)
+    this.queue.push(channel)
+    this.pump()
+    return true
+  }
+
+  idle() {
+    if (this.isIdle()) return Promise.resolve()
+    return new Promise<void>((resolve) => this.idleWaiters.add(resolve))
+  }
+
+  async close() {
+    this.closed = true
+    await this.idle()
+  }
+
+  private pump() {
+    while (this.active < this.maxConcurrentChannels) {
+      const channel = this.queue.shift()
+      if (!channel) break
+      const state = this.pending.get(channel)
+      if (!state || state.running) continue
+      state.running = true
+      this.active++
+      void this.flush(channel, state).finally(() => {
+        this.active--
+        this.pump()
+        this.resolveIdle()
+      })
+    }
   }
 
   private async flush(channel: string, state: PendingPublication) {
@@ -47,7 +93,14 @@ export class CentrifugoPublisher {
     } finally {
       if (this.pending.get(channel) === state) this.pending.delete(channel)
     }
-    if (failure) this.options.onError(failure, channel)
+    if (failure) {
+      if (state.dirty) {
+        this.pending.set(channel, { dirty: true, data: state.data, running: false })
+        this.queue.push(channel)
+        this.pump()
+      }
+      this.reportError(failure, channel)
+    }
   }
 
   private async deliver(channel: string, data: unknown) {
@@ -96,6 +149,22 @@ export class CentrifugoPublisher {
     if (error.code === 100) throw new TransientPublishError(message)
     throw new Error(message)
   }
+
+  private reportError(error: unknown, channel: string) {
+    try {
+      this.options.onError(error, channel)
+    } catch {}
+  }
+
+  private isIdle() {
+    return this.pending.size === 0 && this.active === 0 && this.queue.length === 0
+  }
+
+  private resolveIdle() {
+    if (!this.isIdle()) return
+    for (const resolve of this.idleWaiters) resolve()
+    this.idleWaiters.clear()
+  }
 }
 
 class TransientPublishError extends Error {}
@@ -109,4 +178,9 @@ function centrifugoError(result: unknown): { code?: number; message?: string } |
   const code = 'code' in result.error && typeof result.error.code === 'number' ? result.error.code : undefined
   const message = 'message' in result.error && typeof result.error.message === 'string' ? result.error.message : undefined
   return { ...(code === undefined ? {} : { code }), ...(message === undefined ? {} : { message }) }
+}
+
+function positiveInteger(value: number, name: string) {
+  if (!Number.isSafeInteger(value) || value < 1) throw new RangeError(`${name} must be a positive integer`)
+  return value
 }

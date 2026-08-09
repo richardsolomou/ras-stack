@@ -32,7 +32,8 @@ vi.mock('tus-js-client', () => ({
     }
 
     start() {
-      this.options.onSuccess?.({ lastResponse: { getBody: () => '{"id":"asset-1"}', getStatus: () => 200 } })
+      if (this.file.name === 'fail.bin') this.options.onError?.(new Error('upload failed'))
+      else this.options.onSuccess?.({ lastResponse: { getBody: () => '{"id":"asset-1"}', getStatus: () => 200 } })
     }
   },
 }))
@@ -83,6 +84,16 @@ describe('tus uploads', () => {
     upload.options.onSuccess = success
     await startTusUpload(upload)
     expect(success).toHaveBeenCalledOnce()
+  })
+
+  it('rejects with the upload error after running the upstream error callback', async () => {
+    const upstream = vi.fn(() => {
+      throw new Error('callback failed')
+    })
+    const upload = createTusUpload({ endpoint: '/api/upload', file: new File([], 'fail.bin'), metadata: {} })
+    upload.options.onError = upstream
+    await expect(startTusUpload(upload)).rejects.toThrow('upload failed')
+    expect(upstream).toHaveBeenCalledOnce()
   })
 })
 

@@ -1,6 +1,6 @@
 export type CanonicalRedirectOptions = {
   canonicalUrl?: string
-  servedOnAnyHost?: ReadonlySet<string>
+  pathsServedOnAnyHost?: ReadonlySet<string>
 }
 
 export function canonicalRedirect(requestUrl: string, options: CanonicalRedirectOptions) {
@@ -8,7 +8,7 @@ export function canonicalRedirect(requestUrl: string, options: CanonicalRedirect
   try {
     const canonical = new URL(options.canonicalUrl)
     const incoming = new URL(requestUrl)
-    if (incoming.host === canonical.host || options.servedOnAnyHost?.has(incoming.pathname)) return null
+    if (incoming.host === canonical.host || options.pathsServedOnAnyHost?.has(incoming.pathname)) return null
     return new URL(incoming.pathname + incoming.search + incoming.hash, canonical.origin).toString()
   } catch {
     return null
