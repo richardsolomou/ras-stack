@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.17.0
+
+### Minor Changes
+
+- dc4f152: Declare, copy, and verify production server assets without shell copy chains.
+
 ## 0.16.0
 
 ### Minor Changes
