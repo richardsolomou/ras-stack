@@ -63,22 +63,27 @@ const auth = betterAuth({
 })
 ```
 
-Framework access is injected into server helpers, so the package does not need to wrap TanStack Start:
+The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:
 
 ```ts
-import { getRequest } from '@tanstack/react-start/server'
-import { requireSameOrigin } from 'ras-stack/auth'
-import { createRpc } from 'ras-stack/server'
+import { createStackQueryClient } from 'ras-stack/tanstack/query'
+import { createTanStackRpc, requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
 
-export const { rpc, mutationRpc } = createRpc({
-  getRequest,
+export const { rpc, mutationRpc } = createTanStackRpc({
   requireMutation: (request) =>
-    requireSameOrigin(request, {
-      configured: [process.env.APP_URL],
-      trustForwardedHeaders: true,
-    }),
+    requireTanStackMutationOrigin(
+      {
+        configured: [process.env.APP_URL],
+        trustForwardedHeaders: true,
+      },
+      request,
+    ),
 })
+
+export const queryClient = createStackQueryClient()
 ```
+
+Applications still own their auth clients, authorization, routes, router, logging, health checks, and Query configuration. Both integrations remain optional, and their upstream libraries remain directly accessible.
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
