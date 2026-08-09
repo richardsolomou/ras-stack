@@ -451,6 +451,8 @@ await superviseProcesses([
 
 Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. `caddyRealtimeProxy()` generates the shared trusted-proxy and same-origin websocket guard. Applications retain binaries, base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
 
+Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
+
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
