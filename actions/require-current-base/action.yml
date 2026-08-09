@@ -1,0 +1,20 @@
+name: Require current pull request base
+description: Reject a dependency branch that does not contain the base commit from its pull request event.
+
+inputs:
+  base-sha:
+    description: Full base commit SHA from the pull request event.
+    required: true
+  head-sha:
+    description: Full head commit SHA from the pull request event.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify branch contains current base
+      shell: bash
+      env:
+        BASE_SHA: ${{ inputs.base-sha }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"

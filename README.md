@@ -455,6 +455,18 @@ The workflow consumes pending changesets, commits the resulting versions and cha
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
 
+The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/require-current-base@v0.24.0
+  if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
+  with:
+    base-sha: ${{ github.event.pull_request.base.sha }}
+    head-sha: ${{ github.event.pull_request.head.sha }}
+```
+
+Keep strict up-to-date branch protection enabled for the required check. When the guard fails, update or rebase the dependency branch onto current `main`, regenerate its lockfile, and let the normal policy check run against that refreshed result. Do not merge it with an administrative bypass.
+
 The reusable check workflow owns checkout and toolchain setup while the repository keeps its check command:
 
 ```yaml
