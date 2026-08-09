@@ -359,6 +359,14 @@ pnpm exec ras-stack-policy check
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
+The same adoption policy can produce a read-only fleet report from public repository metadata. Declare each repository's supported versions and required shared config references in `ras-stack.fleet.json`, then run:
+
+```sh
+GITHUB_TOKEN="$(gh auth token)" pnpm exec ras-stack-policy fleet
+```
+
+The command reads only `package.json`, root toolchain configs, and GitHub workflow metadata. It prints Markdown, exits unsuccessfully when drift exists, and never writes to a consumer repository. Omit an expectation when a repository intentionally does not share that surface. The included scheduled workflow writes the result to the Actions summary and retains it as an artifact.
+
 ## GitHub Actions
 
 The JavaScript setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
