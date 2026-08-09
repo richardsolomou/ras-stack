@@ -63,7 +63,7 @@ describe('repository policy synchronization', () => {
       'toolchain drift: package.json engines.node must be >=24 <25',
       'toolchain drift: package.json packageManager must be pnpm@11.15.0',
       'ras-stack drift: package.json uses 0.7.0, minimum is 0.8.3',
-      'ras-stack drift: workflows/ci.yml uses v0.6.0, minimum is v0.8.3',
+      'ras-stack drift: .github/workflows/ci.yml uses v0.6.0, minimum is v0.8.3',
       'toolchain drift: no workflow declares just-version 1.58.0',
     ])
   })
@@ -77,6 +77,14 @@ describe('repository policy synchronization', () => {
       "uses: richardsolomou/ras-stack/actions/setup-js@v0.8.3\njust-version: '1.58.0'\n",
     )
     expect(await adoptionDrift(root, { minimumRasStackVersion: '0.8.3', node: '>=24 <25', pnpm: '11.15.0', just: '1.58.0' })).toEqual([])
+  })
+
+  it('detects missing shared configuration references', async () => {
+    const root = await repository({})
+    await writeFile(join(root, 'package.json'), '{}')
+    expect(await adoptionDrift(root, { requiredReferences: ['ras-stack/config/typescript/tanstack'] })).toEqual([
+      'shared config drift: no configuration references ras-stack/config/typescript/tanstack',
+    ])
   })
 })
 

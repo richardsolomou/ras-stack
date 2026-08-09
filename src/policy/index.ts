@@ -2,6 +2,9 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
 
+export { fleetConfig, fleetMarkdown, inspectFleet, loadGitHubAdoptionSnapshot } from './fleet.js'
+export type { FleetConfig, FleetRepository, FleetResult } from './fleet.js'
+
 const changesetsPolicy = {
   $schema: 'https://unpkg.com/@changesets/config@3.1.2/schema.json',
   changelog: '@changesets/cli/changelog',
@@ -44,9 +47,16 @@ export type RepositoryPolicy = {
 
 export type AdoptionPolicy = {
   minimumRasStackVersion?: string
+  minimumWorkflowRasStackVersion?: string
   node?: string
   pnpm?: string
   just?: string
+  requiredReferences?: string[]
+}
+
+export type AdoptionSnapshot = {
+  manifest: Record<string, unknown>
+  files: Map<string, string>
 }
 
 export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write') {
@@ -74,8 +84,14 @@ export async function checkRepositoryPolicy(root: string) {
 }
 
 export async function adoptionDrift(root: string, policy: AdoptionPolicy) {
-  const drift: string[] = []
   const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Record<string, unknown>
+  const files = await adoptionFiles(root)
+  return adoptionSnapshotDrift({ manifest, files }, policy)
+}
+
+export function adoptionSnapshotDrift(snapshot: AdoptionSnapshot, policy: AdoptionPolicy) {
+  const drift: string[] = []
+  const { manifest, files } = snapshot
   if (policy.node && manifest.engines && plainObject(manifest.engines) && manifest.engines.node !== policy.node) {
     drift.push(`toolchain drift: package.json engines.node must be ${policy.node}`)
   }
@@ -89,13 +105,14 @@ export async function adoptionDrift(root: string, policy: AdoptionPolicy) {
     }
   }
 
-  const workflows = await textFiles(join(root, '.github'))
+  const workflows = new Map([...files].filter(([path]) => path.startsWith('.github/') && /\.ya?ml$/.test(path)))
+  const workflowMinimum = policy.minimumWorkflowRasStackVersion ?? policy.minimumRasStackVersion
   for (const [path, source] of workflows) {
-    if (policy.minimumRasStackVersion) {
+    if (workflowMinimum) {
       for (const match of source.matchAll(/richardsolomou\/ras-stack\/[^\s'"}]+@v(\d+\.\d+\.\d+)/g)) {
         const version = match[1]
-        if (version && compareVersions(version, policy.minimumRasStackVersion) < 0) {
-          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${policy.minimumRasStackVersion}`)
+        if (version && compareVersions(version, workflowMinimum) < 0) {
+          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${workflowMinimum}`)
         }
       }
     }
@@ -108,7 +125,12 @@ export async function adoptionDrift(root: string, policy: AdoptionPolicy) {
   ) {
     drift.push(`toolchain drift: no workflow declares just-version ${policy.just}`)
   }
-  return drift
+  for (const reference of policy.requiredReferences ?? []) {
+    if (![...files.values()].some((source) => source.includes(reference))) {
+      drift.push(`shared config drift: no configuration references ${reference}`)
+    }
+  }
+  return [...new Set(drift)]
 }
 
 export async function renderedPolicyFiles(root: string, config: RepositoryPolicy) {
@@ -143,8 +165,11 @@ function repositoryPolicy(source: string): RepositoryPolicy {
   const adoption = value.adoption
   if (adoption !== undefined && adoption !== false) {
     if (!plainObject(adoption)) throw new Error('adoption policy must be false or an object')
-    for (const key of ['minimumRasStackVersion', 'node', 'pnpm', 'just']) {
+    for (const key of ['minimumRasStackVersion', 'minimumWorkflowRasStackVersion', 'node', 'pnpm', 'just']) {
       if (adoption[key] !== undefined && typeof adoption[key] !== 'string') throw new Error(`adoption.${key} must be a string`)
+    }
+    if (adoption.requiredReferences !== undefined && !stringArray(adoption.requiredReferences)) {
+      throw new Error('adoption.requiredReferences must be an array of strings')
     }
   }
   return value
@@ -185,6 +210,18 @@ async function textFiles(directory: string, root = directory): Promise<Map<strin
   return files
 }
 
+async function adoptionFiles(root: string) {
+  const files = await textFiles(join(root, '.github'), root)
+  const entries = await readdir(root, { withFileTypes: true })
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile() || !/^(?:ras-stack\.policy|oxlint|tsconfig(?:\.[^.]+)*)\.json$/.test(entry.name)) return
+      files.set(entry.name, await readFile(join(root, entry.name), 'utf8'))
+    }),
+  )
+  return files
+}
+
 function validateSelection(name: string, value: unknown) {
   if (value === undefined || typeof value === 'boolean') return
   if (!plainObject(value) || (value.overrides !== undefined && !plainObject(value.overrides))) {
@@ -208,4 +245,8 @@ function deepMerge(base: Record<string, unknown>, overrides: Record<string, unkn
 
 function plainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function stringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
