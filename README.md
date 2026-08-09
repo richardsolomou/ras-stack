@@ -70,7 +70,13 @@ The optional TanStack entrypoints bind the shared primitives to TanStack Start's
 
 ```ts
 import { createStackQueryClient } from 'ras-stack/tanstack/query'
-import { createTanStackRpc, requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
+import {
+  betterAuthHandlers,
+  canonicalHostMiddleware,
+  createTanStackRpc,
+  requireTanStackMutationOrigin,
+  tanStackHealthHandler,
+} from 'ras-stack/tanstack/server'
 
 export const { rpc, mutationRpc } = createTanStackRpc({
   requireMutation: (request) =>
@@ -84,9 +90,13 @@ export const { rpc, mutationRpc } = createTanStackRpc({
 })
 
 export const queryClient = createStackQueryClient()
+
+export const authHandlers = betterAuthHandlers(() => app().auth)
+export const healthHandler = tanStackHealthHandler(() => app().database.get(sql`SELECT 1`))
+export const canonicalHost = canonicalHostMiddleware(() => ({ canonicalUrl: process.env.APP_URL }))
 ```
 
-Applications still own their auth clients, authorization, routes, router, logging, health checks, and Query configuration. Both integrations remain optional, and their upstream libraries remain directly accessible.
+Applications still own their auth clients, authorization, file-route declarations, router, logging, health-check work, and Query configuration. Both integrations remain optional, and their upstream libraries remain directly accessible.
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
