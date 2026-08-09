@@ -381,6 +381,21 @@ release:
   secrets: inherit
 ```
 
+Browser jobs can cache the pinned Playwright payload through the shared setup action. Production-container E2E can use the reusable workflow, while repository-specific preparation and the actual test command remain inputs:
+
+```yaml
+e2e:
+  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.18.0
+  with:
+    image: my-app-e2e
+    cache-scope: my-app-e2e
+    prepare-command: just prepare-e2e
+    command: just e2e-run
+    just-version: '1.58.0'
+```
+
+The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`. Build and browser durations are written to the job summary, and failure artifacts remain configurable. Applications that need extra caches, services, registry publication, or a different PR/main topology can use `actions/build-container` and `actions/setup-playwright` inside their own job instead.
+
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
