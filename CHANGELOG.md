@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.24.1
+
+### Patch Changes
+
+- 626a7c0: Keep Node-only auth secret modules outside the TanStack middleware entrypoint.
+
 ## 0.24.0
 
 ### Minor Changes
