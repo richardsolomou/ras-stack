@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.11.0
+
+### Minor Changes
+
+- e85dc59: Share thin TanStack handlers for Better Auth, health checks, and canonical-host middleware.
+
 ## 0.10.0
 
 ### Minor Changes
