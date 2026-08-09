@@ -59,8 +59,13 @@
       "default": "./dist/uploads/index.js"
     },
     "./config/oxlint": "./config/oxlint.json",
+    "./config/oxlint/application": "./config/oxlint/application.json",
+    "./config/oxlint/tanstack": "./config/oxlint/tanstack.json",
+    "./config/typescript/base": "./config/typescript/base.json",
     "./config/typescript/browser": "./config/typescript/browser.json",
+    "./config/typescript/bundler": "./config/typescript/bundler.json",
     "./config/typescript/library": "./config/typescript/library.json",
+    "./config/typescript/node-bundler": "./config/typescript/node-bundler.json",
     "./config/typescript/tanstack": "./config/typescript/tanstack.json"
   },
   "publishConfig": {
@@ -68,7 +73,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "config:check": "tsc -p test/config-consumer/tsconfig.json",
+    "config:check": "tsc -p test/config-consumer/tsconfig.json && tsc -p test/config-consumer/tsconfig-bundler.json && tsc -p test/config-consumer/tsconfig-node-bundler.json && tsc -p test/config-consumer/tsconfig-library.json && oxlint --config config/oxlint/application.json --print-config > /dev/null && oxlint --config config/oxlint/tanstack.json --print-config > /dev/null",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",

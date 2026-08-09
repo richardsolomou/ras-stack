@@ -1,8 +1,9 @@
 {
   "extends": "./bundler.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "types": ["node"],
     "noEmit": true
   }
 }

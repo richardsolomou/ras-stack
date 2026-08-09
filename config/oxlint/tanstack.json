@@ -1,0 +1,4 @@
+{
+  "extends": ["../oxlint.json"],
+  "ignorePatterns": ["src/routeTree.gen.ts", ".output/**", "node_modules/**"]
+}
