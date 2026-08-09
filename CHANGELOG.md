@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.10.0
+
+### Minor Changes
+
+- 5251a67: Share typed Drizzle SQLite lifecycle primitives while preserving native database access.
+
 ## 0.9.0
 
 ### Minor Changes
