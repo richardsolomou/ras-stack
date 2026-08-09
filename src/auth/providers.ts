@@ -16,3 +16,15 @@ export function providerCredentials(provider: string, environment: NodeJS.Proces
   const clientSecret = environment[`${prefix}_CLIENT_SECRET`]?.trim()
   return clientId && clientSecret ? { clientId, clientSecret } : undefined
 }
+
+export function configuredProviderOptions<const Provider extends string>(
+  providers: readonly Provider[],
+  environment: NodeJS.ProcessEnv = process.env,
+): Partial<Record<Provider, ProviderCredentials>> {
+  const options: Partial<Record<Provider, ProviderCredentials>> = {}
+  for (const provider of providers) {
+    const credentials = providerCredentials(provider, environment)
+    if (credentials) options[provider] = credentials
+  }
+  return options
+}

@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { acceptedOrigins, forwardedOrigin, requireSameOrigin, trustedOrigins, validSameOriginRequest } from './origins.js'
-import { configuredProviders, providerCredentials } from './providers.js'
+import { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
 import { randomId, randomToken } from './random.js'
 import { persistedSecret } from './secret.js'
 import { standardRateLimitOptions, standardSessionOptions } from './settings.js'
@@ -36,6 +36,12 @@ describe('provider credentials', () => {
 
   it('returns trimmed credentials', () => {
     expect(providerCredentials('google', environment)).toEqual({ clientId: 'id', clientSecret: 'secret' })
+  })
+
+  it('maps only configured providers to their credentials', () => {
+    expect(configuredProviderOptions(['google', 'github'] as const, environment)).toEqual({
+      google: { clientId: 'id', clientSecret: 'secret' },
+    })
   })
 })
 
