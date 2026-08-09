@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.7.0
+
+### Minor Changes
+
+- 558b273: Add deterministic repository policy synchronization with committed-output drift checks and local overrides.
+
 ## 0.6.0
 
 ### Minor Changes
