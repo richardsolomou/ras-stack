@@ -23,7 +23,9 @@ try {
       dependencies: {
         '@tanstack/react-query': packageJson.devDependencies['@tanstack/react-query'],
         '@tanstack/react-start': packageJson.devDependencies['@tanstack/react-start'],
+        'better-sqlite3': packageJson.devDependencies['better-sqlite3'],
         centrifuge: packageJson.devDependencies.centrifuge,
+        'drizzle-orm': packageJson.devDependencies['drizzle-orm'],
         nodemailer: packageJson.devDependencies.nodemailer,
         'ras-stack': `file:${archive}`,
         'tus-js-client': packageJson.devDependencies['tus-js-client'],

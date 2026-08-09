@@ -1,5 +1,6 @@
 packages:
   - .
 allowBuilds:
+  better-sqlite3: true
   protobufjs: true
 minimumReleaseAge: 0

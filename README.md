@@ -16,6 +16,7 @@ The package contains independent helpers for common application infrastructure:
 - **Server requests:** same-origin mutation guards, error-normalizing RPC wrappers, canonical-host redirects, and health responses.
 - **Realtime:** Centrifugo client lifecycle, token signing, presence synchronization, and a bounded publisher with retries and graceful shutdown.
 - **Email:** SMTP environment parsing and a small Nodemailer delivery interface.
+- **Database:** standard Better SQLite lifecycle and Drizzle migration mechanics that preserve the native typed database.
 - **Uploads:** a promise-based wrapper around resumable `tus-js-client` uploads.
 - **Project configuration:** shared TypeScript and Oxlint bases.
 
@@ -35,12 +36,13 @@ The libraries underneath remain available normally. Applications still configure
 pnpm add ras-stack
 ```
 
-Nodemailer, Centrifuge, and `tus-js-client` are optional peer dependencies. Install one only when using its integration:
+Nodemailer, Centrifuge, Better SQLite/Drizzle, and `tus-js-client` are optional peer dependencies. Install them only when using their integrations:
 
 ```sh
 pnpm add nodemailer
 pnpm add centrifuge
 pnpm add tus-js-client
+pnpm add better-sqlite3 drizzle-orm
 ```
 
 ## Authentication and request security
@@ -87,6 +89,27 @@ export const queryClient = createStackQueryClient()
 Applications still own their auth clients, authorization, routes, router, logging, health checks, and Query configuration. Both integrations remain optional, and their upstream libraries remain directly accessible.
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
+
+## Database lifecycle
+
+The SQLite entrypoint owns the native client lifecycle, standard safety PRAGMAs, and optional Drizzle migrations while returning the upstream typed database:
+
+```ts
+import { bundledDirectory } from 'ras-stack/database'
+import { openDrizzleSqlite } from 'ras-stack/database/sqlite'
+
+const database = openDrizzleSqlite({
+  file,
+  schema,
+  migrationsFolder: bundledDirectory({
+    developmentUrl: new URL('../../drizzle', import.meta.url),
+    production: import.meta.env.PROD,
+    name: 'drizzle',
+  }),
+})
+```
+
+Applications retain their schema, migrations, database path, repositories, transactions, and driver selection. Dual-database applications can use `openSqliteClient()` and `configureSqlite()` beneath their own wrapper without forcing PostgreSQL through a shared database interface.
 
 ## Realtime updates
 
@@ -236,14 +259,14 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.3.0
+  - uses: richardsolomou/ras-stack/actions/setup-js@v0.9.0
   - run: pnpm check
 ```
 
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/setup-just@v0.2.0
+- uses: richardsolomou/ras-stack/actions/setup-just@v0.9.0
   with:
     version: '1.58.0'
 ```
@@ -256,7 +279,7 @@ release:
   needs: [check]
   permissions:
     contents: write
-  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.3.0
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.9.0
   secrets: inherit
 ```
 
