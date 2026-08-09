@@ -100,6 +100,26 @@ Applications still own their auth clients, authorization, file-route declaration
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
+Infrastructure boundaries can keep approved client output separate from private causes:
+
+```ts
+import { InfrastructureError, infrastructureDiagnostic, infrastructureFailure } from 'ras-stack/server'
+
+throw new InfrastructureError('smtp_unavailable', 'email is temporarily unavailable', {
+  cause: transportError,
+  retryable: true,
+})
+
+const publicFailure = infrastructureFailure(error, {
+  code: 'internal_error',
+  message: 'something went wrong',
+  retryable: false,
+})
+logger.error(infrastructureDiagnostic(error), 'infrastructure request failed')
+```
+
+Only `InfrastructureError.publicMessage` is treated as approved for clients. Unknown failures use the caller's fallback; diagnostics are for application-owned logging and telemetry, never response serialization.
+
 Browser auth flows can share failure classification and pending/error state without sharing forms or navigation:
 
 ```tsx
