@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.25.0
+
+### Minor Changes
+
+- 441912f: Support cancellable asynchronous realtime client creation in the React lifecycle adapter.
+
 ## 0.24.1
 
 ### Patch Changes
