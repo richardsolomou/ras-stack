@@ -121,6 +121,22 @@ const database = openDrizzleSqlite({
 
 Applications retain their schema, migrations, database path, repositories, transactions, and driver selection. Dual-database applications can use `openSqliteClient()` and `configureSqlite()` beneath their own wrapper without forcing PostgreSQL through a shared database interface.
 
+The PostgreSQL entrypoint applies the same boundary to Postgres.js and Drizzle while returning both native objects:
+
+```ts
+import { databaseTarget } from 'ras-stack/database'
+import { closeDrizzlePostgres, migrateDrizzlePostgres, openDrizzlePostgres } from 'ras-stack/database/postgres'
+
+const target = databaseTarget({ databaseUrl: process.env.DATABASE_URL, sqliteFile })
+if (target.provider === 'postgres') {
+  const connection = openDrizzlePostgres({ url: target.url, schema })
+  await migrateDrizzlePostgres(connection, postgresMigrationsFolder)
+  await closeDrizzlePostgres(connection)
+}
+```
+
+The package does not make SQLite and PostgreSQL queries look identical. Applications keep driver-specific transaction and compatibility behavior while sharing target validation, pool defaults, numeric parsing, migrations, credential-safe display URLs, and shutdown.
+
 ## Realtime updates
 
 Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication, signed tokens, and repeated browser lifecycle mechanics:

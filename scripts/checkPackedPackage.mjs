@@ -27,6 +27,7 @@ try {
         centrifuge: packageJson.devDependencies.centrifuge,
         'drizzle-orm': packageJson.devDependencies['drizzle-orm'],
         nodemailer: packageJson.devDependencies.nodemailer,
+        postgres: packageJson.devDependencies.postgres,
         'ras-stack': `file:${archive}`,
         'tus-js-client': packageJson.devDependencies['tus-js-client'],
       },

@@ -42,6 +42,10 @@
       "types": "./dist/database/sqlite.d.ts",
       "default": "./dist/database/sqlite.js"
     },
+    "./database/postgres": {
+      "types": "./dist/database/postgres.d.ts",
+      "default": "./dist/database/postgres.js"
+    },
     "./policy": {
       "types": "./dist/policy/index.d.ts",
       "default": "./dist/policy/index.js"
@@ -112,6 +116,7 @@
     "oxfmt": "^0.61.0",
     "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^7.0.2001",
+    "postgres": "3.4.9",
     "tus-js-client": "^4.3.1",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
@@ -124,6 +129,7 @@
     "centrifuge": ">=5 <6",
     "drizzle-orm": ">=0.45 <1",
     "nodemailer": ">=9 <10",
+    "postgres": ">=3.4 <4",
     "tus-js-client": ">=4 <5"
   },
   "peerDependenciesMeta": {
@@ -143,6 +149,9 @@
       "optional": true
     },
     "nodemailer": {
+      "optional": true
+    },
+    "postgres": {
       "optional": true
     },
     "tus-js-client": {
