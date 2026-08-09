@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.6.0
+
+### Minor Changes
+
+- 9f2800f: Add reusable JavaScript and browser check workflows around repository-owned commands.
+
 ## 0.5.0
 
 ### Minor Changes
