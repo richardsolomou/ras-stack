@@ -18,4 +18,12 @@ jobs:
         with:
           version: '1.58.0'
       - run: just --version
-      - run: pnpm check
+      - run: just check
+
+  release:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [check]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release-changesets.yml
+    secrets: inherit

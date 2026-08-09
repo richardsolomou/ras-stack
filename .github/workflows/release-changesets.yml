@@ -30,7 +30,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.CHANGESETS_TOKEN || github.token }}
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.2.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.3.0
       - name: Release pending changesets
         id: release
         env:
