@@ -34,6 +34,14 @@
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
     },
+    "./database": {
+      "types": "./dist/database/index.d.ts",
+      "default": "./dist/database/index.js"
+    },
+    "./database/sqlite": {
+      "types": "./dist/database/sqlite.d.ts",
+      "default": "./dist/database/sqlite.js"
+    },
     "./policy": {
       "types": "./dist/policy/index.d.ts",
       "default": "./dist/policy/index.js"
@@ -94,9 +102,12 @@
     "@changesets/cli": "^2.31.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-start": "^1.168.32",
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "^26.0.0",
     "@types/nodemailer": "^8.0.1",
+    "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.0",
+    "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",
     "oxfmt": "^0.61.0",
     "oxlint": "^1.74.0",
@@ -109,7 +120,9 @@
   "peerDependencies": {
     "@tanstack/react-query": ">=5 <6",
     "@tanstack/react-start": ">=1 <2",
+    "better-sqlite3": ">=12 <13",
     "centrifuge": ">=5 <6",
+    "drizzle-orm": ">=0.45 <1",
     "nodemailer": ">=9 <10",
     "tus-js-client": ">=4 <5"
   },
@@ -120,7 +133,13 @@
     "@tanstack/react-start": {
       "optional": true
     },
+    "better-sqlite3": {
+      "optional": true
+    },
     "centrifuge": {
+      "optional": true
+    },
+    "drizzle-orm": {
       "optional": true
     },
     "nodemailer": {
