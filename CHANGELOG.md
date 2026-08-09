@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.9.0
+
+### Minor Changes
+
+- fed41d4: Detect stale ras-stack and JavaScript toolchain references across repository manifests and workflows.
+
 ## 0.8.3
 
 ### Patch Changes
