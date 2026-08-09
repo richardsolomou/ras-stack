@@ -1,53 +1,68 @@
 # ras-stack
 
-Composable full-stack primitives shared across Richard Solomou's applications.
+**The small pieces of full-stack plumbing I reuse across my TypeScript applications.**
 
-`ras-stack` removes repeated infrastructure decisions without wrapping or replacing the libraries underneath. Applications continue to call Better Auth, TanStack Start, Drizzle, React Query, and Centrifugo directly. They can adopt any primitive independently and retain ownership of schemas, migrations, authorization, plugins, routes, and domain events.
+[![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](LICENSE)
+
+I build several applications with the same TypeScript stack. They kept growing slightly different copies of the same code for session settings, origin checks, email delivery, realtime publication, resumable uploads, health checks, and project configuration.
+
+`ras-stack` is the shared home for that plumbing. It is a personal library, published in case the code or the way it is split up is useful to someone else.
+
+## What it is
+
+The package contains independent helpers for common application infrastructure:
+
+- **Authentication:** secure defaults and utilities for sessions, rate limits, secrets, social providers, tokens, and trusted origins.
+- **Server requests:** same-origin mutation guards, error-normalizing RPC wrappers, canonical-host redirects, and health responses.
+- **Realtime:** Centrifugo token signing and a bounded publisher with retries and graceful shutdown.
+- **Email:** SMTP environment parsing and a small Nodemailer delivery interface.
+- **Uploads:** a promise-based wrapper around resumable `tus-js-client` uploads.
+- **Project configuration:** shared TypeScript and Oxlint bases.
+
+Each area has its own import path. An application can use one without adopting the rest.
+
+## What it is not
+
+This is not a framework, starter, application template, or complete authentication system. It does not own an application's database schema, migrations, routes, authorization rules, email templates, upload policy, or realtime event names.
+
+The libraries underneath remain available normally. Applications still configure and call Better Auth, TanStack Start, Drizzle, Nodemailer, `tus-js-client`, and Centrifugo directly. The helpers only centralize the parts that would otherwise be copied unchanged.
 
 ## Install
+
+`ras-stack` requires Node 24.
 
 ```sh
 pnpm add ras-stack
 ```
 
-The email and upload entrypoints use optional peer dependencies. Install only the integration an application consumes:
+Nodemailer and `tus-js-client` are optional peer dependencies. Install one only when using its entrypoint:
 
 ```sh
 pnpm add nodemailer
 pnpm add tus-js-client
 ```
 
-The package requires Node 24 and publishes separate entrypoints so an application does not load unused integrations:
+## Authentication and request security
 
-- `ras-stack/auth` — secrets, origin policy, provider credentials, random tokens, sessions, and rate limits.
-- `ras-stack/email` — SMTP environment parsing, Nodemailer transport creation, and delivery.
-- `ras-stack/realtime` — Centrifugo publication, bounded retries/backpressure, shutdown, and signed tokens.
-- `ras-stack/server` — canonical redirects, health responses, and framework-injected RPC wrappers.
-- `ras-stack/uploads` — configurable tus uploads and error-response parsing.
-- `ras-stack/config/*` — inheritable Oxlint and TypeScript configuration.
-
-## Auth
-
-The auth entrypoint provides independent options and utilities rather than an auth factory:
+The auth entrypoint provides options and utilities rather than an auth factory. The application keeps its complete Better Auth configuration:
 
 ```ts
-import { standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
 import { betterAuth } from 'better-auth'
+import { standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
 
 const auth = betterAuth({
   database,
   plugins,
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
-  trustedOrigins: trustedOrigins({ configured: [process.env.APP_URL], trustForwardedHeaders: true }),
+  trustedOrigins: trustedOrigins({
+    configured: [process.env.APP_URL],
+    trustForwardedHeaders: true,
+  }),
 })
 ```
 
-The application supplies its normal Better Auth configuration, including its database adapter, schema, plugins, callbacks, and product-specific policy.
-
-## Server functions
-
-Framework access is injected, leaving TanStack Start available normally:
+Framework access is injected into server helpers, so the package does not need to wrap TanStack Start:
 
 ```ts
 import { getRequest } from '@tanstack/react-start/server'
@@ -56,15 +71,19 @@ import { createRpc } from 'ras-stack/server'
 
 export const { rpc, mutationRpc } = createRpc({
   getRequest,
-  requireMutation: (request) => requireSameOrigin(request, { configured: [process.env.APP_URL], trustForwardedHeaders: true }),
+  requireMutation: (request) =>
+    requireSameOrigin(request, {
+      configured: [process.env.APP_URL],
+      trustForwardedHeaders: true,
+    }),
 })
 ```
 
-Only enable `trustForwardedHeaders` when the application is deployed behind a proxy that replaces incoming forwarded headers.
+Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
-## Realtime
+## Realtime updates
 
-The realtime entrypoint owns Centrifugo transport mechanics and token signing. Applications own channel names, authorization, presence information, and publication payloads:
+Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication and signed tokens:
 
 ```ts
 import { CentrifugoPublisher, signRealtimeToken } from 'ras-stack/realtime'
@@ -76,6 +95,7 @@ const publisher = new CentrifugoPublisher({
   maxPendingChannels: 1024,
   onError: (error, channel) => logger.error({ error, channel }, 'realtime publication failed'),
 })
+
 publisher.publish(`battle:${battle.id}`, { type: 'change' })
 
 const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret })
@@ -83,11 +103,11 @@ const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info:
 await publisher.close()
 ```
 
-`publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications to finish, including the bounded retry budget.
+`publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
 ## Email and uploads
 
-Optional entrypoints integrate with dependencies that remain installed and available to the application:
+The optional integrations return the underlying library objects when an application needs more control:
 
 ```ts
 import { createSmtpDelivery, createSmtpTransport, smtpConfigFromEnvironment } from 'ras-stack/email'
@@ -103,14 +123,15 @@ const upload = createTusUpload({
   shouldRetry: (status) => status !== 423,
   onProgress,
 })
+
 await startTusUpload(upload)
 ```
 
-`createSmtpTransport()` and `createTusUpload()` return the upstream objects, so applications can use capabilities the convenience wrappers do not cover. Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
+Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 
-## Shared configuration
+## Shared project configuration
 
-Oxlint and TypeScript configurations are inheritable:
+Extend the supplied configuration and override anything specific to the application:
 
 ```json
 {
@@ -128,9 +149,11 @@ Oxlint and TypeScript configurations are inheritable:
 }
 ```
 
+TypeScript bases are also available at `ras-stack/config/typescript/browser` and `ras-stack/config/typescript/library`.
+
 ## GitHub Actions
 
-The shared setup action reads Node from `engines.node` and pnpm from `packageManager` in the consuming repository's `package.json`:
+The setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
 
 ```yaml
 steps:
@@ -141,8 +164,19 @@ steps:
   - run: pnpm check
 ```
 
-Pin the action to an immutable release tag and let Dependabot propose upgrades.
+Pin the action to a release tag and let Dependabot propose upgrades.
 
-## License and security
+## Development
 
-`ras-stack` is licensed under the GNU Affero General Public License v3.0. Report vulnerabilities through GitHub private vulnerability reporting as described in [SECURITY.md](SECURITY.md).
+Development requires Node 24 and pnpm 11.15.0.
+
+```sh
+pnpm install
+pnpm check
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for release instructions. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+[GNU Affero General Public License v3.0](LICENSE).
