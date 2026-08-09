@@ -93,15 +93,14 @@ Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwar
 Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication, signed tokens, and repeated browser lifecycle mechanics:
 
 ```ts
+import { CentrifugoPublisher, signRealtimeToken } from 'ras-stack/realtime'
 import {
-  CentrifugoPublisher,
   connectRealtimeClient,
   createSameOriginRealtimeClient,
   openRealtimeSubscription,
   requestRealtimeTicket,
-  signRealtimeToken,
   watchSubscriptionPresence,
-} from 'ras-stack/realtime'
+} from 'ras-stack/realtime/client'
 
 const publisher = new CentrifugoPublisher({
   apiUrl,
