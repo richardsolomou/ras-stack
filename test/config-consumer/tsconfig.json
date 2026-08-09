@@ -1,5 +1,5 @@
 {
-  "extends": "@richardsolomou/ras-stack/config/typescript/tanstack",
+  "extends": "ras-stack/config/typescript/tanstack",
   "compilerOptions": {
     "types": ["node"]
   },

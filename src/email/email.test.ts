@@ -49,6 +49,12 @@ describe('SMTP configuration', () => {
       'SMTP_PORT must be a valid TCP port',
     )
   })
+
+  it('supports application-specific environment keys', () => {
+    expect(
+      smtpConfigFromEnvironment({ MAIL_HOST: 'smtp.example.com', MAIL_FROM: 'mail@example.com' }, { host: 'MAIL_HOST', from: 'MAIL_FROM' }),
+    ).toEqual({ from: 'mail@example.com', host: 'smtp.example.com', port: 587, secure: false })
+  })
 })
 
 describe('SMTP delivery', () => {

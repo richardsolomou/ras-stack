@@ -4,6 +4,15 @@ import { healthResponse } from './health.js'
 import { createRpc } from './rpc.js'
 
 describe('canonical redirects', () => {
+  it('does not redirect requests already on the canonical host', () => {
+    expect(canonicalRedirect('http://example.com/path', { canonicalUrl: 'https://example.com' })).toBeNull()
+  })
+
+  it('does not guess when either URL is invalid', () => {
+    expect(canonicalRedirect('not a URL', { canonicalUrl: 'https://example.com' })).toBeNull()
+    expect(canonicalRedirect('https://example.com', { canonicalUrl: 'not a URL' })).toBeNull()
+  })
+
   it('preserves the request path, query, and fragment', () => {
     expect(canonicalRedirect('http://internal/path?one=two#three', { canonicalUrl: 'https://example.com' })).toBe(
       'https://example.com/path?one=two#three',
@@ -43,6 +52,19 @@ describe('RPC wrappers', () => {
     const { rpc } = createRpc({ getRequest: () => new Request('https://example.com/action', { method: 'POST' }), logError })
     await expect(rpc(() => Promise.reject(failure))).rejects.toBe(failure)
     expect(logError).toHaveBeenCalledWith(failure, { method: 'POST', path: '/action' })
+  })
+
+  it('runs allowed mutations and returns their result', async () => {
+    const requireMutation = vi.fn()
+    const request = new Request('https://example.com/action', { method: 'POST' })
+    const { mutationRpc } = createRpc({ requireMutation })
+    await expect(mutationRpc(() => 'saved', request)).resolves.toBe('saved')
+    expect(requireMutation).toHaveBeenCalledWith(request)
+  })
+
+  it('rejects a mutation when no request is available', async () => {
+    const { mutationRpc } = createRpc()
+    await expect(mutationRpc(() => 'saved')).rejects.toThrow('mutation request is unavailable')
   })
 })
 

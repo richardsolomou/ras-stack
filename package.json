@@ -1,7 +1,16 @@
 {
-  "name": "@richardsolomou/ras-stack",
+  "name": "ras-stack",
   "version": "0.1.0",
   "description": "Composable full-stack primitives shared across Richard Solomou's applications.",
+  "keywords": [
+    "authentication",
+    "centrifugo",
+    "fullstack",
+    "tanstack",
+    "tus"
+  ],
+  "homepage": "https://github.com/richardsolomou/ras-stack#readme",
+  "bugs": "https://github.com/richardsolomou/ras-stack/issues",
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
