@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.3.5
+
+### Patch Changes
+
+- 776e9bf: Target the repository explicitly when dispatching and monitoring npm publishing.
+
 ## 0.3.4
 
 ### Patch Changes
