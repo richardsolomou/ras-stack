@@ -83,7 +83,8 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run",
-    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && node dist/policy/cli.js check",
+    "package:check": "node scripts/checkPackedPackage.mjs",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && node dist/policy/cli.js check",
     "version-packages": "changeset version"
   },
   "dependencies": {
@@ -102,6 +103,7 @@
     "oxlint-tsgolint": "^7.0.2001",
     "tus-js-client": "^4.3.1",
     "typescript": "^7.0.2",
+    "vite": "8.2.1",
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
