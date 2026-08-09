@@ -1,0 +1,53 @@
+name: Build cached container
+description: Build and load a local container image through Buildx with a scoped GitHub Actions cache.
+
+inputs:
+  image:
+    description: Local image tag to load.
+    required: true
+  context:
+    description: Docker build context.
+    default: .
+  dockerfile:
+    description: Dockerfile path.
+    default: Dockerfile
+  build-args:
+    description: Newline-separated Docker build arguments.
+    default: ''
+  cache-scope:
+    description: GitHub Actions cache scope.
+    default: e2e-image
+
+outputs:
+  duration-seconds:
+    description: Container build duration in seconds.
+    value: ${{ steps.duration.outputs.seconds }}
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v4
+    - name: Start build timer
+      id: started
+      shell: bash
+      run: echo "seconds=$(date +%s)" >> "$GITHUB_OUTPUT"
+    - name: Build application image
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        load: true
+        tags: ${{ inputs.image }}
+        build-args: ${{ inputs.build-args }}
+        cache-from: type=gha,scope=${{ inputs.cache-scope }}
+        cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
+    - name: Record build duration
+      id: duration
+      if: always()
+      shell: bash
+      env:
+        STARTED: ${{ steps.started.outputs.seconds }}
+      run: |
+        seconds=$(($(date +%s) - STARTED))
+        echo "seconds=$seconds" >> "$GITHUB_OUTPUT"
+        echo "Container build: ${seconds}s" >> "$GITHUB_STEP_SUMMARY"

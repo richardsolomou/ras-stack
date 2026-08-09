@@ -1,22 +1,42 @@
-name: Check browser application
+name: Check production container in browser
 
 on:
   workflow_call:
     inputs:
       command:
-        description: Repository-owned browser test command.
+        description: Repository-owned browser test command targeting the loaded image.
+        type: string
+        required: true
+      image:
+        description: Local image tag exposed to the test command.
         type: string
         required: true
       prepare-command:
-        description: Optional command to build or prepare the application before installing the browser.
+        description: Optional repository-specific preparation before the image build.
         type: string
         default: ''
+      build-context:
+        description: Docker build context.
+        type: string
+        default: .
+      dockerfile:
+        description: Dockerfile path.
+        type: string
+        default: Dockerfile
+      build-args:
+        description: Newline-separated Docker build arguments.
+        type: string
+        default: ''
+      cache-scope:
+        description: GitHub Actions cache scope for the application image.
+        type: string
+        default: e2e-image
       browser:
         description: Playwright browser to install.
         type: string
         default: chromium
       just-version:
-        description: Install this Just version, or leave empty when the commands do not use Just.
+        description: Install this Just version, or leave empty when commands do not use Just.
         type: string
         default: ''
       artifact-name:
@@ -41,7 +61,7 @@ on:
         default: 30
 
 jobs:
-  browser:
+  container-browser:
     runs-on: ${{ inputs.runner }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     permissions:
@@ -62,9 +82,19 @@ jobs:
         uses: richardsolomou/ras-stack/actions/setup-playwright@v0.18.0
         with:
           browser: ${{ inputs.browser }}
+      - name: Build production image
+        id: image
+        uses: richardsolomou/ras-stack/actions/build-container@v0.18.0
+        with:
+          image: ${{ inputs.image }}
+          context: ${{ inputs.build-context }}
+          dockerfile: ${{ inputs.dockerfile }}
+          build-args: ${{ inputs.build-args }}
+          cache-scope: ${{ inputs.cache-scope }}
       - name: Run browser checks
         env:
           BROWSER_CHECK_COMMAND: ${{ inputs.command }}
+          RAS_STACK_TEST_IMAGE: ${{ inputs.image }}
         run: |
           started=$(date +%s)
           set +e
@@ -72,7 +102,10 @@ jobs:
           status=$?
           set -e
           seconds=$(($(date +%s) - started))
-          echo "Browser checks: ${seconds}s" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "Container build: ${{ steps.image.outputs.duration-seconds }}s"
+            echo "Browser checks: ${seconds}s"
+          } >> "$GITHUB_STEP_SUMMARY"
           exit "$status"
       - name: Upload failure artifacts
         if: failure()

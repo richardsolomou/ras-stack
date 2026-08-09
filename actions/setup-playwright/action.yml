@@ -1,0 +1,32 @@
+name: Set up Playwright browser
+description: Install browser system dependencies and cache the pinned Playwright browser payload.
+
+inputs:
+  browser:
+    description: Playwright browser to install.
+    default: chromium
+
+runs:
+  using: composite
+  steps:
+    - name: Read Playwright version
+      id: version
+      shell: bash
+      run: echo "version=$(pnpm exec playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+    - name: Cache Playwright browser
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.version.outputs.version }}
+    - name: Install browser system dependencies
+      shell: bash
+      env:
+        PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
+      run: pnpm exec playwright install-deps "$PLAYWRIGHT_BROWSER"
+    - name: Install browser payload
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
+      run: pnpm exec playwright install "$PLAYWRIGHT_BROWSER"
