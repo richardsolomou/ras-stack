@@ -48,11 +48,12 @@ The auth entrypoint provides options and utilities rather than an auth factory. 
 
 ```ts
 import { betterAuth } from 'better-auth'
-import { standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
+import { configuredProviderOptions, standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
 
 const auth = betterAuth({
   database,
   plugins,
+  socialProviders: configuredProviderOptions(['google', 'discord']),
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
   trustedOrigins: trustedOrigins({
