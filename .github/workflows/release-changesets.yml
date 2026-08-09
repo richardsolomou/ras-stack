@@ -2,6 +2,16 @@ name: Release Changesets
 
 on:
   workflow_call:
+    outputs:
+      created:
+        description: Whether this run created a release.
+        value: ${{ jobs.release.outputs.created }}
+      tag:
+        description: Created release tag, or an empty string when no release was needed.
+        value: ${{ jobs.release.outputs.tag }}
+      sha:
+        description: Released commit, or the triggering commit when no release was needed.
+        value: ${{ jobs.release.outputs.sha }}
     inputs:
       version-command:
         description: Command that consumes pending changesets and updates versions and changelogs.
