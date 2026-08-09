@@ -346,7 +346,13 @@ Policy files which cannot inherit can stay committed while being checked against
     }
   },
   "dependabot": true,
-  "pnpm": {}
+  "pnpm": {},
+  "adoption": {
+    "minimumRasStackVersion": "0.22.0",
+    "node": ">=24 <25",
+    "pnpm": "11.15.0",
+    "just": "1.58.0"
+  }
 }
 ```
 
@@ -355,9 +361,13 @@ Then generate or verify the effective files:
 ```sh
 pnpm exec ras-stack-policy sync
 pnpm exec ras-stack-policy check
+pnpm exec ras-stack-policy sync adoption
+pnpm exec ras-stack-policy check adoption
 ```
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+
+Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
 
 The same adoption policy can produce a read-only fleet report from public repository metadata. Declare each repository's supported versions and required shared config references in `ras-stack.fleet.json`, then run:
 
