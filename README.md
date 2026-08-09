@@ -217,6 +217,31 @@ The workflow consumes pending changesets, commits the resulting versions and cha
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
 
+The reusable check workflow owns checkout and toolchain setup while the repository keeps its check command:
+
+```yaml
+jobs:
+  check:
+    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.6.0
+    with:
+      command: just check
+      just-version: '1.58.0'
+```
+
+Simple Playwright jobs can also share browser installation and failure artifacts:
+
+```yaml
+jobs:
+  end-to-end:
+    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.6.0
+    with:
+      prepare-command: pnpm build
+      command: pnpm test:e2e:run
+      artifact-path: test-results
+```
+
+Callers continue to own workflow triggers, concurrency, required-job dependencies, permissions, services, caches, custom setup, and release or deployment policy. Keep jobs local when they need steps beyond these stable shapes.
+
 ## Development
 
 Development requires Node 24 and pnpm 11.15.0.

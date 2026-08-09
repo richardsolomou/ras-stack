@@ -10,15 +10,10 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./actions/setup-js
-      - uses: ./actions/setup-just
-        with:
-          version: '1.58.0'
-      - run: just --version
-      - run: just check
+    uses: ./.github/workflows/check-js.yml
+    with:
+      command: just --version && just check
+      just-version: '1.58.0'
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
