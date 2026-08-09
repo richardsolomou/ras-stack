@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.5.0
+
+### Minor Changes
+
+- 6aa8a53: Add reusable Centrifugo client transport, subscription, recovery, and presence lifecycle helpers.
+
 ## 0.4.0
 
 ### Minor Changes
