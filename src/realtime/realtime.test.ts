@@ -22,6 +22,22 @@ describe('realtime tokens', () => {
 })
 
 describe('Centrifugo publisher', () => {
+  it('rejects invalid queue limits', () => {
+    expect(
+      () => new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', maxConcurrentChannels: 0, onError: vi.fn() }),
+    ).toThrow('maxConcurrentChannels must be a positive integer')
+  })
+
+  it('reports non-retryable responses without retrying', async () => {
+    const onError = vi.fn()
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 400 }))
+    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError })
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+    expect(request).toHaveBeenCalledOnce()
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish failed with status 400' }), 'one')
+  })
+
   it('publishes application-owned channels and payloads', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
     const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api/', apiKey: 'key', fetch: request, onError: vi.fn() })
