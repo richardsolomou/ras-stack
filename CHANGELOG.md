@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.8.3
+
+### Patch Changes
+
+- db1b0bc: Test every published entrypoint through a clean package installation and browser bundle.
+
 ## 0.8.2
 
 ### Patch Changes
