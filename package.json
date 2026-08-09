@@ -63,6 +63,10 @@
       "types": "./dist/policy/index.d.ts",
       "default": "./dist/policy/index.js"
     },
+    "./preview/dokploy": {
+      "types": "./dist/preview/dokploy.d.ts",
+      "default": "./dist/preview/dokploy.js"
+    },
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
       "default": "./dist/realtime/index.js"

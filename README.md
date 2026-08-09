@@ -396,6 +396,10 @@ e2e:
 
 The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`. Build and browser durations are written to the job summary, and failure artifacts remain configurable. Applications that need extra caches, services, registry publication, or a different PR/main topology can use `actions/build-container` and `actions/setup-playwright` inside their own job instead.
 
+Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
+
+The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
+
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
