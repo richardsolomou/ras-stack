@@ -159,7 +159,7 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.2.0
+  - uses: richardsolomou/ras-stack/actions/setup-js@v0.3.0
   - run: pnpm check
 ```
 
@@ -179,7 +179,7 @@ release:
   needs: [check]
   permissions:
     contents: write
-  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.2.0
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.3.0
   secrets: inherit
 ```
 
@@ -192,8 +192,8 @@ Pin actions and reusable workflows to a release tag and let Dependabot propose u
 Development requires Node 24 and pnpm 11.15.0.
 
 ```sh
-pnpm install
-pnpm check
+just install
+just check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for release instructions. Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
