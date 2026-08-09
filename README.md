@@ -425,6 +425,19 @@ The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`.
 
 Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
 
+Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
+
+```ts
+import { reportPreviewStatus } from 'ras-stack/preview/github'
+
+await reportPreviewStatus(
+  { repository, token, marker: '<!-- app-preview -->', note: 'Preview data is disposable.' },
+  { state: 'ready', prNumber, sha, previewUrl, runUrl },
+)
+```
+
+The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Applications retain their preview hostname, access note, seed credentials, and product cleanup hooks.
+
 The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
 
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:

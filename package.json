@@ -71,6 +71,10 @@
       "types": "./dist/preview/dokploy.d.ts",
       "default": "./dist/preview/dokploy.js"
     },
+    "./preview/github": {
+      "types": "./dist/preview/github.d.ts",
+      "default": "./dist/preview/github.js"
+    },
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
       "default": "./dist/realtime/index.js"
