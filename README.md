@@ -236,7 +236,7 @@ const subscription = useRealtimeSubscription({ client, channel, options, configu
 const clients = useRealtimePresence(subscription)
 ```
 
-The factory, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
+The client factory may return a client or a promise, so applications can fetch and validate an initial ticket before connecting. Pass `onError` as the third argument to handle asynchronous ticket failures. A client that resolves after unmount is disconnected without ever connecting. The factory, error handler, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
 
 The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
