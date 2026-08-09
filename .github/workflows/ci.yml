@@ -31,9 +31,25 @@ jobs:
   publish:
     needs: [release]
     if: needs.release.outputs.created == 'true'
+    runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: read
-      id-token: write
-    uses: ./.github/workflows/release.yml
-    with:
-      release_tag: ${{ needs.release.outputs.tag }}
+    steps:
+      - name: Publish through the OIDC-trusted workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --ref main -f release_tag="$RELEASE_TAG"
+          run_id=""
+          for attempt in $(seq 1 12); do
+            run_id="$(gh run list --workflow release.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle | jq -r --arg title "Release $RELEASE_TAG" '.[] | select(.displayTitle == $title) | .databaseId' | head -n1)"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 5
+          done
+          test -n "$run_id"
+          gh run watch "$run_id" --exit-status

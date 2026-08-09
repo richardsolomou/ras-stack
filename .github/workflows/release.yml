@@ -1,12 +1,12 @@
 name: Release
+run-name: Release ${{ inputs.release_tag || github.event.release.tag_name }}
 
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       release_tag:
         description: Existing release tag to verify and publish.
         required: true
-        type: string
   release:
     types: [published]
 
