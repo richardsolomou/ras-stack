@@ -57,6 +57,7 @@ try {
   if (browserBundle.includes('node:crypto')) throw new Error('browser bundle contains node:crypto')
 
   for (const definition of exportedFiles(packageJson, 'types')) assertFile(temporary, definition)
+  for (const executable of Object.values(packageJson.bin)) assertFile(temporary, executable)
   for (const implementation of exportedFiles(packageJson, 'default')) {
     assertFile(temporary, implementation)
     const sourceMap = JSON.parse(readFileSync(path.join(temporary, 'node_modules', 'ras-stack', `${implementation}.map`), 'utf8'))

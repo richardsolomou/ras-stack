@@ -17,6 +17,7 @@
     "url": "git+https://github.com/richardsolomou/ras-stack.git"
   },
   "bin": {
+    "ras-stack-assets": "./dist/build/cli.js",
     "ras-stack-policy": "./dist/policy/cli.js"
   },
   "files": [
@@ -41,6 +42,10 @@
     "./email": {
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
+    },
+    "./build": {
+      "types": "./dist/build/index.d.ts",
+      "default": "./dist/build/index.js"
     },
     "./database": {
       "types": "./dist/database/index.d.ts",

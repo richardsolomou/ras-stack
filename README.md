@@ -255,6 +255,20 @@ await startTusUpload(upload)
 
 Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 
+Production server assets can be declared in `ras-stack.assets.json` instead of appended shell copy chains:
+
+```json
+{
+  "outputDirectory": ".output/server",
+  "assets": [
+    { "source": "drizzle", "destination": "drizzle" },
+    { "source": "drizzle-postgres", "destination": "drizzle-postgres" }
+  ]
+}
+```
+
+Run `ras-stack-assets sync` after the application build and `ras-stack-assets check` before packaging. Sync replaces each declared destination, and check compares the exact file set and content. Sources stay inside the repository, destinations stay inside the output directory, overlapping destinations and symbolic links are rejected, and the application retains ownership of asset generation and contents.
+
 Stateful development servers can reuse one typed resource across HMR without application-specific `globalThis` casts:
 
 ```ts
