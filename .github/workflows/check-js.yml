@@ -32,6 +32,21 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+      - name: Require current dependency base
+        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          for sha in "$BASE_SHA" "$HEAD_SHA"; do
+            [[ $sha =~ ^[0-9a-fA-F]{40}$ ]]
+            git cat-file -e "${sha}^{commit}" 2>/dev/null || git fetch --no-tags --depth=1 origin "$sha"
+          done
+          if ! git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"; then
+            echo "dependency branch does not contain the current base; refresh the dependency branch before merging" >&2
+            exit 1
+          fi
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.8.3
       - if: inputs.just-version != ''
         uses: richardsolomou/ras-stack/actions/setup-just@v0.8.3
