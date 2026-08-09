@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.8.2
+
+### Patch Changes
+
+- 2c5330b: Embed TypeScript sources in published sourcemaps so consumer development servers can resolve them.
+
 ## 0.8.1
 
 ### Patch Changes
