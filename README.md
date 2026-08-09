@@ -14,7 +14,7 @@ The package contains independent helpers for common application infrastructure:
 
 - **Authentication:** secure defaults and utilities for sessions, rate limits, secrets, social providers, tokens, and trusted origins.
 - **Server requests:** same-origin mutation guards, error-normalizing RPC wrappers, canonical-host redirects, and health responses.
-- **Realtime:** Centrifugo token signing and a bounded publisher with retries and graceful shutdown.
+- **Realtime:** Centrifugo client lifecycle, token signing, presence synchronization, and a bounded publisher with retries and graceful shutdown.
 - **Email:** SMTP environment parsing and a small Nodemailer delivery interface.
 - **Uploads:** a promise-based wrapper around resumable `tus-js-client` uploads.
 - **Project configuration:** shared TypeScript and Oxlint bases.
@@ -35,10 +35,11 @@ The libraries underneath remain available normally. Applications still configure
 pnpm add ras-stack
 ```
 
-Nodemailer and `tus-js-client` are optional peer dependencies. Install one only when using its entrypoint:
+Nodemailer, Centrifuge, and `tus-js-client` are optional peer dependencies. Install one only when using its integration:
 
 ```sh
 pnpm add nodemailer
+pnpm add centrifuge
 pnpm add tus-js-client
 ```
 
@@ -89,10 +90,18 @@ Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwar
 
 ## Realtime updates
 
-Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication and signed tokens:
+Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication, signed tokens, and repeated browser lifecycle mechanics:
 
 ```ts
-import { CentrifugoPublisher, signRealtimeToken } from 'ras-stack/realtime'
+import {
+  CentrifugoPublisher,
+  connectRealtimeClient,
+  createSameOriginRealtimeClient,
+  openRealtimeSubscription,
+  requestRealtimeTicket,
+  signRealtimeToken,
+  watchSubscriptionPresence,
+} from 'ras-stack/realtime'
 
 const publisher = new CentrifugoPublisher({
   apiUrl,
@@ -107,9 +116,25 @@ publisher.publish(`battle:${battle.id}`, { type: 'change' })
 const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret })
 
 await publisher.close()
+
+const client = createSameOriginRealtimeClient({
+  getToken: () => requestRealtimeTicket('/api/realtime/token', { parse: (value) => (value as { token: string }).token }),
+})
+const channelToken = (channel: string) =>
+  requestRealtimeTicket('/api/realtime/token', {
+    init: { method: 'POST', body: JSON.stringify({ channel }) },
+    parse: (value) => (value as { token: string }).token,
+  })
+const disconnect = connectRealtimeClient(client)
+const live = openRealtimeSubscription(client, channel, { getToken: ({ channel }) => channelToken(channel) }, (subscription) =>
+  watchSubscriptionPresence(subscription, setClients),
+)
+
+live.close()
+disconnect()
 ```
 
-`publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
+The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
 ## Email and uploads
 
