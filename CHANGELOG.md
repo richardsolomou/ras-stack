@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.21.0
+
+### Minor Changes
+
+- 73e8cc5: Provide runner-neutral conformance assertions for real origin, health, SQLite, and dual-provider database compositions.
+
 ## 0.20.0
 
 ### Minor Changes
