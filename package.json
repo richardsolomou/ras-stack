@@ -16,6 +16,9 @@
     "type": "git",
     "url": "git+https://github.com/richardsolomou/ras-stack.git"
   },
+  "bin": {
+    "ras-stack-policy": "./dist/policy/cli.js"
+  },
   "files": [
     "dist",
     "config"
@@ -30,6 +33,10 @@
     "./email": {
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
+    },
+    "./policy": {
+      "types": "./dist/policy/index.d.ts",
+      "default": "./dist/policy/index.js"
     },
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
@@ -67,8 +74,11 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run",
-    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && node dist/policy/cli.js check",
     "version-packages": "changeset version"
+  },
+  "dependencies": {
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
