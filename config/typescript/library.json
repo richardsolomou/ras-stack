@@ -1,13 +1,11 @@
 {
+  "extends": "./base.json",
   "compilerOptions": {
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2024",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-    "verbatimModuleSyntax": true
+    "skipLibCheck": true
   }
 }

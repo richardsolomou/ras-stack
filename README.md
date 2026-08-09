@@ -182,6 +182,28 @@ Extend the supplied configuration and override anything specific to the applicat
 
 TypeScript bases are also available at `ras-stack/config/typescript/browser` and `ras-stack/config/typescript/library`.
 
+The TypeScript configs compose by runtime role:
+
+- `base` contains runtime-neutral strictness and module-safety options.
+- `bundler` adds ESM bundler resolution without assuming DOM or Node globals.
+- `browser` adds DOM, JSX, and no-emit defaults.
+- `tanstack` adds Vite and Node types to the browser role.
+- `node-bundler` targets bundled Node 24 workers and scripts.
+- `library` uses NodeNext resolution and declaration-friendly strictness.
+
+Oxlint applications can extend the strict default plus independent layers for shared application preferences and generated TanStack files:
+
+```json
+{
+  "extends": ["./node_modules/ras-stack/config/oxlint/application.json", "./node_modules/ras-stack/config/oxlint/tanstack.json"],
+  "rules": {
+    "application-specific-rule": "off"
+  }
+}
+```
+
+These configs do not set include paths, aliases, generated directories outside TanStack's route tree, or framework-specific worker globals. Keep those differences in the consuming repository.
+
 ## Repository policy
 
 Policy files which cannot inherit can stay committed while being checked against the shared source. Select only the policies a repository wants in `ras-stack.policy.json`:

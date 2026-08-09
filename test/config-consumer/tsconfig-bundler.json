@@ -1,0 +1,7 @@
+{
+  "extends": "ras-stack/config/typescript/bundler",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["bundler.ts"]
+}

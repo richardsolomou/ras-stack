@@ -1,0 +1,16 @@
+{
+  "extends": ["../oxlint.json"],
+  "rules": {
+    "no-console": "off",
+    "no-await-in-loop": "off",
+    "no-underscore-dangle": "off",
+    "unicorn/require-post-message-target-origin": "off",
+    "vitest/require-to-throw-message": "off",
+    "vitest/no-conditional-expect": "off",
+    "unicorn/no-array-sort": "off",
+    "oxc/no-map-spread": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "unicorn/prefer-add-event-listener": "off",
+    "typescript/no-unnecessary-type-parameters": "off"
+  }
+}

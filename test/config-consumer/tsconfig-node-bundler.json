@@ -1,0 +1,4 @@
+{
+  "extends": "ras-stack/config/typescript/node-bundler",
+  "include": ["node-bundler.ts"]
+}
