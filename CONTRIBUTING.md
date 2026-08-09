@@ -15,6 +15,6 @@ Every exported behavior needs a contract test. Avoid runtime dependencies when a
 
 ## Releases
 
-Update `package.json` with the intended semantic version before merging a release. Create a GitHub release with the matching `v<version>` tag only after `main` passes; `.github/workflows/release.yml` verifies the tag, reruns the complete gate, and publishes to npm with provenance.
+Update `package.json` with the intended semantic version before merging a release. Action and reusable-workflow changes need a new tag even when the npm package code is unchanged. Create a GitHub release with the matching `v<version>` tag only after `main` passes; `.github/workflows/release.yml` verifies the tag, reruns the complete gate, and publishes to npm with provenance.
 
 The first npm version must be published manually because npm only allows a trusted publisher to be configured for an existing package. After that bootstrap publish, configure `release.yml` as the package's trusted GitHub Actions publisher. The release workflow skips a version that already exists, so creating the matching first GitHub release remains safe.

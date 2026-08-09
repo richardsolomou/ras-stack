@@ -1,0 +1,14 @@
+name: Set up just
+description: Install a declared version of the language-neutral just command runner.
+
+inputs:
+  version:
+    description: The just version to install.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: extractions/setup-just@v4
+      with:
+        just-version: ${{ inputs.version }}
