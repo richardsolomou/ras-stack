@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.8.1
+
+### Patch Changes
+
+- 99159f6: Expose browser realtime helpers without loading the Node-only token signer entrypoint.
+
 ## 0.8.0
 
 ### Minor Changes
