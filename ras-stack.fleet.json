@@ -17,7 +17,7 @@
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "just": "1.58.0",
-        "requiredReferences": ["ras-stack/config/typescript/browser", "ras-stack/config/oxlint/application"]
+        "requiredReferences": ["ras-stack/config/typescript/tanstack", "ras-stack/config/oxlint/application"]
       }
     },
     {
@@ -46,8 +46,7 @@
         "minimumRasStackVersion": "0.22.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
-        "just": "1.58.0",
-        "requiredReferences": ["ras-stack/config/typescript/bundler", "ras-stack/config/oxlint/application"]
+        "requiredReferences": ["ras-stack/config/typescript/bundler"]
       }
     },
     {
@@ -56,7 +55,6 @@
         "minimumRasStackVersion": "0.22.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
-        "just": "1.58.0",
         "requiredReferences": ["ras-stack/config/typescript/tanstack", "ras-stack/config/oxlint/tanstack"]
       }
     }
