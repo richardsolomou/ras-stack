@@ -182,6 +182,20 @@ live.close()
 disconnect()
 ```
 
+React applications can keep transport ownership equally small while retaining the native client and subscription:
+
+```tsx
+import { useCallback } from 'react'
+import { useConnectedRealtimeClient, useRealtimePresence, useRealtimeSubscription } from 'ras-stack/realtime/react'
+
+const createClient = useCallback(() => createSameOriginRealtimeClient({ getToken }), [workspaceId])
+const client = useConnectedRealtimeClient(createClient)
+const subscription = useRealtimeSubscription({ client, channel, options, configure })
+const clients = useRealtimePresence(subscription)
+```
+
+The factory, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
+
 The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
 ## Email and uploads

@@ -58,6 +58,10 @@
       "types": "./dist/realtime/client.d.ts",
       "default": "./dist/realtime/client.js"
     },
+    "./realtime/react": {
+      "types": "./dist/realtime/react.d.ts",
+      "default": "./dist/realtime/react.js"
+    },
     "./server": {
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
@@ -109,6 +113,8 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "^26.0.0",
     "@types/nodemailer": "^8.0.1",
+    "@types/react": "19.2.8",
+    "@types/react-test-renderer": "19.1.0",
     "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.0",
     "drizzle-orm": "0.45.2",
@@ -117,6 +123,8 @@
     "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^7.0.2001",
     "postgres": "3.4.9",
+    "react": "19.2.8",
+    "react-test-renderer": "19.2.8",
     "tus-js-client": "^4.3.1",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
@@ -130,6 +138,7 @@
     "drizzle-orm": ">=0.45 <1",
     "nodemailer": ">=9 <10",
     "postgres": ">=3.4 <4",
+    "react": ">=19 <20",
     "tus-js-client": ">=4 <5"
   },
   "peerDependenciesMeta": {
@@ -152,6 +161,9 @@
       "optional": true
     },
     "postgres": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     },
     "tus-js-client": {
