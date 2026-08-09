@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.4.0
+
+### Minor Changes
+
+- 0aa50cf: Add optional TanStack Start RPC and Query integrations while preserving application-owned policy and configuration.
+
 ## 0.3.5
 
 ### Patch Changes
