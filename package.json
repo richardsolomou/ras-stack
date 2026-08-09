@@ -83,6 +83,10 @@
       "types": "./dist/server/index.d.ts",
       "default": "./dist/server/index.js"
     },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/runtime/index.js"
+    },
     "./tanstack/query": {
       "types": "./dist/tanstack/query.d.ts",
       "default": "./dist/tanstack/query.js"

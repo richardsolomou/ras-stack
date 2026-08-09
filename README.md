@@ -400,6 +400,30 @@ Dokploy previews can share the application/domain/image/environment/deploy/healt
 
 The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
 
+Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
+
+```ts
+import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, superviseProcesses } from 'ras-stack/runtime'
+
+await superviseProcesses([
+  { name: 'app', command: 'node', args: ['.output/server/index.mjs'], env: { ...process.env, PORT: '3001' } },
+  {
+    name: 'realtime',
+    command: 'centrifugo',
+    args: ['--config=/app/realtime.json'],
+    env: { ...process.env, ...centrifugoEnvironment(realtime) },
+  },
+  {
+    name: 'proxy',
+    command: 'caddy',
+    args: ['run', '--config', '/app/Caddyfile'],
+    env: { ...process.env, ...caddyRuntimeEnvironment() },
+  },
+])
+```
+
+Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. `caddyRealtimeProxy()` generates the shared trusted-proxy and same-origin websocket guard. Applications retain binaries, base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
+
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
