@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.12.0
+
+### Minor Changes
+
+- 0984a35: Share native Drizzle PostgreSQL lifecycle and validated SQLite/PostgreSQL target selection.
+
 ## 0.11.0
 
 ### Minor Changes
