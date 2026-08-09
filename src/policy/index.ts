@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
 
@@ -39,6 +39,14 @@ export type RepositoryPolicy = {
   changesets?: PolicySelection
   dependabot?: PolicySelection
   pnpm?: false | { minimumReleaseAge?: number }
+  adoption?: false | AdoptionPolicy
+}
+
+export type AdoptionPolicy = {
+  minimumRasStackVersion?: string
+  node?: string
+  pnpm?: string
+  just?: string
 }
 
 export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write') {
@@ -57,6 +65,50 @@ export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write'
     }),
   )
   return compared.filter((path) => path !== undefined)
+}
+
+export async function checkRepositoryPolicy(root: string) {
+  const files = await syncRepositoryPolicy(root, 'check')
+  const config = repositoryPolicy(await readFile(join(root, 'ras-stack.policy.json'), 'utf8'))
+  return [...files.map((path) => `policy drift: ${path}`), ...(config.adoption ? await adoptionDrift(root, config.adoption) : [])]
+}
+
+export async function adoptionDrift(root: string, policy: AdoptionPolicy) {
+  const drift: string[] = []
+  const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Record<string, unknown>
+  if (policy.node && manifest.engines && plainObject(manifest.engines) && manifest.engines.node !== policy.node) {
+    drift.push(`toolchain drift: package.json engines.node must be ${policy.node}`)
+  }
+  if (policy.pnpm && manifest.packageManager !== `pnpm@${policy.pnpm}`) {
+    drift.push(`toolchain drift: package.json packageManager must be pnpm@${policy.pnpm}`)
+  }
+  if (policy.minimumRasStackVersion) {
+    const dependency = dependencyVersion(manifest, 'ras-stack')
+    if (dependency && compareVersions(dependency, policy.minimumRasStackVersion) < 0) {
+      drift.push(`ras-stack drift: package.json uses ${dependency}, minimum is ${policy.minimumRasStackVersion}`)
+    }
+  }
+
+  const workflows = await textFiles(join(root, '.github'))
+  for (const [path, source] of workflows) {
+    if (policy.minimumRasStackVersion) {
+      for (const match of source.matchAll(/richardsolomou\/ras-stack\/[^\s'"}]+@v(\d+\.\d+\.\d+)/g)) {
+        const version = match[1]
+        if (version && compareVersions(version, policy.minimumRasStackVersion) < 0) {
+          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${policy.minimumRasStackVersion}`)
+        }
+      }
+    }
+  }
+  if (
+    policy.just &&
+    ![...workflows.values()].some(
+      (source) => source.includes(`just-version: '${policy.just}'`) || source.includes(`just-version: ${policy.just}`),
+    )
+  ) {
+    drift.push(`toolchain drift: no workflow declares just-version ${policy.just}`)
+  }
+  return drift
 }
 
 export async function renderedPolicyFiles(root: string, config: RepositoryPolicy) {
@@ -88,7 +140,49 @@ function repositoryPolicy(source: string): RepositoryPolicy {
       throw new Error('pnpm.minimumReleaseAge must be a non-negative integer')
     }
   }
+  const adoption = value.adoption
+  if (adoption !== undefined && adoption !== false) {
+    if (!plainObject(adoption)) throw new Error('adoption policy must be false or an object')
+    for (const key of ['minimumRasStackVersion', 'node', 'pnpm', 'just']) {
+      if (adoption[key] !== undefined && typeof adoption[key] !== 'string') throw new Error(`adoption.${key} must be a string`)
+    }
+  }
   return value
+}
+
+function dependencyVersion(manifest: Record<string, unknown>, name: string) {
+  for (const field of ['dependencies', 'devDependencies']) {
+    const dependencies = manifest[field]
+    const value = plainObject(dependencies) ? dependencies[name] : undefined
+    if (typeof value === 'string') return /\d+\.\d+\.\d+/.exec(value)?.[0]
+  }
+  return undefined
+}
+
+function compareVersions(left: string, right: string) {
+  const a = left.split('.').map(Number)
+  const b = right.split('.').map(Number)
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] !== b[index]) return (a[index] ?? 0) - (b[index] ?? 0)
+  }
+  return 0
+}
+
+async function textFiles(directory: string, root = directory): Promise<Map<string, string>> {
+  const files = new Map<string, string>()
+  const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
+  const results = await Promise.all(
+    entries.map(async (entry) => {
+      const path = join(directory, entry.name)
+      if (entry.isDirectory()) return textFiles(path, root)
+      if (/\.ya?ml$/.test(entry.name)) return new Map([[path.slice(root.length + 1), await readFile(path, 'utf8')]])
+      return new Map<string, string>()
+    }),
+  )
+  for (const result of results) {
+    for (const [path, source] of result) files.set(path, source)
+  }
+  return files
 }
 
 function validateSelection(name: string, value: unknown) {
