@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.19.0
+
+### Minor Changes
+
+- 9d0be64: Share secure trusted/fork preview image workflows and Dokploy application lifecycle mechanics.
+
 ## 0.18.0
 
 ### Minor Changes
