@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.20.0
+
+### Minor Changes
+
+- 742144f: Share self-hosted process supervision, Centrifugo environment, and guarded Caddy proxy configuration.
+
 ## 0.19.0
 
 ### Minor Changes
