@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.15.0
+
+### Minor Changes
+
+- 79be211: Share browser-safe Better Auth failure classification and headless React action state.
+
 ## 0.14.0
 
 ### Minor Changes
