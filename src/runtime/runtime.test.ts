@@ -40,6 +40,13 @@ describe('self-hosted runtime configuration', () => {
     })
   })
 
+  it('places Caddy state in explicit writable directories', () => {
+    expect(caddyRuntimeEnvironment({ configHome: '/data/caddy-config', dataHome: '/data/caddy-data' })).toEqual({
+      XDG_CONFIG_HOME: '/data/caddy-config',
+      XDG_DATA_HOME: '/data/caddy-data',
+    })
+  })
+
   it('stops every sibling when one process exits', async () => {
     const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
     const app = child()
@@ -89,6 +96,7 @@ describe('self-hosted runtime configuration', () => {
       'websocketPath must be a normalized absolute directory path',
     )
     expect(() => centrifugoEnvironment({ apiKey: ' ' })).toThrow('apiKey is required')
+    expect(() => caddyRuntimeEnvironment({ configHome: 'relative' })).toThrow('configHome must be an absolute path')
   })
 })
 
