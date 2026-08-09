@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.16.0
+
+### Minor Changes
+
+- 3b74709: Separate client-safe infrastructure failures from private diagnostic causes.
+
 ## 0.15.0
 
 ### Minor Changes
