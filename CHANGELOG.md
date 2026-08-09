@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.14.0
+
+### Minor Changes
+
+- 5eef02b: Share optional React ownership hooks for realtime clients, subscriptions, and presence.
+
 ## 0.13.0
 
 ### Minor Changes
