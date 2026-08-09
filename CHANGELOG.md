@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.13.0
+
+### Minor Changes
+
+- 37d5313: Share keyed synchronous and asynchronous server singleton lifecycle across development reloads.
+
 ## 0.12.0
 
 ### Minor Changes
