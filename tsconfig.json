@@ -1,0 +1,7 @@
+{
+  "extends": "./config/typescript/library.json",
+  "compilerOptions": {
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -1,0 +1,82 @@
+{
+  "name": "@richardsolomou/ras-stack",
+  "version": "0.1.0",
+  "description": "Composable full-stack primitives shared across Richard Solomou's applications.",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/richardsolomou/ras-stack.git"
+  },
+  "files": [
+    "dist",
+    "config"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./email": {
+      "types": "./dist/email/index.d.ts",
+      "default": "./dist/email/index.js"
+    },
+    "./realtime": {
+      "types": "./dist/realtime/index.d.ts",
+      "default": "./dist/realtime/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./uploads": {
+      "types": "./dist/uploads/index.d.ts",
+      "default": "./dist/uploads/index.js"
+    },
+    "./config/oxlint": "./config/oxlint.json",
+    "./config/typescript/browser": "./config/typescript/browser.json",
+    "./config/typescript/library": "./config/typescript/library.json",
+    "./config/typescript/tanstack": "./config/typescript/tanstack.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "config:check": "tsc -p test/config-consumer/tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/nodemailer": "^8.0.1",
+    "nodemailer": "^9.0.3",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "tus-js-client": "^4.3.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "nodemailer": ">=9 <10",
+    "tus-js-client": ">=4 <5"
+  },
+  "peerDependenciesMeta": {
+    "nodemailer": {
+      "optional": true
+    },
+    "tus-js-client": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

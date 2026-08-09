@@ -1,0 +1,7 @@
+{
+  "extends": "@richardsolomou/ras-stack/config/typescript/tanstack",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["index.ts"]
+}
