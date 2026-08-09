@@ -100,6 +100,19 @@ Applications still own their auth clients, authorization, file-route declaration
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
+Browser auth flows can share failure classification and pending/error state without sharing forms or navigation:
+
+```tsx
+import { classifySignInFailure } from 'ras-stack/auth/client'
+import { useAuthAction } from 'ras-stack/auth/react'
+
+const signIn = useAuthAction({ failureMessage: (failure) => messageFor(classifySignInFailure(failure)) })
+const result = await signIn.run(() => authClient.signIn.email({ email, password }))
+if (!result.error) await navigateAfterSignIn()
+```
+
+Applications retain field models, validation, password-reset disclosure policy, two-factor transitions, telemetry, copy, and success navigation.
+
 ## Database lifecycle
 
 The SQLite entrypoint owns the native client lifecycle, standard safety PRAGMAs, and optional Drizzle migrations while returning the upstream typed database:

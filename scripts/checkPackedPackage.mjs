@@ -46,7 +46,7 @@ try {
 
   writeFileSync(
     path.join(temporary, 'browser.js'),
-    "import { sameOriginWebSocketUrl } from 'ras-stack/realtime/client'\nimport { useConnectedRealtimeClient } from 'ras-stack/realtime/react'\nvoid sameOriginWebSocketUrl\nvoid useConnectedRealtimeClient\n",
+    "import { classifySignInFailure } from 'ras-stack/auth/client'\nimport { useAuthAction } from 'ras-stack/auth/react'\nimport { sameOriginWebSocketUrl } from 'ras-stack/realtime/client'\nimport { useConnectedRealtimeClient } from 'ras-stack/realtime/react'\nvoid classifySignInFailure\nvoid useAuthAction\nvoid sameOriginWebSocketUrl\nvoid useConnectedRealtimeClient\n",
   )
   writeFileSync(path.join(temporary, 'index.html'), '<script type="module" src="/browser.js"></script>\n')
   exec('npx', ['vite', 'build', '--outDir', 'browser-dist'], temporary)
