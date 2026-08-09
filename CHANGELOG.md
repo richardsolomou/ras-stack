@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.24.0
+
+### Minor Changes
+
+- 25ae6d1: Reject stale dependency branches before running shared JavaScript project checks.
+
 ## 0.23.0
 
 ### Minor Changes
