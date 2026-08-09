@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { canonicalRedirect } from './canonical-host.js'
 import { healthResponse } from './health.js'
 import { createRpc } from './rpc.js'
+import { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'
 
 describe('canonical redirects', () => {
   it('does not redirect requests already on the canonical host', () => {
@@ -85,5 +86,57 @@ describe('health responses', () => {
       errorMessage: () => 'database unavailable',
     })
     expect(await response.json()).toEqual({ ok: false, error: 'database unavailable' })
+  })
+})
+
+describe('development singleton lifecycle', () => {
+  it('constructs one synchronous value per key', async () => {
+    const key = 'test.sync'
+    await clearGlobalSingleton(key)
+    const create = vi.fn(() => ({ id: 1 }))
+    expect(globalSingleton(key, create)).toBe(globalSingleton(key, create))
+    expect(create).toHaveBeenCalledTimes(1)
+    await clearGlobalSingleton(key)
+  })
+
+  it('shares concurrent asynchronous initialization', async () => {
+    const key = 'test.async'
+    await clearGlobalSingleton(key)
+    const create = vi.fn(async () => ({ id: 1 }))
+    const first = globalAsyncSingleton(key, create)
+    const second = globalAsyncSingleton(key, create)
+    expect(first).toBe(second)
+    await expect(first).resolves.toEqual({ id: 1 })
+    expect(create).toHaveBeenCalledTimes(1)
+    await clearGlobalSingleton(key)
+  })
+
+  it('removes rejected initialization so a later call can retry', async () => {
+    const key = 'test.retry'
+    await clearGlobalSingleton(key)
+    await expect(globalAsyncSingleton(key, () => Promise.reject(new Error('failed')))).rejects.toThrow('failed')
+    await expect(globalAsyncSingleton(key, () => Promise.resolve('ready'))).resolves.toBe('ready')
+    await clearGlobalSingleton(key)
+  })
+
+  it('rejects synchronous and asynchronous reuse of the same key', async () => {
+    const key = 'test.kind'
+    await clearGlobalSingleton(key)
+    globalSingleton(key, () => 'sync')
+    expect(() => globalAsyncSingleton(key, () => Promise.resolve('async'))).toThrow('singleton test.kind is synchronous')
+    await clearGlobalSingleton(key)
+  })
+
+  it('deletes the key before disposing the previous value', async () => {
+    const key = 'test.dispose'
+    await clearGlobalSingleton(key)
+    globalSingleton(key, () => 'old')
+    await clearGlobalSingleton(key, async (value) => {
+      expect(value).toBe('old')
+      expect(peekGlobalSingleton(key)).toBeUndefined()
+      expect(globalSingleton(key, () => 'new')).toBe('new')
+    })
+    expect(peekGlobalSingleton(key)).toBe('new')
+    await clearGlobalSingleton(key)
   })
 })
