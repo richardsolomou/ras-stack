@@ -1,6 +1,6 @@
 import { getRequest } from '@tanstack/react-start/server'
 import { createMiddleware } from '@tanstack/react-start'
-import { requireSameOrigin, type OriginOptions } from '../auth/index.js'
+import { requireSameOrigin, type OriginOptions } from '../auth/origins.js'
 import {
   canonicalRedirect,
   createRpc,
