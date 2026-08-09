@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.3.3
+
+### Patch Changes
+
+- 6cea1a5: Expose release results from the reusable Changesets workflow to caller jobs.
+
 ## 0.3.2
 
 ### Patch Changes
