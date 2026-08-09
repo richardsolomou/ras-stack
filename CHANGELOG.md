@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.8.0
+
+### Minor Changes
+
+- de857bc: Add composable TypeScript runtime-role bases and opt-in Oxlint application and TanStack layers.
+
 ## 0.7.0
 
 ### Minor Changes
