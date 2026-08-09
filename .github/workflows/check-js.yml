@@ -1,0 +1,48 @@
+name: Check JavaScript project
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: Repository-owned check command.
+        type: string
+        default: pnpm check
+      audit-level:
+        description: Run pnpm audit at this level, or leave empty to skip it.
+        type: string
+        default: ''
+      just-version:
+        description: Install this Just version, or leave empty when the command does not use Just.
+        type: string
+        default: ''
+      runner:
+        description: GitHub-hosted or self-hosted runner label.
+        type: string
+        default: ubuntu-latest
+      timeout-minutes:
+        description: Maximum job runtime.
+        type: number
+        default: 30
+
+jobs:
+  check:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.5.0
+      - if: inputs.just-version != ''
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.5.0
+        with:
+          version: ${{ inputs.just-version }}
+      - name: Audit dependencies
+        if: inputs.audit-level != ''
+        env:
+          AUDIT_LEVEL: ${{ inputs.audit-level }}
+        run: pnpm audit --audit-level "$AUDIT_LEVEL"
+      - name: Run checks
+        env:
+          CHECK_COMMAND: ${{ inputs.command }}
+        run: bash -euo pipefail -c "$CHECK_COMMAND"

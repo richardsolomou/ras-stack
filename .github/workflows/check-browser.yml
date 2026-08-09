@@ -1,0 +1,76 @@
+name: Check browser application
+
+on:
+  workflow_call:
+    inputs:
+      command:
+        description: Repository-owned browser test command.
+        type: string
+        required: true
+      prepare-command:
+        description: Optional command to build or prepare the application before installing the browser.
+        type: string
+        default: ''
+      browser:
+        description: Playwright browser to install.
+        type: string
+        default: chromium
+      just-version:
+        description: Install this Just version, or leave empty when the commands do not use Just.
+        type: string
+        default: ''
+      artifact-name:
+        description: Failure artifact name.
+        type: string
+        default: playwright-results
+      artifact-path:
+        description: Failure artifact path.
+        type: string
+        default: test-results
+      artifact-retention-days:
+        description: Failure artifact retention period.
+        type: number
+        default: 7
+      runner:
+        description: GitHub-hosted or self-hosted runner label.
+        type: string
+        default: ubuntu-latest
+      timeout-minutes:
+        description: Maximum job runtime.
+        type: number
+        default: 30
+
+jobs:
+  browser:
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.5.0
+      - if: inputs.just-version != ''
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.5.0
+        with:
+          version: ${{ inputs.just-version }}
+      - name: Prepare application
+        if: inputs.prepare-command != ''
+        env:
+          PREPARE_COMMAND: ${{ inputs.prepare-command }}
+        run: bash -euo pipefail -c "$PREPARE_COMMAND"
+      - name: Install browser
+        env:
+          PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
+        run: pnpm exec playwright install --with-deps "$PLAYWRIGHT_BROWSER"
+      - name: Run browser checks
+        env:
+          BROWSER_CHECK_COMMAND: ${{ inputs.command }}
+        run: bash -euo pipefail -c "$BROWSER_CHECK_COMMAND"
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.artifact-path }}
+          if-no-files-found: ignore
+          retention-days: ${{ inputs.artifact-retention-days }}
