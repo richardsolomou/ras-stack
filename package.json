@@ -14,7 +14,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "https://github.com/richardsolomou/ras-stack.git"
+    "url": "git+https://github.com/richardsolomou/ras-stack.git"
   },
   "files": [
     "dist",
