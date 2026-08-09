@@ -208,6 +208,17 @@ await startTusUpload(upload)
 
 Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 
+Stateful development servers can reuse one typed resource across HMR without application-specific `globalThis` casts:
+
+```ts
+import { clearGlobalSingleton, globalAsyncSingleton } from 'ras-stack/server'
+
+export const app = () => globalAsyncSingleton('my-app.instance', createApp)
+export const resetApp = () => clearGlobalSingleton('my-app.instance', (instance) => instance.close())
+```
+
+Rejected async initialization removes only its own pending value so a later request can retry. Clearing deletes the key before awaiting initialization or disposal, allowing replacement startup without reusing a closing resource.
+
 ## Shared project configuration
 
 Extend the supplied configuration and override anything specific to the application:
