@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.26.0
+
+### Minor Changes
+
+- 3c2c10c: Configure writable Caddy runtime directories so read-only containers can persist proxy state.
+
 ## 0.25.0
 
 ### Minor Changes
