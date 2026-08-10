@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 export type RuntimeProcess = {
@@ -100,6 +101,53 @@ export type CentrifugoEnvironmentOptions = {
   redisUrl?: string
 }
 
+export type RealtimeStackOptions = {
+  app: Omit<RuntimeProcess, 'name'>
+  centrifugo: {
+    command?: string
+    configPath: string
+    cwd?: string
+    env?: NodeJS.ProcessEnv
+    environment: CentrifugoEnvironmentOptions
+  }
+  caddy: {
+    command?: string
+    configPath: string
+    cwd?: string
+    env?: NodeJS.ProcessEnv
+    proxy?: CaddyRealtimeProxyOptions
+    runtime?: CaddyRuntimeEnvironmentOptions
+  }
+  supervisor?: SupervisorOptions
+}
+
+export async function runRealtimeStack(options: RealtimeStackOptions) {
+  const configPath = absolutePath(options.caddy.configPath, 'caddy.configPath')
+  const centrifugoConfigPath = absolutePath(options.centrifugo.configPath, 'centrifugo.configPath')
+  await mkdir(path.dirname(configPath), { recursive: true })
+  await writeFile(configPath, caddyRealtimeProxy(options.caddy.proxy), 'utf8')
+  return superviseProcesses(
+    [
+      { name: 'app', ...options.app },
+      {
+        name: 'realtime',
+        command: options.centrifugo.command ?? 'centrifugo',
+        args: [`--config=${centrifugoConfigPath}`],
+        ...(options.centrifugo.cwd ? { cwd: options.centrifugo.cwd } : {}),
+        env: { ...options.centrifugo.env, ...centrifugoEnvironment(options.centrifugo.environment) },
+      },
+      {
+        name: 'proxy',
+        command: options.caddy.command ?? 'caddy',
+        args: ['run', '--config', configPath, '--adapter', 'caddyfile'],
+        ...(options.caddy.cwd ? { cwd: options.caddy.cwd } : {}),
+        env: { ...options.caddy.env, ...caddyRuntimeEnvironment(options.caddy.runtime) },
+      },
+    ],
+    options.supervisor,
+  )
+}
+
 export function centrifugoEnvironment(options: CentrifugoEnvironmentOptions): NodeJS.ProcessEnv {
   const apiKey = requiredValue(options.apiKey, 'apiKey')
   const clientTokenSecret = options.clientTokenSecret?.trim()
@@ -122,13 +170,17 @@ export function centrifugoEnvironment(options: CentrifugoEnvironmentOptions): No
   }
 }
 
-export function caddyRuntimeEnvironment(options: { configHome?: string; dataHome?: string } = {}): NodeJS.ProcessEnv {
+export type CaddyRuntimeEnvironmentOptions = { configHome?: string; dataHome?: string }
+
+export function caddyRuntimeEnvironment(options: CaddyRuntimeEnvironmentOptions = {}): NodeJS.ProcessEnv {
   const configHome = absolutePath(options.configHome ?? '/tmp/caddy-config', 'configHome')
   const dataHome = absolutePath(options.dataHome ?? '/tmp/caddy-data', 'dataHome')
   return { XDG_CONFIG_HOME: configHome, XDG_DATA_HOME: dataHome }
 }
 
-export function caddyRealtimeProxy(options: { publicPort?: number; appPort?: number; realtimePort?: number; websocketPath?: string } = {}) {
+export type CaddyRealtimeProxyOptions = { publicPort?: number; appPort?: number; realtimePort?: number; websocketPath?: string }
+
+export function caddyRealtimeProxy(options: CaddyRealtimeProxyOptions = {}) {
   const publicPort = port(options.publicPort ?? 3000, 'publicPort')
   const appPort = port(options.appPort ?? 3001, 'appPort')
   const realtimePort = port(options.realtimePort ?? 8000, 'realtimePort')

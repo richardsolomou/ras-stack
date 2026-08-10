@@ -1,7 +1,10 @@
 import { EventEmitter } from 'node:events'
 import type { ChildProcess } from 'node:child_process'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, superviseProcesses } from './index.js'
+import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, runRealtimeStack, superviseProcesses } from './index.js'
 
 describe('self-hosted runtime configuration', () => {
   it('builds standard token and Redis Centrifugo environment', () => {
@@ -45,6 +48,64 @@ describe('self-hosted runtime configuration', () => {
       XDG_CONFIG_HOME: '/data/caddy-config',
       XDG_DATA_HOME: '/data/caddy-data',
     })
+  })
+
+  it('runs the standard app, Centrifugo, and Caddy topology', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ras-stack-runtime-'))
+    const configPath = join(directory, 'Caddyfile')
+    const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
+    const children = [child(), child(), child()]
+    const spawned: Array<{ name: string; command: string; args?: readonly string[]; env?: NodeJS.ProcessEnv }> = []
+    const running = runRealtimeStack({
+      app: { command: 'node', args: ['server.mjs'], env: { APP: 'yes' } },
+      centrifugo: {
+        command: 'centrifugo-custom',
+        configPath: '/app/realtime.json',
+        env: { EXTRA: 'value' },
+        environment: { apiKey: 'api', clientTokenSecret: 'secret', redisUrl: 'redis://cache:6379' },
+      },
+      caddy: {
+        command: 'caddy-custom',
+        configPath,
+        env: { EXTRA: 'value' },
+        runtime: { configHome: '/data/config', dataHome: '/data/data' },
+      },
+      supervisor: {
+        signalSource: signals,
+        spawn: (specification) => {
+          spawned.push(specification)
+          return children[spawned.length - 1]!.process
+        },
+      },
+    })
+
+    await vi.waitFor(() => expect(spawned).toHaveLength(3))
+    expect(spawned).toEqual([
+      { name: 'app', command: 'node', args: ['server.mjs'], env: { APP: 'yes' } },
+      {
+        name: 'realtime',
+        command: 'centrifugo-custom',
+        args: ['--config=/app/realtime.json'],
+        env: expect.objectContaining({
+          EXTRA: 'value',
+          CENTRIFUGO_HTTP_API_KEY: 'api',
+          CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: 'secret',
+          CENTRIFUGO_ENGINE_TYPE: 'redis',
+        }),
+      },
+      {
+        name: 'proxy',
+        command: 'caddy-custom',
+        args: ['run', '--config', configPath, '--adapter', 'caddyfile'],
+        env: { EXTRA: 'value', XDG_CONFIG_HOME: '/data/config', XDG_DATA_HOME: '/data/data' },
+      },
+    ])
+    expect(await readFile(configPath, 'utf8')).toContain('reverse_proxy 127.0.0.1:8000')
+
+    signals.emit('SIGTERM')
+    for (const process of children) process.exit(0, 'SIGTERM')
+    await expect(running).resolves.toBe(0)
+    await rm(directory, { recursive: true })
   })
 
   it('stops every sibling when one process exits', async () => {
