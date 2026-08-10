@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.32.0
+
+### Minor Changes
+
+- 7b46bb2: Use one `ras` command for assets, policy, preview status, and realtime development.
+
 ## 0.31.0
 
 ### Minor Changes
