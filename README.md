@@ -443,26 +443,23 @@ The reusable `build-preview-image.yml` workflow publishes same-repository pull r
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
 
 ```ts
-import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, superviseProcesses } from 'ras-stack/runtime'
+import { runRealtimeStack } from 'ras-stack/runtime'
 
-await superviseProcesses([
-  { name: 'app', command: 'node', args: ['.output/server/index.mjs'], env: { ...process.env, PORT: '3001' } },
-  {
-    name: 'realtime',
-    command: 'centrifugo',
-    args: ['--config=/app/realtime.json'],
-    env: { ...process.env, ...centrifugoEnvironment(realtime) },
+await runRealtimeStack({
+  app: { command: 'node', args: ['.output/server/index.mjs'], env: { ...process.env, PORT: '3001' } },
+  centrifugo: {
+    configPath: '/app/realtime.json',
+    env: process.env,
+    environment: realtime,
   },
-  {
-    name: 'proxy',
-    command: 'caddy',
-    args: ['run', '--config', '/app/Caddyfile'],
-    env: { ...process.env, ...caddyRuntimeEnvironment() },
+  caddy: {
+    configPath: '/tmp/app/Caddyfile',
+    env: process.env,
   },
-])
+})
 ```
 
-Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. `caddyRealtimeProxy()` generates the shared trusted-proxy and same-origin websocket guard. Applications retain binaries, base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
+`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Lower-level configuration and supervision functions remain available when a topology differs. Applications retain binaries, base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
 
 Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
 
