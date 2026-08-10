@@ -3,7 +3,7 @@
     {
       "repository": "richardsolomou/ras-stack",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "minimumWorkflowRasStackVersion": "0.8.3",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
@@ -13,7 +13,7 @@
     {
       "repository": "richardsolomou/basekit",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "just": "1.58.0",
@@ -23,7 +23,7 @@
     {
       "repository": "richardsolomou/sealed-lists",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "just": "1.58.0",
@@ -33,7 +33,7 @@
     {
       "repository": "richardsolomou/praetorium.gg",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "just": "1.58.0",
@@ -43,7 +43,7 @@
     {
       "repository": "richardsolomou/tro.gg",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "requiredReferences": ["ras-stack/config/typescript/bundler"]
@@ -52,7 +52,7 @@
     {
       "repository": "richardsolomou/stl.quest",
       "adoption": {
-        "minimumRasStackVersion": "0.22.0",
+        "minimumRasStackVersion": "0.27.0",
         "node": ">=24 <25",
         "pnpm": "11.15.0",
         "requiredReferences": ["ras-stack/config/typescript/tanstack", "ras-stack/config/oxlint/tanstack"]
