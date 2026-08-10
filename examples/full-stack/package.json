@@ -15,6 +15,10 @@
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
     "@posthog/react": "^1.10.3",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-router": "^1.170.18",

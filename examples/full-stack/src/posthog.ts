@@ -9,9 +9,9 @@ export const postHogCoverage = definePostHogCoverage({
     featureFlags: { disabled: 'The example has no rollout-controlled behavior' },
   },
   server: {
-    analytics: { disabled: 'The example does not define product events' },
-    errorTracking: { disabled: 'The server client is exercised only as an integration contract' },
-    logs: { disabled: 'The example keeps logs in the container output' },
+    analytics: true,
+    errorTracking: true,
+    logs: true,
   },
   sourceMaps: { disabled: 'The example is not deployed as a user-facing application' },
 })
