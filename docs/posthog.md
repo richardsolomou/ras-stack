@@ -42,7 +42,29 @@ import { PostHogIntegration } from 'ras-stack/posthog/react'
 
 This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, privacy-safe replay masking, and same-origin request correlation. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
 
-Use `usePostHog()` or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, and manual exception context. Authentication identity is intentionally a separate adapter; applications must identify verified users and call `reset()` on sign-out until that adapter lands.
+Use `usePostHog()` or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, and manual exception context.
+
+## Better Auth identity
+
+Mount the identity adapter inside `PostHogIntegration`:
+
+```tsx
+import { PostHogBetterAuthIdentity } from 'ras-stack/posthog/react'
+import { authClient } from './authClient'
+
+;<PostHogIntegration environment={posthog}>
+  <PostHogBetterAuthIdentity authClient={authClient} />
+  {children}
+</PostHogIntegration>
+```
+
+The adapter identifies the verified Better Auth user ID and resets PostHog after sign-out. It does not reset during initial anonymous loading or a failed session refresh. No name or email is sent by default. Add only product-safe properties explicitly:
+
+```tsx
+<PostHogBetterAuthIdentity authClient={authClient} properties={(user) => ({ role: user.role })} />
+```
+
+The browser adapter does not make client identity authoritative. Server captures must still compare propagated identity with the server-authenticated user.
 
 ## Browser and server correlation
 
@@ -115,8 +137,9 @@ export const postHogCoverage = definePostHogCoverage({
   browser: {
     analytics: true,
     errorTracking: true,
-    sessionReplay: true,
     featureFlags: { disabled: 'This application has no staged rollouts' },
+    identity: true,
+    sessionReplay: true,
   },
   server: {
     analytics: true,

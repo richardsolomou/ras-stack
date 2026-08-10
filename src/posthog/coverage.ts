@@ -4,8 +4,9 @@ export type PostHogCoverage = {
   browser: {
     analytics: PostHogCoverageDecision
     errorTracking: PostHogCoverageDecision
-    sessionReplay: PostHogCoverageDecision
     featureFlags: PostHogCoverageDecision
+    identity: PostHogCoverageDecision
+    sessionReplay: PostHogCoverageDecision
   }
   server: {
     analytics: PostHogCoverageDecision
@@ -30,8 +31,9 @@ function coverageDecisions(coverage: PostHogCoverage): Array<[string, PostHogCov
   return [
     ['browser.analytics', coverage.browser.analytics],
     ['browser.errorTracking', coverage.browser.errorTracking],
-    ['browser.sessionReplay', coverage.browser.sessionReplay],
     ['browser.featureFlags', coverage.browser.featureFlags],
+    ['browser.identity', coverage.browser.identity],
+    ['browser.sessionReplay', coverage.browser.sessionReplay],
     ['server.analytics', coverage.server.analytics],
     ['server.errorTracking', coverage.server.errorTracking],
     ['server.logs', coverage.server.logs],
