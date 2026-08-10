@@ -17,10 +17,7 @@
     "url": "git+https://github.com/richardsolomou/ras-stack.git"
   },
   "bin": {
-    "ras-stack-assets": "./dist/build/cli.js",
-    "ras-stack-policy": "./dist/policy/cli.js",
-    "ras-stack-preview": "./dist/preview/cli.js",
-    "ras-stack-realtime": "./dist/runtime/dev-cli.js"
+    "ras": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -151,7 +148,7 @@
     "format:check": "oxfmt --check .",
     "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkPackedPackage.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && pnpm --filter @ras-stack/example-full-stack check && node dist/policy/cli.js check",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && pnpm --filter @ras-stack/example-full-stack check && node dist/cli.js policy check",
     "version-packages": "changeset version"
   },
   "dependencies": {

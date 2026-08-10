@@ -35,16 +35,16 @@ An application can use one surface without adopting the others. The npm package 
 
 These combinations are tested here and in production. [Sealed Lists](https://github.com/richardsolomou/sealed-lists), [Praetorium](https://github.com/richardsolomou/praetorium.gg), and [STL Quest](https://github.com/richardsolomou/stl.quest) use the application and runtime pieces. [BaseKit](https://github.com/richardsolomou/basekit) and [tro.gg](https://github.com/richardsolomou/tro.gg) use only the tooling that fits their different architectures.
 
-| Layer               | Supported technology                           | What `ras-stack` centralizes                                                                          |
-| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Runtime and tooling | Node 24, ESM TypeScript, pnpm, Just, Oxlint    | Compiler/linter bases, setup actions, and version synchronization                                     |
-| Web application     | TanStack Start 1, React 19, TanStack Query 5   | Request binding, mutation-origin checks, canonical hosts, health handlers, and Query defaults         |
-| Authentication      | Better Auth                                    | Secure option builders, origins, secrets, tokens, failure classification, and React action state      |
-| Data                | Drizzle, `better-sqlite3` 12–13, Postgres.js 3 | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
-| Realtime            | Centrifuge 5, Centrifugo 6, Caddy 2            | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
-| Email and uploads   | Nodemailer 9, `tus-js-client` 4                | SMTP configuration/delivery and promise-based resumable uploads                                       |
-| Observability       | PostHog JS 1, React 1, Node 5                  | Initialization, error defaults, request correlation, proxy routes, shutdown, and coverage decisions   |
-| Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
+| Layer               | Supported technology                        | What `ras-stack` centralizes                                                                          |
+| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint    | Compiler/linter bases, setup actions, and version synchronization                                     |
+| Web application     | TanStack Start, React, TanStack Query       | Request binding, mutation-origin checks, canonical hosts, health handlers, and Query defaults         |
+| Authentication      | Better Auth                                 | Secure option builders, origins, secrets, tokens, failure classification, and React action state      |
+| Data                | Drizzle, `better-sqlite3`, Postgres.js      | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
+| Realtime            | Centrifuge, Centrifugo, Caddy               | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
+| Email and uploads   | Nodemailer, `tus-js-client`                 | SMTP configuration/delivery and promise-based resumable uploads                                       |
+| Observability       | PostHog JS, React, and Node SDKs            | Initialization, error defaults, request correlation, proxy routes, shutdown, and coverage decisions   |
+| Delivery            | GitHub Actions, Changesets, Dokploy, Docker | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 
 Applications still configure every upstream library directly. This table describes what is tested together, not a replacement API.
 
@@ -82,10 +82,10 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 | RPC, mutation-origin, health, and canonical-host handling | `ras-stack/server`, `ras-stack/tanstack/server`                                 | Routes, authorization, logging, and health work                |
 | SQLite or PostgreSQL lifecycle                            | `ras-stack/database/*`                                                          | Schemas, migrations, repositories, and transactions            |
 | Realtime publication and browser lifecycle                | `ras-stack/realtime/*`                                                          | Channels, tickets, payloads, presence models, and invalidation |
-| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras-stack-assets`                      | Templates, metadata, quotas, storage, and asset contents       |
-| Production or development realtime runtime                | `ras-stack/runtime`, `ras-stack-realtime`                                       | Images, ports, secrets, volumes, and distributed policy        |
+| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras assets`                            | Templates, metadata, quotas, storage, and asset contents       |
+| Production or development realtime runtime                | `ras-stack/runtime`, `ras realtime`                                             | Images, ports, secrets, volumes, and distributed policy        |
 | Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*` | Triggers, permissions, services, deployment, and verification  |
-| Generated repository policy and adoption checks           | `ras-stack-policy`                                                              | Which policies apply and every declared exception              |
+| Generated repository policy and adoption checks           | `ras policy`                                                                    | Which policies apply and every declared exception              |
 
 ## Guides 📚
 

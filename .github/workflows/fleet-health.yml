@@ -18,7 +18,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set +e
-          node dist/policy/cli.js fleet | tee fleet-health.md
+          node dist/cli.js policy fleet | tee fleet-health.md
           status=${PIPESTATUS[0]}
           set -e
           cat fleet-health.md >> "$GITHUB_STEP_SUMMARY"
