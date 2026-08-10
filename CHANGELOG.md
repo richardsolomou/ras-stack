@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.30.0
+
+### Minor Changes
+
+- 130de62: Launch the pinned Centrifugo development container with explicit local configuration.
+
 ## 0.29.0
 
 ### Minor Changes
