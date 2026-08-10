@@ -5,7 +5,13 @@ describe('PostHog coverage declaration', () => {
   it('records enabled and intentionally disabled product surfaces', () => {
     expect(
       definePostHogCoverage({
-        browser: { analytics: true, errorTracking: true, sessionReplay: { disabled: 'No user interface' }, featureFlags: true },
+        browser: {
+          analytics: true,
+          errorTracking: true,
+          featureFlags: true,
+          identity: true,
+          sessionReplay: { disabled: 'No user interface' },
+        },
         server: { analytics: true, errorTracking: true, logs: { disabled: 'Logs stay local' } },
         sourceMaps: { disabled: 'The application is not minified' },
       }),
@@ -15,7 +21,7 @@ describe('PostHog coverage declaration', () => {
   it('rejects an empty reason for omitted coverage', () => {
     expect(() =>
       definePostHogCoverage({
-        browser: { analytics: true, errorTracking: true, sessionReplay: { disabled: '' }, featureFlags: true },
+        browser: { analytics: true, errorTracking: true, featureFlags: true, identity: true, sessionReplay: { disabled: '' } },
         server: { analytics: true, errorTracking: true, logs: true },
         sourceMaps: true,
       }),
@@ -25,7 +31,7 @@ describe('PostHog coverage declaration', () => {
   it('reports a missing runtime decision clearly for JavaScript consumers', () => {
     expect(() =>
       definePostHogCoverage({
-        browser: { analytics: true, errorTracking: true, sessionReplay: undefined, featureFlags: true },
+        browser: { analytics: true, errorTracking: true, featureFlags: true, identity: true, sessionReplay: undefined },
         server: { analytics: true, errorTracking: true, logs: true },
         sourceMaps: true,
       } as unknown as Parameters<typeof definePostHogCoverage>[0]),

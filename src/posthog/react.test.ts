@@ -1,9 +1,13 @@
 import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
-import { describe, expect, it, vi } from 'vitest'
-import { PostHogIntegration } from './react.js'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PostHogBetterAuthIdentity, PostHogIntegration, type BetterAuthSessionState } from './react.js'
 
-const { provider, boundary } = vi.hoisted(() => ({ provider: vi.fn(), boundary: vi.fn() }))
+const { provider, boundary, posthog } = vi.hoisted(() => ({
+  provider: vi.fn(),
+  boundary: vi.fn(),
+  posthog: { identify: vi.fn(), reset: vi.fn() },
+}))
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -16,7 +20,10 @@ vi.mock('@posthog/react', () => ({
     boundary(properties)
     return properties.children
   },
+  usePostHog: () => posthog,
 }))
+
+beforeEach(() => vi.clearAllMocks())
 
 describe('PostHog React integration', () => {
   it('renders without loading PostHog when deployment configuration is absent', async () => {
@@ -57,5 +64,51 @@ describe('PostHog React integration', () => {
       }),
     )
     expect(boundary).toHaveBeenCalledOnce()
+  })
+})
+
+describe('PostHog Better Auth identity', () => {
+  it('identifies authenticated sessions without defaulting to personal properties', async () => {
+    const state: BetterAuthSessionState = { data: { user: { id: 'person-123' } }, isPending: false }
+    await act(async () => void create(createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } })))
+    expect(posthog.identify).toHaveBeenCalledWith('person-123', undefined)
+  })
+
+  it('does not identify again when only the property mapper changes', async () => {
+    const state: BetterAuthSessionState = { data: { user: { id: 'person-123' } }, isPending: false }
+    const authClient = { useSession: () => state }
+    let renderer: ReturnType<typeof create>
+    await act(
+      async () =>
+        void (renderer = create(createElement(PostHogBetterAuthIdentity, { authClient, properties: () => ({ role: 'member' }) }))),
+    )
+    await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient, properties: () => ({ role: 'member' }) })))
+    expect(posthog.identify).toHaveBeenCalledOnce()
+  })
+
+  it('resets only after an identified session signs out', async () => {
+    let state: BetterAuthSessionState = { data: null, isPending: false }
+    const authClient = { useSession: () => state }
+    let renderer: ReturnType<typeof create>
+    await act(async () => void (renderer = create(createElement(PostHogBetterAuthIdentity, { authClient }))))
+    expect(posthog.reset).not.toHaveBeenCalled()
+
+    state = { data: { user: { id: 'person-123' } }, isPending: false }
+    await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
+    state = { isPending: true }
+    await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
+    state = { data: null, isPending: false }
+    await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
+    expect(posthog.reset).toHaveBeenCalledOnce()
+  })
+
+  it('preserves identity when a session refresh fails', async () => {
+    let state: BetterAuthSessionState = { data: { user: { id: 'person-123' } }, isPending: false }
+    const authClient = { useSession: () => state }
+    let renderer: ReturnType<typeof create>
+    await act(async () => void (renderer = create(createElement(PostHogBetterAuthIdentity, { authClient }))))
+    state = { data: null, error: new Error('offline'), isPending: false }
+    await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
+    expect(posthog.reset).not.toHaveBeenCalled()
   })
 })

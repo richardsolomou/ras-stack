@@ -1,6 +1,6 @@
-import { PostHogErrorBoundary, PostHogProvider } from '@posthog/react'
-import { createElement, type ReactNode } from 'react'
-import type { PostHogConfig } from 'posthog-js'
+import { PostHogErrorBoundary, PostHogProvider, usePostHog } from '@posthog/react'
+import { createElement, type ReactNode, useEffect, useRef } from 'react'
+import type { PostHogConfig, Properties } from 'posthog-js'
 import { postHogBrowserOptions } from './client.js'
 import type { PostHogEnvironment } from './config.js'
 
@@ -30,4 +30,43 @@ export function PostHogIntegration({
     },
     createElement(PostHogErrorBoundary, { fallback }, children),
   )
+}
+
+export type BetterAuthUser = { id: string }
+export type BetterAuthSession<User extends BetterAuthUser = BetterAuthUser> = { user: User }
+export type BetterAuthSessionState<User extends BetterAuthUser = BetterAuthUser> = {
+  data?: BetterAuthSession<User> | null
+  error?: unknown
+  isPending: boolean
+}
+export type BetterAuthReactClient<User extends BetterAuthUser = BetterAuthUser> = {
+  useSession: () => BetterAuthSessionState<User>
+}
+
+export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
+  authClient,
+  properties,
+}: {
+  authClient: BetterAuthReactClient<User>
+  properties?: (user: User) => Properties
+}) {
+  const session = authClient.useSession()
+  const posthog = usePostHog()
+  const identified = useRef<string | undefined>(undefined)
+  const propertiesRef = useRef(properties)
+  propertiesRef.current = properties
+
+  useEffect(() => {
+    if (session.isPending || session.error) return
+    const user = session.data?.user
+    if (user) {
+      posthog.identify(user.id, propertiesRef.current?.(user))
+      identified.current = user.id
+    } else if (identified.current) {
+      posthog.reset()
+      identified.current = undefined
+    }
+  }, [posthog, session.data?.user, session.error, session.isPending])
+
+  return null
 }
