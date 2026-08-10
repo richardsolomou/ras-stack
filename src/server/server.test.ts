@@ -53,7 +53,29 @@ describe('RPC wrappers', () => {
     const failure = new Error('broken')
     const { rpc } = createRpc({ getRequest: () => new Request('https://example.com/action', { method: 'POST' }), logError })
     await expect(rpc(() => Promise.reject(failure))).rejects.toBe(failure)
-    expect(logError).toHaveBeenCalledWith(failure, { method: 'POST', path: '/action' })
+    expect(logError).toHaveBeenCalledWith(
+      failure,
+      { method: 'POST', path: '/action' },
+      expect.objectContaining({ method: 'POST', url: 'https://example.com/action' }),
+    )
+  })
+
+  it('awaits asynchronous failure reporting before rejecting', async () => {
+    let reported = false
+    const { rpc } = createRpc({
+      logError: async () => {
+        await Promise.resolve()
+        reported = true
+      },
+    })
+    await expect(rpc(() => Promise.reject(new Error('broken')))).rejects.toThrow('broken')
+    expect(reported).toBe(true)
+  })
+
+  it('preserves the application failure when reporting fails', async () => {
+    const failure = new Error('application failed')
+    const { rpc } = createRpc({ logError: () => Promise.reject(new Error('logger failed')) })
+    await expect(rpc(() => Promise.reject(failure))).rejects.toBe(failure)
   })
 
   it('runs allowed mutations and returns their result', async () => {

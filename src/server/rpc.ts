@@ -1,4 +1,5 @@
-export type RpcLogger = (error: unknown, context: { method?: string; path?: string }) => void
+export type RpcErrorContext = { method?: string; path?: string }
+export type RpcLogger = (error: unknown, context: RpcErrorContext, request?: Request) => void | Promise<void>
 
 export type RpcOptions = {
   getRequest?: () => Request
@@ -12,7 +13,10 @@ export function createRpc(options: RpcOptions = {}) {
       return await work()
     } catch (error) {
       if (error instanceof Response) throw new Error((await error.text()) || `request failed (${error.status})`, { cause: error })
-      options.logError?.(error, requestContext(options.getRequest))
+      const request = resolveRequest(options.getRequest)
+      try {
+        await options.logError?.(error, requestContext(request), request)
+      } catch {}
       throw error
     }
   }
@@ -28,11 +32,14 @@ export function createRpc(options: RpcOptions = {}) {
   return { rpc, mutationRpc }
 }
 
-function requestContext(getRequest: (() => Request) | undefined) {
+function resolveRequest(getRequest: (() => Request) | undefined) {
   try {
-    const request = getRequest?.()
-    return request ? { method: request.method, path: new URL(request.url).pathname } : {}
+    return getRequest?.()
   } catch {
-    return {}
+    return undefined
   }
+}
+
+function requestContext(request: Request | undefined): RpcErrorContext {
+  return request ? { method: request.method, path: new URL(request.url).pathname } : {}
 }

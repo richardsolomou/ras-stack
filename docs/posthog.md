@@ -10,10 +10,10 @@ Install only the SDKs used by the application:
 
 ```sh
 pnpm add posthog-js @posthog/react
-pnpm add posthog-node
+pnpm add posthog-node @opentelemetry/api-logs @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources @opentelemetry/sdk-logs
 ```
 
-`posthog-js`, `@posthog/react`, and `posthog-node` are optional ras-stack peers. Install only the browser or server SDKs the application uses.
+The SDKs and OpenTelemetry log packages are optional ras-stack peers. Install only the browser or server surfaces the application uses.
 
 ## Deployment configuration
 
@@ -92,6 +92,56 @@ client.capture({
 Anonymous distinct IDs require the explicit `allowAnonymousDistinctId` option. All propagated IDs are character- and length-bounded before they enter logs or event properties.
 
 ## Server setup
+
+Use one managed object for server analytics, exception capture, structured OTLP logs, and shutdown:
+
+```ts
+import { postHogEnvironment } from 'ras-stack/posthog'
+import {
+  createManagedPostHogServerTelemetry,
+  createPostHogRpcLogger,
+  installPostHogServerTelemetryShutdown,
+} from 'ras-stack/posthog/server'
+
+const telemetry = createManagedPostHogServerTelemetry({
+  environment: postHogEnvironment({
+    projectToken: process.env.VITE_POSTHOG_PROJECT_TOKEN,
+    host: process.env.VITE_POSTHOG_HOST,
+  }),
+  serviceName: 'my-app',
+  serviceVersion: process.env.APP_VERSION,
+  deploymentEnvironment: process.env.NODE_ENV,
+  onError: (error) => console.error({ event: 'telemetry_failed', error }),
+})
+
+installPostHogServerTelemetryShutdown(telemetry)
+void telemetry.start()
+```
+
+Absent deployment configuration keeps every method as a no-op. Failed initialization is reported through `onError` and retried on the next call. Logs are bounded before export, and shutdown flushes both the native PostHog client and OpenTelemetry provider once.
+
+Keep product events explicit:
+
+```ts
+await telemetry.capture(user.id, 'action_completed', { item_count: 2 })
+await telemetry.log({ body: 'request completed', severityText: 'info', attributes: { item_count: 2 } })
+```
+
+TanStack RPC wrappers can preserve their existing console logger while automatically capturing handled exceptions and a structured error log:
+
+```ts
+const logError = createPostHogRpcLogger(telemetry, {
+  logError: (error, context) => console.error({ event: 'server_function_failed', ...context, error }),
+  resolveAuthenticatedDistinctId: (request) => authenticatedUser(request)?.id,
+  allowAnonymousDistinctId: true,
+})
+
+const { rpc, mutationRpc } = createTanStackRpc({ logError })
+```
+
+The adapter includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID.
+
+The lower-level helper remains available when an application already owns its telemetry lifecycle.
 
 The server helper returns the native `posthog-node` client with exception autocapture enabled:
 

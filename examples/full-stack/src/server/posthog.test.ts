@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { postHogEnvironment, postHogRequestContext } from 'ras-stack/posthog'
-import { createPostHogServerClient, shutdownPostHogServerClient } from 'ras-stack/posthog/server'
+import { createManagedPostHogServerTelemetry, createPostHogServerClient } from 'ras-stack/posthog/server'
 import { postHogCoverage } from '../posthog'
 
 describe('PostHog integration boundary', () => {
@@ -20,12 +20,11 @@ describe('PostHog integration boundary', () => {
     })
   })
 
-  it('creates and cleanly closes the native server client', async () => {
-    const client = await createPostHogServerClient(postHogEnvironment({ projectToken: 'phc_test', host: 'https://us.i.posthog.com' }), {
-      flushAt: 1,
-      flushInterval: 0,
-    })
-    expect(client).toBeDefined()
-    await shutdownPostHogServerClient(client)
+  it('keeps the managed server lifecycle optional', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment: postHogEnvironment({}), serviceName: 'example' })
+    await telemetry.start()
+    await telemetry.log({ body: 'request completed', severityText: 'info' })
+    await telemetry.shutdown()
+    expect(postHogCoverage.server.logs).toBe(true)
   })
 })
