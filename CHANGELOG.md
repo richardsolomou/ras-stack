@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.27.1
+
+### Patch Changes
+
+- eb6ac24: Support applications using better-sqlite3 13.
+
 ## 0.27.0
 
 ### Minor Changes
