@@ -1,0 +1,6 @@
+.git
+node_modules
+examples/full-stack/.data
+examples/full-stack/.output
+examples/full-stack/node_modules
+examples/full-stack/test-results

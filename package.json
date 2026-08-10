@@ -128,9 +128,9 @@
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "test": "vitest run",
+    "test": "vitest run src",
     "package:check": "node scripts/checkPackedPackage.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && node dist/policy/cli.js check",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && pnpm --filter @ras-stack/example-full-stack check && node dist/policy/cli.js check",
     "version-packages": "changeset version"
   },
   "dependencies": {
@@ -138,6 +138,7 @@
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",
+    "@playwright/test": "1.62.1",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-start": "^1.168.32",
     "@types/better-sqlite3": "9.6.0",
