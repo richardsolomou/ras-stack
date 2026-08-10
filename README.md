@@ -438,6 +438,29 @@ await reportPreviewStatus(
 
 The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Applications retain their preview hostname, access note, seed credentials, and product cleanup hooks.
 
+Trusted preview wrappers can delegate each status transition to the reusable workflow instead of checking out and running a repository-owned comment script:
+
+```yaml
+mark-preview-ready:
+  permissions:
+    contents: read
+    checks: write
+    issues: write
+  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.29.0
+  with:
+    state: ready
+    pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+    sha: ${{ github.event.workflow_run.head_sha }}
+    preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.example.com
+    run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    marker: <!-- app-preview -->
+    note: Preview data is disposable.
+  secrets:
+    token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+The workflow uses the `ras-stack-preview` CLI from the consuming repository's pinned package. It owns only GitHub check/comment reporting; the caller retains the trusted event conditions, permissions, deployment, deletion, secret mapping, and product verification.
+
 The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
 
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
