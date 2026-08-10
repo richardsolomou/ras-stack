@@ -1,34 +1,49 @@
 # ras-stack
 
-**The small pieces of full-stack plumbing I reuse across my TypeScript applications.**
+**Shared infrastructure for my Node 24 applications built with TanStack Start, Drizzle, and Centrifugo.**
 
 [![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](LICENSE)
 
-I build several applications with the same TypeScript stack. They kept growing slightly different copies of the same code for session settings, origin checks, email delivery, realtime publication, resumable uploads, health checks, and project configuration.
+`ras-stack` is where I keep infrastructure code that was otherwise copied between my applications. It sits between application code and the upstream libraries: small enough that the application still owns its architecture, but shared where the behavior should be identical.
 
-`ras-stack` is the shared home for that plumbing. It is a personal library, published in case the code or the way it is split up is useful to someone else.
+It is a personal package, published in case the code or the boundaries are useful elsewhere. It is not intended to be a general-purpose framework.
 
-## What it is
+## What it ships
 
-The package contains independent helpers for common application infrastructure:
+The repository produces four independently usable things:
 
-- **Authentication:** secure defaults and utilities for sessions, rate limits, secrets, social providers, tokens, and trusted origins.
-- **Server requests:** same-origin mutation guards, error-normalizing RPC wrappers, canonical-host redirects, and health responses.
-- **Realtime:** Centrifugo client lifecycle, token signing, presence synchronization, and a bounded publisher with retries and graceful shutdown.
-- **Email:** SMTP environment parsing and a small Nodemailer delivery interface.
-- **Database:** standard Better SQLite lifecycle and Drizzle migration mechanics that preserve the native typed database.
-- **Uploads:** a promise-based wrapper around resumable `tus-js-client` uploads.
-- **Project configuration:** shared TypeScript and Oxlint bases.
+- **TypeScript modules** under narrow import paths such as `ras-stack/database/sqlite`, `ras-stack/realtime/react`, and `ras-stack/tanstack/server`.
+- **Command-line tools** for generated policy, production assets, preview status, and a local Centrifugo container.
+- **GitHub Actions and reusable workflows** for toolchain setup, checks, browser tests, previews, and Changesets releases.
+- **A separate OCI image** containing verified Caddy and Centrifugo binaries for production images.
 
-Each area has its own import path. An application can use one without adopting the rest.
+An application can use one surface without adopting the others. The npm package has no runtime dependency on the web, database, email, or realtime libraries; those integrations are optional peers.
 
-## What it is not
+## The supported stack
 
-This is not a framework, starter, application template, or complete authentication system. It does not own an application's database schema, migrations, routes, authorization rules, email templates, upload policy, or realtime event names.
+`ras-stack` follows the stack used by Sealed Lists, Praetorium, and STL Quest. BaseKit and tro.gg consume only the tooling that matches their different runtimes.
 
-The libraries underneath remain available normally. Applications still configure and call Better Auth, TanStack Start, Drizzle, Nodemailer, `tus-js-client`, and Centrifugo directly. The helpers only centralize the parts that would otherwise be copied unchanged.
+| Layer               | Supported technology                           | What `ras-stack` centralizes                                                                          |
+| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Runtime and tooling | Node 24, ESM TypeScript, pnpm, Just, Oxlint    | Strict compiler/linter bases, setup actions, and version synchronization                              |
+| Web application     | TanStack Start 1, React 19, TanStack Query 5   | Request binding, mutation-origin checks, canonical hosts, health handlers, and Query defaults         |
+| Authentication      | Better Auth                                    | Secure option builders, origins, secrets, tokens, failure classification, and React action state      |
+| Data                | Drizzle, `better-sqlite3` 12–13, Postgres.js 3 | Native connection lifecycle, safety defaults, migrations, target selection, and conformance checks    |
+| Realtime            | Centrifuge 5, Centrifugo 6, Caddy 2            | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
+| Email and uploads   | Nodemailer 9, `tus-js-client` 4                | SMTP configuration/delivery and promise-based resumable uploads                                       |
+| Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 
-## Install
+These are tested combinations, not replacements for the upstream APIs. Applications still import and configure TanStack, Better Auth, Drizzle, Nodemailer, `tus-js-client`, Centrifuge, Centrifugo, and Caddy directly when they need their native behavior.
+
+## The boundary
+
+The package owns mechanics that should behave the same in every application: opening a database safely, rejecting a cross-origin mutation, signing a realtime token, supervising processes, or reporting preview state.
+
+The application owns product decisions: schemas, migrations, repositories, routes, authorization, auth plugins, email templates, upload rules, realtime channels and payloads, storage, deployment topology, and UI. `ras-stack` does not hide those behind a shared application factory or configuration object.
+
+The [`examples/full-stack`](examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is an integration contract and reference, not a starter to copy.
+
+## Install and choose a boundary
 
 `ras-stack` requires Node 24.
 
@@ -36,14 +51,30 @@ The libraries underneath remain available normally. Applications still configure
 pnpm add ras-stack
 ```
 
-Nodemailer, Centrifuge, Better SQLite/Drizzle, and `tus-js-client` are optional peer dependencies. Install them only when using their integrations:
+Nodemailer, Centrifuge, `better-sqlite3`, Drizzle, Postgres.js, and `tus-js-client` are optional peer dependencies. Install them only when using their integrations:
 
 ```sh
 pnpm add nodemailer
 pnpm add centrifuge
 pnpm add tus-js-client
 pnpm add better-sqlite3 drizzle-orm
+pnpm add postgres drizzle-orm
 ```
+
+Start with the narrowest public entrypoint that owns the repeated mechanic:
+
+| Need                                                      | Entrypoint or command                                                           | The application still owns                                     |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Authentication defaults and browser action state          | `ras-stack/auth`, `ras-stack/auth/client`, `ras-stack/auth/react`               | Better Auth configuration, forms, policy, and navigation       |
+| RPC, mutation-origin, health, and canonical-host handling | `ras-stack/server`, `ras-stack/tanstack/server`                                 | Routes, authorization, logging, and health work                |
+| SQLite or PostgreSQL lifecycle                            | `ras-stack/database/*`                                                          | Schemas, migrations, repositories, and transactions            |
+| Realtime publication and browser lifecycle                | `ras-stack/realtime/*`                                                          | Channels, tickets, payloads, presence models, and invalidation |
+| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras-stack-assets`                      | Templates, metadata, quotas, storage, and asset contents       |
+| Production or development realtime runtime                | `ras-stack/runtime`, `ras-stack-realtime`                                       | Images, ports, secrets, volumes, and distributed policy        |
+| Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*` | Triggers, permissions, services, deployment, and verification  |
+| Generated repository policy and adoption checks           | `ras-stack-policy`                                                              | Which policies apply and every declared exception              |
+
+The detailed sections below explain each boundary and show the upstream object that remains available to the application.
 
 ## Authentication and request security
 
@@ -348,7 +379,7 @@ Policy files which cannot inherit can stay committed while being checked against
   "dependabot": true,
   "pnpm": {},
   "adoption": {
-    "minimumRasStackVersion": "0.29.0",
+    "minimumRasStackVersion": "0.30.1",
     "node": ">=24 <25",
     "pnpm": "11.15.0",
     "just": "1.58.0"
@@ -375,7 +406,7 @@ The same adoption policy can produce a read-only fleet report from public reposi
 GITHUB_TOKEN="$(gh auth token)" pnpm exec ras-stack-policy fleet
 ```
 
-The command reads only `package.json`, root toolchain configs, and GitHub workflow metadata. It prints Markdown, exits unsuccessfully when drift exists, and never writes to a consumer repository. Omit an expectation when a repository intentionally does not share that surface. The included manually dispatched workflow writes the result to the Actions summary and retains it as an artifact.
+The command reads only `package.json`, root toolchain configs, and GitHub workflow metadata. It prints Markdown, exits unsuccessfully when drift exists, and never writes to a consumer repository. Omit an expectation when a repository intentionally does not share that surface. The included workflow is deliberately manual: dependency updates and each consumer's required checks enforce drift continuously, while `workflow_dispatch` produces an on-demand fleet-wide audit without another scheduled source of noise. The report is written to the Actions summary and retained as an artifact.
 
 ## GitHub Actions
 
@@ -384,14 +415,14 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.29.0
+  - uses: richardsolomou/ras-stack/actions/setup-js@v0.30.1
   - run: pnpm check
 ```
 
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/setup-just@v0.29.0
+- uses: richardsolomou/ras-stack/actions/setup-just@v0.30.1
   with:
     version: '1.58.0'
 ```
@@ -404,7 +435,7 @@ release:
   needs: [check]
   permissions:
     contents: write
-  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.29.0
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.30.1
   secrets: inherit
 ```
 
@@ -412,7 +443,7 @@ Browser jobs can cache the pinned Playwright payload through the shared setup ac
 
 ```yaml
 e2e:
-  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.29.0
+  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.30.1
   with:
     image: my-app-e2e
     cache-scope: my-app-e2e
@@ -446,7 +477,7 @@ mark-preview-ready:
     contents: read
     checks: write
     issues: write
-  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.29.0
+  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.30.1
   with:
     state: ready
     pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -487,7 +518,7 @@ await runRealtimeStack({
 The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. Copy the binaries from an immutable release and pin its digest:
 
 ```dockerfile
-FROM ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.0@sha256:... AS runtime-binaries
+FROM ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.0@sha256:5f82b2d53b93465bf91cc1bc90b292e94cbdd823cedd3f432dca94097e59163d AS runtime-binaries
 COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 ```
@@ -518,7 +549,7 @@ Reusable workflows cannot refer to an action at their own dynamic release tag. T
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/require-current-base@v0.29.0
+- uses: richardsolomou/ras-stack/actions/require-current-base@v0.30.1
   if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
   with:
     base-sha: ${{ github.event.pull_request.base.sha }}
@@ -532,7 +563,7 @@ The reusable check workflow owns checkout and toolchain setup while the reposito
 ```yaml
 jobs:
   check:
-    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.29.0
+    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.30.1
     with:
       command: just check
       just-version: '1.58.0'
@@ -543,7 +574,7 @@ Simple Playwright jobs can also share browser installation and failure artifacts
 ```yaml
 jobs:
   end-to-end:
-    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.29.0
+    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.30.1
     with:
       prepare-command: pnpm build
       command: pnpm test:e2e:run
@@ -572,6 +603,15 @@ Run the compile and unit boundary with:
 ```sh
 pnpm --filter @ras-stack/example-full-stack check
 ```
+
+To run the application locally, start the pinned realtime container and Vite in separate terminals:
+
+```sh
+pnpm --filter @ras-stack/example-full-stack realtime
+pnpm --filter @ras-stack/example-full-stack dev
+```
+
+Open `http://localhost:3100`. The realtime command stays on loopback, mounts the example's Centrifugo configuration read-only, and forwards connect authorization to the local application.
 
 The CI `Full-stack example` job builds the container with a read-only root, starts the complete Node/Centrifugo/Caddy runtime, and runs the Playwright journey. Dokploy and GitHub preview reporting remain workflow integrations because exercising them requires repository credentials rather than application behavior.
 
