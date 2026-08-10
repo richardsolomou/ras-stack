@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.29.0
+
+### Minor Changes
+
+- 3558ea2: Report preview lifecycle status through a shared CLI and reusable workflow.
+
 ## 0.28.0
 
 ### Minor Changes
