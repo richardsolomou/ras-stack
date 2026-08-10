@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.31.0
+
+### Minor Changes
+
+- b8088bd: Add composable PostHog browser, server, request-correlation, proxy, coverage, and conformance primitives.
+
 ## 0.30.1
 
 ### Patch Changes
