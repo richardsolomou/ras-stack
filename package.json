@@ -1,6 +1,6 @@
 {
   "name": "ras-stack",
-  "version": "0.22.0",
+  "version": "0.27.0",
   "description": "Composable full-stack primitives shared across Richard Solomou's applications.",
   "keywords": [
     "authentication",
@@ -70,6 +70,10 @@
     "./preview/dokploy": {
       "types": "./dist/preview/dokploy.d.ts",
       "default": "./dist/preview/dokploy.js"
+    },
+    "./preview/github": {
+      "types": "./dist/preview/github.d.ts",
+      "default": "./dist/preview/github.js"
     },
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",

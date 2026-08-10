@@ -236,7 +236,7 @@ const subscription = useRealtimeSubscription({ client, channel, options, configu
 const clients = useRealtimePresence(subscription)
 ```
 
-The factory, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
+The client factory may return a client or a promise, so applications can fetch and validate an initial ticket before connecting. Pass `onError` as the third argument to handle asynchronous ticket failures. A client that resolves after unmount is disconnected without ever connecting. The factory, error handler, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
 
 The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
@@ -346,7 +346,13 @@ Policy files which cannot inherit can stay committed while being checked against
     }
   },
   "dependabot": true,
-  "pnpm": {}
+  "pnpm": {},
+  "adoption": {
+    "minimumRasStackVersion": "0.22.0",
+    "node": ">=24 <25",
+    "pnpm": "11.15.0",
+    "just": "1.58.0"
+  }
 }
 ```
 
@@ -355,9 +361,13 @@ Then generate or verify the effective files:
 ```sh
 pnpm exec ras-stack-policy sync
 pnpm exec ras-stack-policy check
+pnpm exec ras-stack-policy sync adoption
+pnpm exec ras-stack-policy check adoption
 ```
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+
+Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
 
 The same adoption policy can produce a read-only fleet report from public repository metadata. Declare each repository's supported versions and required shared config references in `ras-stack.fleet.json`, then run:
 
@@ -415,6 +425,19 @@ The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`.
 
 Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
 
+Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
+
+```ts
+import { reportPreviewStatus } from 'ras-stack/preview/github'
+
+await reportPreviewStatus(
+  { repository, token, marker: '<!-- app-preview -->', note: 'Preview data is disposable.' },
+  { state: 'ready', prNumber, sha, previewUrl, runUrl },
+)
+```
+
+The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Applications retain their preview hostname, access note, seed credentials, and product cleanup hooks.
+
 The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
 
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
@@ -441,9 +464,23 @@ await superviseProcesses([
 
 Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. `caddyRealtimeProxy()` generates the shared trusted-proxy and same-origin websocket guard. Applications retain binaries, base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
 
+Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
+
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
+
+The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/require-current-base@v0.24.0
+  if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
+  with:
+    base-sha: ${{ github.event.pull_request.base.sha }}
+    head-sha: ${{ github.event.pull_request.head.sha }}
+```
+
+Keep strict up-to-date branch protection enabled for the required check. When the guard fails, update or rebase the dependency branch onto current `main`, regenerate its lockfile, and let the normal policy check run against that refreshed result. Do not merge it with an administrative bypass.
 
 The reusable check workflow owns checkout and toolchain setup while the repository keeps its check command:
 

@@ -9,6 +9,13 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Require current dependency base
+      if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: bash "$GITHUB_ACTION_PATH/../require-current-base/check.sh"
     - name: Install pnpm
       uses: pnpm/action-setup@v6
       with:

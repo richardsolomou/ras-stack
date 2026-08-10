@@ -2,11 +2,11 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fleetConfig, fleetMarkdown, inspectFleet } from './fleet.js'
-import { checkRepositoryPolicy, syncRepositoryPolicy } from './index.js'
+import { checkRepositoryPolicy, syncAdoptionPolicy, syncRepositoryPolicy } from './index.js'
 
 const command = process.argv[2]
 if (command !== 'check' && command !== 'sync' && command !== 'fleet') {
-  console.error('usage: ras-stack-policy <check|sync|fleet>')
+  console.error('usage: ras-stack-policy <check|sync|fleet> [adoption]')
   process.exitCode = 2
 } else if (command === 'fleet') {
   const path = resolve(process.argv[3] ?? 'ras-stack.fleet.json')
@@ -15,10 +15,15 @@ if (command !== 'check' && command !== 'sync' && command !== 'fleet') {
   process.stdout.write(fleetMarkdown(results))
   if (results.some((result) => result.drift.length > 0)) process.exitCode = 1
 } else {
-  const changed = command === 'check' ? await checkRepositoryPolicy(process.cwd()) : await syncRepositoryPolicy(process.cwd(), 'write')
+  const adoption = process.argv[3] === 'adoption'
+  const changed = adoption
+    ? await syncAdoptionPolicy(process.cwd(), command === 'check' ? 'check' : 'write')
+    : command === 'check'
+      ? await checkRepositoryPolicy(process.cwd())
+      : await syncRepositoryPolicy(process.cwd(), 'write')
   if (command === 'check' && changed.length > 0) {
     for (const message of changed) console.error(message)
-    console.error('run ras-stack-policy sync and commit the result')
+    console.error(`run ras-stack-policy sync${adoption ? ' adoption' : ''} and commit the result`)
     process.exitCode = 1
   } else if (command === 'sync') {
     for (const path of changed) console.log(`updated ${path}`)

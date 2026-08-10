@@ -30,6 +30,84 @@ describe('React realtime lifecycle', () => {
     })
   })
 
+  it('configures the client before connecting and cleans up before disconnecting', async () => {
+    const calls: string[] = []
+    const { client, connect, disconnect } = eventClient()
+    connect.mockImplementation(() => {
+      calls.push('connect')
+    })
+    disconnect.mockImplementation(() => {
+      calls.push('disconnect')
+    })
+    const createClient = () => client
+    const configure = () => {
+      calls.push('configure')
+      return () => calls.push('cleanup')
+    }
+    let rendered: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(() => (useConnectedRealtimeClient(createClient, true, { configure }), null)))
+    })
+    await act(async () => rendered.unmount())
+    warning.mockRestore()
+
+    expect(calls).toEqual(['configure', 'connect', 'cleanup', 'disconnect'])
+  })
+
+  it('connects an asynchronously created client', async () => {
+    const { client, connect, disconnect } = eventClient()
+    const createClient = async () => client
+    let observed: Centrifuge | undefined
+    let rendered: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(() => ((observed = useConnectedRealtimeClient(createClient)), null)))
+      await Promise.resolve()
+    })
+    await act(async () => rendered.unmount())
+    warning.mockRestore()
+
+    expect({ observed, connect: connect.mock.calls.length, disconnect: disconnect.mock.calls.length }).toEqual({
+      observed: client,
+      connect: 1,
+      disconnect: 1,
+    })
+  })
+
+  it('does not connect a client resolved after unmount', async () => {
+    const { client, connect, disconnect } = eventClient()
+    let resolveClient!: (client: Centrifuge) => void
+    const pending = new Promise<Centrifuge>((resolve) => {
+      resolveClient = resolve
+    })
+    let rendered: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(() => (useConnectedRealtimeClient(() => pending), null)))
+    })
+    await act(async () => rendered.unmount())
+    await act(async () => resolveClient(client))
+    warning.mockRestore()
+
+    expect({ connect: connect.mock.calls.length, disconnect: disconnect.mock.calls.length }).toEqual({ connect: 0, disconnect: 1 })
+  })
+
+  it('reports asynchronous client creation failures', async () => {
+    const failure = new Error('ticket failed')
+    const onError = vi.fn()
+    let rendered: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(() => (useConnectedRealtimeClient(() => Promise.reject(failure), true, { onError }), null)))
+      await Promise.resolve()
+    })
+    await act(async () => rendered.unmount())
+    warning.mockRestore()
+
+    expect(onError).toHaveBeenCalledWith(failure)
+  })
+
   it('opens one subscription and removes it on unmount', async () => {
     const { client } = eventClient()
     const subscription = new EventEmitter() as unknown as Subscription

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import path from 'node:path'
 
 export type RuntimeProcess = {
   name: string
@@ -121,8 +122,10 @@ export function centrifugoEnvironment(options: CentrifugoEnvironmentOptions): No
   }
 }
 
-export function caddyRuntimeEnvironment(): NodeJS.ProcessEnv {
-  return { XDG_CONFIG_HOME: '/tmp/caddy-config', XDG_DATA_HOME: '/tmp/caddy-data' }
+export function caddyRuntimeEnvironment(options: { configHome?: string; dataHome?: string } = {}): NodeJS.ProcessEnv {
+  const configHome = absolutePath(options.configHome ?? '/tmp/caddy-config', 'configHome')
+  const dataHome = absolutePath(options.dataHome ?? '/tmp/caddy-data', 'dataHome')
+  return { XDG_CONFIG_HOME: configHome, XDG_DATA_HOME: dataHome }
 }
 
 export function caddyRealtimeProxy(options: { publicPort?: number; appPort?: number; realtimePort?: number; websocketPath?: string } = {}) {
@@ -165,5 +168,10 @@ function requiredValue(value: string, name: string) {
 
 function port(value: number, name: string) {
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${name} must be a valid TCP port`)
+  return value
+}
+
+function absolutePath(value: string, name: string) {
+  if (!path.isAbsolute(value)) throw new Error(`${name} must be an absolute path`)
   return value
 }

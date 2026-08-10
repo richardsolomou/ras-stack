@@ -1,5 +1,41 @@
 # ras-stack
 
+## 0.27.0
+
+### Minor Changes
+
+- afa18a3: Share safe GitHub check-run and pull-request comment state for application previews.
+
+## 0.26.0
+
+### Minor Changes
+
+- 3c2c10c: Configure writable Caddy runtime directories so read-only containers can persist proxy state.
+
+## 0.25.0
+
+### Minor Changes
+
+- 441912f: Support cancellable asynchronous realtime client creation in the React lifecycle adapter.
+
+## 0.24.1
+
+### Patch Changes
+
+- 626a7c0: Keep Node-only auth secret modules outside the TanStack middleware entrypoint.
+
+## 0.24.0
+
+### Minor Changes
+
+- 25ae6d1: Reject stale dependency branches before running shared JavaScript project checks.
+
+## 0.23.0
+
+### Minor Changes
+
+- a34d0e2: Synchronize declared ras-stack, workflow, Node, pnpm, and Just adoption versions without downgrading newer references.
+
 ## 0.22.0
 
 ### Minor Changes

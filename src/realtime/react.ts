@@ -2,17 +2,50 @@ import type { Centrifuge, ClientInfo, Subscription, SubscriptionOptions } from '
 import { useEffect, useState } from 'react'
 import { connectRealtimeClient, openRealtimeSubscription, watchSubscriptionPresence } from './client.js'
 
-export function useConnectedRealtimeClient(create: () => Centrifuge, enabled = true) {
+export function useConnectedRealtimeClient(
+  create: () => Centrifuge | Promise<Centrifuge>,
+  enabled = true,
+  options: { configure?: (client: Centrifuge) => void | (() => void); onError?: (error: unknown) => void } = {},
+) {
   const [client, setClient] = useState<Centrifuge>()
+  const configure = options.configure
+  const onError = options.onError
   useEffect(() => {
     if (!enabled) {
       setClient(undefined)
       return undefined
     }
-    const next = create()
-    setClient(next)
-    return connectRealtimeClient(next)
-  }, [create, enabled])
+    let active = true
+    let cleanup: (() => void) | undefined
+    let disconnect: (() => void) | undefined
+    const connect = (next: Centrifuge) => {
+      if (!active) {
+        next.disconnect()
+        return
+      }
+      try {
+        cleanup = configure?.(next) ?? undefined
+      } catch (error) {
+        next.disconnect()
+        onError?.(error)
+        return
+      }
+      setClient(next)
+      disconnect = connectRealtimeClient(next)
+    }
+    try {
+      const created = create()
+      if (created instanceof Promise) void created.then(connect, (error: unknown) => active && onError?.(error))
+      else connect(created)
+    } catch (error) {
+      onError?.(error)
+    }
+    return () => {
+      active = false
+      cleanup?.()
+      disconnect?.()
+    }
+  }, [configure, create, enabled, onError])
   return client
 }
 
