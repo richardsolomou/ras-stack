@@ -8,6 +8,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint --config oxlint.json --type-aware --deny-warnings .",
+    "realtime": "ras-stack-realtime --config centrifugo.json --name ras-stack-example-realtime --port 8100 --origin http://localhost:3100 --secret example-development-secret --connect-proxy-endpoint http://host.docker.internal:3100/api/centrifugo/connect",
     "e2e": "playwright test",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",

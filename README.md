@@ -492,6 +492,19 @@ COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 ```
 
+For local development, the package can run the same pinned Centrifugo binary in Docker while the application and its Vite proxy remain local:
+
+```sh
+ras-stack-realtime \
+  --config realtime.json \
+  --name example-realtime \
+  --port 8000 \
+  --origin http://localhost:3000 \
+  --secret development-secret
+```
+
+The foreground command follows terminal signals and leaves an existing named container alone. Add `--detach` to replace that named development container and return after startup. Applications with a Centrifugo connect proxy can pass its Docker-reachable URL through `--connect-proxy-endpoint`; channel definitions, proxy authorization, application environment, and Vite configuration remain in the application.
+
 `runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created.
 
 Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
