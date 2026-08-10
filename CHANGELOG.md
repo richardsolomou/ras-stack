@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.34.1
+
+### Patch Changes
+
+- b53e216: Keep documentation version checks stable across generated releases.
+
 ## 0.34.0
 
 ### Minor Changes
