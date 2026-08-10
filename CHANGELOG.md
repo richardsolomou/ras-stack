@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.34.0
+
+### Minor Changes
+
+- 7354d3a: Remove personal cross-repository fleet reporting from the public policy API.
+
 ## 0.33.0
 
 ### Minor Changes
