@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.30.1
+
+### Patch Changes
+
+- 15c8e84: Allow container-based development proxies to reach the realtime launcher through an explicit host binding.
+
 ## 0.30.0
 
 ### Minor Changes
