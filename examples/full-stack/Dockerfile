@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+ARG RUNTIME_BINARIES_IMAGE=ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.0
 FROM node:24-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
@@ -15,15 +16,14 @@ COPY examples/full-stack ./examples/full-stack
 RUN pnpm install --offline --frozen-lockfile
 RUN pnpm build && pnpm --filter @ras-stack/example-full-stack build
 
-FROM centrifugo/centrifugo:v6.9.1 AS centrifugo
-FROM caddy:2.11.4-alpine AS caddy
+FROM ${RUNTIME_BINARIES_IMAGE} AS runtime-binaries
 
 FROM node:24-alpine
 WORKDIR /app
 RUN apk add --no-cache tini && mkdir -p /data && chown -R node:node /app /data
 COPY --from=build --chown=node:node /app/examples/full-stack/.output ./.output
-COPY --from=centrifugo /usr/local/bin/centrifugo /usr/local/bin/centrifugo
-COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
+COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
+COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --chown=node:node examples/full-stack/centrifugo.json ./centrifugo.json
 COPY --chown=node:node LICENSE ./
 ENV NODE_ENV=production DATA_DIR=/data CENTRIFUGO_CONFIG=/app/centrifugo.json CENTRIFUGO_API_URL=http://127.0.0.1:8100/api CENTRIFUGO_HTTP_SERVER_PORT=8100
