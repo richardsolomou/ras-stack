@@ -1,6 +1,6 @@
 <div align="center">
 
-# ras-stack
+# 🧱 ras-stack
 
 **A practical TypeScript stack with strong defaults and room to make it yours.**
 
@@ -10,15 +10,15 @@ TanStack Start · React · Better Auth · Drizzle · SQLite/PostgreSQL · Centri
 
 </div>
 
-I kept solving the same boring problems in every application: secure sessions, origin checks, database startup, realtime connections, process shutdown, CI, previews, and releases. `ras-stack` solves those once, using the libraries I would choose anyway.
+I kept rebuilding the same boring parts: secure sessions, origin checks, database startup, realtime connections, process shutdown, CI, previews, and releases. `ras-stack` solves them once with the libraries I would choose anyway.
 
-The opinionated parts are the ones I want to get right every time: security defaults, lifecycle, failure handling, and supply-chain checks. Product behavior stays open. Use one helper or the whole stack, override what differs, and keep direct access to the library underneath.
+It is opinionated about security, lifecycle, failure handling, and supply-chain checks, but not product behavior. Use one helper or the whole stack, override what differs, and keep access to the library underneath.
 
 ## The idea 💡
 
-TanStack should handle the web application. Better Auth should handle authentication. Drizzle should handle typed data. Centrifugo should handle realtime delivery. `ras-stack` connects them and fills the small gaps between them instead of building substitutes.
+TanStack handles the web application, Better Auth handles authentication, Drizzle handles typed data, and Centrifugo handles realtime delivery. `ras-stack` connects them; it does not replace them.
 
-A useful abstraction here should remove a decision or a failure mode without hiding the underlying tool. That is why helpers return native objects, accept callbacks and overrides, and live behind narrow entrypoints. If an application needs different behavior, it can drop down a level without leaving the stack.
+A helper belongs here when it removes a repeated decision or failure mode without hiding the underlying tool. Helpers return native objects, accept overrides, and live behind narrow entrypoints so applications can always drop down a level.
 
 ## What you get 📦
 
@@ -33,25 +33,25 @@ An application can use one surface without adopting the others. The npm package 
 
 ## The stack 🧰
 
-These are the combinations tested in this repository and in production applications. Sealed Lists, Praetorium, and STL Quest use the application and runtime pieces. BaseKit and tro.gg use only the tooling that fits their different architectures.
+These combinations are tested here and in production. [Sealed Lists](https://github.com/richardsolomou/sealed-lists), [Praetorium](https://github.com/richardsolomou/praetorium.gg), and [STL Quest](https://github.com/richardsolomou/stl.quest) use the application and runtime pieces. [BaseKit](https://github.com/richardsolomou/basekit) and [tro.gg](https://github.com/richardsolomou/tro.gg) use only the tooling that fits their different architectures.
 
 | Layer               | Supported technology                           | What `ras-stack` centralizes                                                                          |
 | ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Runtime and tooling | Node 24, ESM TypeScript, pnpm, Just, Oxlint    | Strict compiler/linter bases, setup actions, and version synchronization                              |
+| Runtime and tooling | Node 24, ESM TypeScript, pnpm, Just, Oxlint    | Compiler/linter bases, setup actions, and version synchronization                                     |
 | Web application     | TanStack Start 1, React 19, TanStack Query 5   | Request binding, mutation-origin checks, canonical hosts, health handlers, and Query defaults         |
 | Authentication      | Better Auth                                    | Secure option builders, origins, secrets, tokens, failure classification, and React action state      |
-| Data                | Drizzle, `better-sqlite3` 12–13, Postgres.js 3 | Native connection lifecycle, safety defaults, migrations, target selection, and conformance checks    |
+| Data                | Drizzle, `better-sqlite3` 12–13, Postgres.js 3 | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
 | Realtime            | Centrifuge 5, Centrifugo 6, Caddy 2            | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
 | Email and uploads   | Nodemailer 9, `tus-js-client` 4                | SMTP configuration/delivery and promise-based resumable uploads                                       |
 | Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 
-Applications still import and configure TanStack, Better Auth, Drizzle, Nodemailer, `tus-js-client`, Centrifuge, Centrifugo, and Caddy directly. The table describes what is tested together, not a new API pretending those tools do not exist.
+Applications still configure every upstream library directly. This table describes what is tested together, not a replacement API.
 
 ## Where it stops 🧭
 
-`ras-stack` owns mechanics that should behave the same in every application: opening a database safely, rejecting a cross-origin mutation, signing a realtime token, supervising processes, or reporting preview state.
+`ras-stack` owns mechanics that should behave the same everywhere: safe database startup, mutation-origin checks, realtime tokens, process supervision, and preview status.
 
-The application owns the things that make it a product: schemas, migrations, repositories, routes, authorization, auth plugins, email templates, upload rules, realtime channels and payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
+The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
 
 The [`examples/full-stack`](examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is an integration contract and reference, not a starter to copy.
 
