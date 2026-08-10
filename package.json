@@ -128,7 +128,7 @@
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "test": "vitest run src",
+    "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkPackedPackage.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && pnpm --filter @ras-stack/example-full-stack check && node dist/policy/cli.js check",
     "version-packages": "changeset version"
