@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.33.0
+
+### Minor Changes
+
+- 1b209b3: Identify Better Auth users in PostHog and reset identity after sign-out.
+
 ## 0.32.0
 
 ### Minor Changes
