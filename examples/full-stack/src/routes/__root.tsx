@@ -1,6 +1,13 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import { postHogEnvironment } from 'ras-stack/posthog'
+import { PostHogIntegration } from 'ras-stack/posthog/react'
 import styles from '../styles.css?url'
+
+const posthog = postHogEnvironment({
+  projectToken: import.meta.env.VITE_POSTHOG_PROJECT_TOKEN,
+  host: import.meta.env.VITE_POSTHOG_HOST,
+})
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -21,7 +28,9 @@ function Root() {
         <HeadContent />
       </head>
       <body>
-        <Outlet />
+        <PostHogIntegration environment={posthog}>
+          <Outlet />
+        </PostHogIntegration>
         <Scripts />
       </body>
     </html>

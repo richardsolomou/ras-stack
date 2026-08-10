@@ -4,7 +4,7 @@
 
 `examples/full-stack` is a private workspace application whose `ras-stack` dependency is `workspace:*`. It imports only public package entrypoints, so the repository gate catches integration breakage before a release reaches consumers.
 
-The example builds a real TanStack application and production image. Its browser journey signs two independent users in, writes through mutation-protected RPC into SQLite, uploads a bounded text file through TUS, and observes a cross-context message through Centrifugo and Caddy. The same app also consumes the shared query client, React realtime hooks, persisted auth secret, SMTP environment parsing, health response, singleton, TypeScript, and Oxlint contracts.
+The example builds a real TanStack application and production image. Its browser journey signs two independent users in, writes through mutation-protected RPC into SQLite, uploads a bounded text file through TUS, and observes a cross-context message through Centrifugo and Caddy. The same app also consumes the shared query client, React realtime hooks, optional turnkey PostHog browser/server integration, persisted auth secret, SMTP environment parsing, health response, singleton, TypeScript, and Oxlint contracts.
 
 Run the compile and unit boundary with:
 

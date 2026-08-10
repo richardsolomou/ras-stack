@@ -4,7 +4,7 @@
 
 **A practical TypeScript stack with strong defaults and room to make it yours.**
 
-TanStack Start · React · Better Auth · Drizzle · SQLite/PostgreSQL · Centrifugo · Caddy
+TanStack Start · React · Better Auth · Drizzle · SQLite/PostgreSQL · Centrifugo · Caddy · PostHog
 
 [![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](LICENSE)
 
@@ -43,6 +43,7 @@ These combinations are tested here and in production. [Sealed Lists](https://git
 | Data                | Drizzle, `better-sqlite3` 12–13, Postgres.js 3 | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
 | Realtime            | Centrifuge 5, Centrifugo 6, Caddy 2            | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
 | Email and uploads   | Nodemailer 9, `tus-js-client` 4                | SMTP configuration/delivery and promise-based resumable uploads                                       |
+| Observability       | PostHog JS 1, React 1, Node 5                  | Initialization, error defaults, request correlation, proxy routes, shutdown, and coverage decisions   |
 | Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 
 Applications still configure every upstream library directly. This table describes what is tested together, not a replacement API.
@@ -92,6 +93,7 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | [Application primitives](docs/application-primitives.md) | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                           |
 | [Repository tooling](docs/repository-tooling.md)         | TypeScript and Oxlint configuration, generated policy, fleet checks, GitHub Actions, previews, releases, and production runtime composition |
+| [PostHog integration](docs/posthog.md)                   | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility     |
 | [Full-stack example](docs/full-stack-example.md)         | The `workspace:*` integration contract, local development, production container, and two-browser journey                                    |
 
 ## Development 🛠️
