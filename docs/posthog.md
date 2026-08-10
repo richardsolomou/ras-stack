@@ -155,7 +155,7 @@ export const postHogCoverage = definePostHogCoverage({
 Build browser assets with source maps, then process the final directory before packaging or deployment:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/upload-posthog-sourcemaps@v0.33.0
+- uses: richardsolomou/ras-stack/actions/upload-posthog-sourcemaps@v0.34.0
   with:
     directory: .output/public/assets
     release-name: my-app

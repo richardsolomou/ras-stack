@@ -91,14 +91,14 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.33.0
+  - uses: richardsolomou/ras-stack/actions/setup-js@v0.34.0
   - run: pnpm check
 ```
 
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/setup-just@v0.33.0
+- uses: richardsolomou/ras-stack/actions/setup-just@v0.34.0
   with:
     version: '1.58.0'
 ```
@@ -111,7 +111,7 @@ release:
   needs: [check]
   permissions:
     contents: write
-  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.33.0
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.34.0
   secrets: inherit
 ```
 
@@ -119,7 +119,7 @@ Browser jobs can cache the pinned Playwright payload through the shared setup ac
 
 ```yaml
 e2e:
-  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.33.0
+  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.34.0
   with:
     image: my-app-e2e
     cache-scope: my-app-e2e
@@ -153,7 +153,7 @@ mark-preview-ready:
     contents: read
     checks: write
     issues: write
-  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.33.0
+  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.34.0
   with:
     state: ready
     pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -225,7 +225,7 @@ Reusable workflows cannot refer to an action at their own dynamic release tag. T
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/require-current-base@v0.33.0
+- uses: richardsolomou/ras-stack/actions/require-current-base@v0.34.0
   if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
   with:
     base-sha: ${{ github.event.pull_request.base.sha }}
@@ -239,7 +239,7 @@ The reusable check workflow owns checkout and toolchain setup while the reposito
 ```yaml
 jobs:
   check:
-    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.33.0
+    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.34.0
     with:
       command: just check
       just-version: '1.58.0'
@@ -250,7 +250,7 @@ Simple Playwright jobs can also share browser installation and failure artifacts
 ```yaml
 jobs:
   end-to-end:
-    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.33.0
+    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.34.0
     with:
       prepare-command: pnpm build
       command: pnpm test:e2e:run
