@@ -61,4 +61,4 @@ jobs:
           PR_NUMBER: ${{ inputs.pr-number }}
           RUN_URL: ${{ inputs.run-url }}
           STATE: ${{ inputs.state }}
-        run: pnpm exec ras-stack-preview "$STATE"
+        run: pnpm exec ras preview "$STATE"

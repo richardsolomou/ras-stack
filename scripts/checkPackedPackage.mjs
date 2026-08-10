@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -40,6 +40,12 @@ try {
     }),
   )
   exec('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], temporary)
+
+  if (JSON.stringify(Object.keys(packageJson.bin)) !== JSON.stringify(['ras']))
+    throw new Error('package must install only the ras executable')
+  const cli = spawnSync('npx', ['ras'], { cwd: temporary, encoding: 'utf8' })
+  if (cli.status !== 2 || !cli.stderr.includes('usage: ras <assets|policy|preview|realtime>'))
+    throw new Error(`installed ras executable returned an unexpected result: ${cli.status}\n${cli.stderr}`)
 
   const imports = Object.keys(packageJson.exports).filter((entrypoint) => !entrypoint.startsWith('./config/'))
   writeFileSync(

@@ -74,10 +74,10 @@ Policy files which cannot inherit can stay committed while being checked against
 Then generate or verify the effective files:
 
 ```sh
-pnpm exec ras-stack-policy sync
-pnpm exec ras-stack-policy check
-pnpm exec ras-stack-policy sync adoption
-pnpm exec ras-stack-policy check adoption
+pnpm exec ras policy sync
+pnpm exec ras policy check
+pnpm exec ras policy sync adoption
+pnpm exec ras policy check adoption
 ```
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
@@ -87,7 +87,7 @@ Adoption synchronization updates older ras-stack package and workflow references
 The same adoption policy can produce a read-only fleet report from public repository metadata. Declare each repository's supported versions and required shared config references in `ras-stack.fleet.json`, then run:
 
 ```sh
-GITHUB_TOKEN="$(gh auth token)" pnpm exec ras-stack-policy fleet
+GITHUB_TOKEN="$(gh auth token)" pnpm exec ras policy fleet
 ```
 
 The command reads only `package.json`, root toolchain configs, and GitHub workflow metadata. It prints Markdown, exits unsuccessfully when drift exists, and never writes to a consumer repository. Omit an expectation when a repository intentionally does not share that surface. The included workflow is deliberately manual: dependency updates and each consumer's required checks enforce drift continuously, while `workflow_dispatch` produces an on-demand fleet-wide audit without another scheduled source of noise. The report is written to the Actions summary and retained as an artifact.
@@ -174,7 +174,7 @@ mark-preview-ready:
     token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The workflow uses the `ras-stack-preview` CLI from the consuming repository's pinned package. It owns only GitHub check/comment reporting; the caller retains the trusted event conditions, permissions, deployment, deletion, secret mapping, and product verification.
+The workflow uses `ras preview` from the consuming repository's pinned package. It owns only GitHub check/comment reporting; the caller retains the trusted event conditions, permissions, deployment, deletion, secret mapping, and product verification.
 
 The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
 
@@ -210,7 +210,7 @@ COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 For local development, the package can run the same pinned Centrifugo binary in Docker while the application and its Vite proxy remain local:
 
 ```sh
-ras-stack-realtime \
+ras realtime \
   --config realtime.json \
   --name example-realtime \
   --port 8000 \
