@@ -1,0 +1,64 @@
+name: Report preview status
+
+on:
+  workflow_call:
+    inputs:
+      state:
+        description: Preview lifecycle state.
+        type: string
+        required: true
+      pr-number:
+        description: Pull request number.
+        type: string
+        required: true
+      marker:
+        description: Named HTML comment marker.
+        type: string
+        required: true
+      note:
+        description: Product-specific access and data note.
+        type: string
+        default: ''
+      sha:
+        description: Preview commit SHA, omitted when deleting.
+        type: string
+        default: ''
+      preview-url:
+        description: Public preview URL, omitted when deleting.
+        type: string
+        default: ''
+      run-url:
+        description: Workflow run URL.
+        type: string
+        default: ''
+      check-name:
+        description: GitHub check name.
+        type: string
+        default: PR preview deploy
+    secrets:
+      token:
+        description: GitHub token with checks and issues write access.
+        required: true
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.27.0
+      - name: Report preview status
+        env:
+          COMMIT_SHA: ${{ inputs.sha }}
+          GH_TOKEN: ${{ secrets.token }}
+          PREVIEW_CHECK_NAME: ${{ inputs.check-name }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+          PREVIEW_NOTE: ${{ inputs.note }}
+          PREVIEW_URL: ${{ inputs.preview-url }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+          RUN_URL: ${{ inputs.run-url }}
+          STATE: ${{ inputs.state }}
+        run: pnpm exec ras-stack-preview "$STATE"
