@@ -89,12 +89,12 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 
 ## Guides 📚
 
-| Guide                                                    | What it covers                                                                                                                              |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Application primitives](docs/application-primitives.md) | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                           |
-| [Repository tooling](docs/repository-tooling.md)         | TypeScript and Oxlint configuration, generated policy, fleet checks, GitHub Actions, previews, releases, and production runtime composition |
-| [PostHog integration](docs/posthog.md)                   | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility     |
-| [Full-stack example](docs/full-stack-example.md)         | The `workspace:*` integration contract, local development, production container, and two-browser journey                                    |
+| Guide                                                    | What it covers                                                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [Application primitives](docs/application-primitives.md) | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
+| [Repository tooling](docs/repository-tooling.md)         | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
+| [PostHog integration](docs/posthog.md)                   | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
+| [Full-stack example](docs/full-stack-example.md)         | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
 
 ## Development 🛠️
 

@@ -2,9 +2,6 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
 
-export { fleetConfig, fleetMarkdown, inspectFleet, loadGitHubAdoptionSnapshot } from './fleet.js'
-export type { FleetConfig, FleetRepository, FleetResult } from './fleet.js'
-
 const changesetsPolicy = {
   $schema: 'https://unpkg.com/@changesets/config@3.1.2/schema.json',
   changelog: '@changesets/cli/changelog',

@@ -150,7 +150,7 @@ export const postHogCoverage = definePostHogCoverage({
 })
 ```
 
-`assertPostHogBrowserConformance()` checks pinned browser defaults and exception capture. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both, and fleet policy can require references to the coverage declaration and conformance assertions.
+`assertPostHogBrowserConformance()` checks pinned browser defaults and exception capture. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both alongside their coverage declaration.
 
 Build browser assets with source maps, then process the final directory before packaging or deployment:
 

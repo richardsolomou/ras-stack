@@ -84,14 +84,6 @@ pnpm exec ras policy check adoption
 
 Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
 
-The same adoption policy can produce a read-only fleet report from public repository metadata. Declare each repository's supported versions and required shared config references in `ras-stack.fleet.json`, then run:
-
-```sh
-GITHUB_TOKEN="$(gh auth token)" pnpm exec ras policy fleet
-```
-
-The command reads only `package.json`, root toolchain configs, and GitHub workflow metadata. It prints Markdown, exits unsuccessfully when drift exists, and never writes to a consumer repository. Omit an expectation when a repository intentionally does not share that surface. The included workflow is deliberately manual: dependency updates and each consumer's required checks enforce drift continuously, while `workflow_dispatch` produces an on-demand fleet-wide audit without another scheduled source of noise. The report is written to the Actions summary and retained as an artifact.
-
 ## GitHub Actions
 
 The JavaScript setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
@@ -228,7 +220,7 @@ The workflow consumes pending changesets, commits the resulting versions and cha
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
 
-Reusable workflows cannot refer to an action at their own dynamic release tag. Their implementations therefore pin ras-stack actions to an older independently published bootstrap tag and advance that pin only when the action contract changes. Consumer examples and direct action calls should use the fleet baseline above.
+Reusable workflows cannot refer to an action at their own dynamic release tag. Their implementations therefore pin ras-stack actions to an older independently published bootstrap tag and advance that pin only when the action contract changes. Consumer examples and direct action calls should use the current release.
 
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
