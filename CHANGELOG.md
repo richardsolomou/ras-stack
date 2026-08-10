@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.28.0
+
+### Minor Changes
+
+- 240b379: Compose the standard app, Centrifugo, and Caddy runtime with one lifecycle helper.
+
 ## 0.27.1
 
 ### Patch Changes
