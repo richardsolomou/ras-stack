@@ -19,7 +19,8 @@
   "bin": {
     "ras-stack-assets": "./dist/build/cli.js",
     "ras-stack-policy": "./dist/policy/cli.js",
-    "ras-stack-preview": "./dist/preview/cli.js"
+    "ras-stack-preview": "./dist/preview/cli.js",
+    "ras-stack-realtime": "./dist/runtime/dev-cli.js"
   },
   "files": [
     "dist",

@@ -2,6 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+export { runRealtimeDev, type RealtimeDevOptions } from './dev.js'
+
 export type RuntimeProcess = {
   name: string
   command: string
