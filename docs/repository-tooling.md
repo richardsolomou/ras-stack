@@ -63,7 +63,6 @@ Policy files which cannot inherit can stay committed while being checked against
   "dependabot": true,
   "pnpm": {},
   "adoption": {
-    "minimumRasStackVersion": "0.33.0",
     "node": ">=24 <25",
     "pnpm": "11.15.0",
     "just": "1.58.0"
@@ -82,7 +81,7 @@ pnpm exec ras policy check adoption
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
-Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
+Adoption synchronization treats the installed `ras-stack` dependency as the source of truth for GitHub Action and reusable-workflow pins. Upgrade the package, then run sync to update every direct workflow reference. It also synchronizes the declared Node, pnpm, and Just versions without changing application dependencies or workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
 
 ## GitHub Actions
 

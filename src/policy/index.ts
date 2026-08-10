@@ -43,7 +43,6 @@ export type RepositoryPolicy = {
 }
 
 export type AdoptionPolicy = {
-  minimumRasStackVersion?: string
   minimumWorkflowRasStackVersion?: string
   node?: string
   pnpm?: string
@@ -111,21 +110,21 @@ export function adoptionSnapshotDrift(snapshot: AdoptionSnapshot, policy: Adopti
   if (policy.pnpm && manifest.packageManager !== `pnpm@${policy.pnpm}`) {
     drift.push(`toolchain drift: package.json packageManager must be pnpm@${policy.pnpm}`)
   }
-  if (policy.minimumRasStackVersion) {
-    const dependency = dependencyVersion(manifest, 'ras-stack')
-    if (dependency && compareVersions(dependency, policy.minimumRasStackVersion) < 0) {
-      drift.push(`ras-stack drift: package.json uses ${dependency}, minimum is ${policy.minimumRasStackVersion}`)
-    }
-  }
+  const rasStackVersion = dependencyVersion(manifest, 'ras-stack')
 
   const workflows = new Map([...files].filter(([path]) => path.startsWith('.github/') && /\.ya?ml$/.test(path)))
-  const workflowMinimum = policy.minimumWorkflowRasStackVersion ?? policy.minimumRasStackVersion
   for (const [path, source] of workflows) {
-    if (workflowMinimum) {
+    if (rasStackVersion || policy.minimumWorkflowRasStackVersion) {
       for (const match of source.matchAll(/richardsolomou\/ras-stack\/[^\s'"}]+@v(\d+\.\d+\.\d+)/g)) {
         const version = match[1]
-        if (version && compareVersions(version, workflowMinimum) < 0) {
-          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${workflowMinimum}`)
+        if (version && rasStackVersion && version !== rasStackVersion) {
+          drift.push(`ras-stack drift: ${path} uses v${version}, package.json uses ${rasStackVersion}`)
+        } else if (
+          version &&
+          policy.minimumWorkflowRasStackVersion &&
+          compareVersions(version, policy.minimumWorkflowRasStackVersion) < 0
+        ) {
+          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${policy.minimumWorkflowRasStackVersion}`)
         }
       }
     }
@@ -178,7 +177,7 @@ function repositoryPolicy(source: string): RepositoryPolicy {
   const adoption = value.adoption
   if (adoption !== undefined && adoption !== false) {
     if (!plainObject(adoption)) throw new Error('adoption policy must be false or an object')
-    for (const key of ['minimumRasStackVersion', 'minimumWorkflowRasStackVersion', 'node', 'pnpm', 'just']) {
+    for (const key of ['minimumWorkflowRasStackVersion', 'node', 'pnpm', 'just']) {
       if (adoption[key] !== undefined && typeof adoption[key] !== 'string') throw new Error(`adoption.${key} must be a string`)
     }
     if (adoption.requiredReferences !== undefined && !stringArray(adoption.requiredReferences)) {
@@ -245,23 +244,20 @@ async function renderedAdoptionFiles(root: string, policy: AdoptionPolicy) {
     manifest.engines = { ...engines, node: policy.node }
   }
   if (policy.pnpm) manifest.packageManager = `pnpm@${policy.pnpm}`
-  if (policy.minimumRasStackVersion) {
-    for (const field of ['dependencies', 'devDependencies']) {
-      const dependencies = manifest[field]
-      if (!plainObject(dependencies) || typeof dependencies['ras-stack'] !== 'string') continue
-      dependencies['ras-stack'] = versionAtLeast(dependencies['ras-stack'], policy.minimumRasStackVersion)
-    }
-  }
   const renderedManifest = `${JSON.stringify(manifest, null, 2)}\n`
   if (renderedManifest !== manifestSource) files.set('package.json', renderedManifest)
 
-  const workflowVersion = policy.minimumWorkflowRasStackVersion ?? policy.minimumRasStackVersion
+  const workflowVersion = dependencyVersion(manifest, 'ras-stack')
   const workflows = await textFiles(join(root, '.github'), root)
   for (const [path, source] of workflows) {
     let rendered = source
     if (workflowVersion) {
+      rendered = rendered.replace(/(richardsolomou\/ras-stack\/[^\s'"}]+@v)(\d+\.\d+\.\d+)/g, `$1${workflowVersion}`)
+    } else if (policy.minimumWorkflowRasStackVersion) {
       rendered = rendered.replace(/(richardsolomou\/ras-stack\/[^\s'"}]+@v)(\d+\.\d+\.\d+)/g, (reference, prefix, current) =>
-        compareVersions(current, workflowVersion) < 0 ? `${prefix}${workflowVersion}` : reference,
+        compareVersions(current, policy.minimumWorkflowRasStackVersion!) < 0
+          ? `${prefix}${policy.minimumWorkflowRasStackVersion}`
+          : reference,
       )
     }
     if (policy.just) {
@@ -274,13 +270,6 @@ async function renderedAdoptionFiles(root: string, policy: AdoptionPolicy) {
     if (rendered !== source) files.set(path, rendered)
   }
   return files
-}
-
-function versionAtLeast(current: string, version: string) {
-  const match = /^(\s*(?:\^|~|>=|>|<=|<|=)?\s*)\d+\.\d+\.\d+(.*)$/.exec(current)
-  const currentVersion = /\d+\.\d+\.\d+/.exec(current)?.[0]
-  if (currentVersion && compareVersions(currentVersion, version) >= 0) return current
-  return match ? `${match[1]}${version}${match[2]}` : version
 }
 
 function validateSelection(name: string, value: unknown) {
