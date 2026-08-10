@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest'
 import { adoptionSnapshotDrift } from './index.js'
 
 describe('published documentation', () => {
-  it('does not recommend ras-stack releases older than the package', async () => {
+  it('does not recommend ras-stack releases older than the adoption baseline', async () => {
     const documentationDirectory = new URL('../../docs/', import.meta.url)
     const documentationFiles = (await readdir(documentationDirectory)).filter((file) => file.endsWith('.md'))
-    const [manifestSource, ...documentation] = await Promise.all([
-      readFile(new URL('../../package.json', import.meta.url), 'utf8'),
+    const [policySource, ...documentation] = await Promise.all([
+      readFile(new URL('../../ras-stack.policy.json', import.meta.url), 'utf8'),
       readFile(new URL('../../README.md', import.meta.url), 'utf8'),
       ...documentationFiles.map((file) => readFile(new URL(file, documentationDirectory), 'utf8')),
     ])
-    const { version: minimum } = JSON.parse(manifestSource) as { version: string }
+    const { adoption } = JSON.parse(policySource) as { adoption: { minimumRasStackVersion: string } }
 
     const references = [...documentation.join('\n').matchAll(/richardsolomou\/ras-stack\/[^\s'"}]+@v(\d+\.\d+\.\d+)/g)].map(
       ([, version]) => version,
@@ -28,7 +28,7 @@ describe('published documentation', () => {
             ],
           ]),
         },
-        { minimumWorkflowRasStackVersion: minimum },
+        { minimumWorkflowRasStackVersion: adoption.minimumRasStackVersion },
       ),
     ).toEqual([])
   })
