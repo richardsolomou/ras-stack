@@ -123,6 +123,57 @@ export function assertDatabaseTargetConformance(resolve: DatabaseTargetResolver)
   throw new ConformanceError('invalid database target', 'expected a non-PostgreSQL URL to be rejected')
 }
 
+export function assertPostHogBrowserConformance(options: Record<string, unknown>) {
+  if (typeof options.api_host !== 'string' || !options.api_host.trim()) {
+    throw new ConformanceError('PostHog browser initialization', 'api_host must be configured')
+  }
+  if (typeof options.ui_host !== 'string' || !options.ui_host.trim()) {
+    throw new ConformanceError('PostHog browser initialization', 'ui_host must be configured')
+  }
+  if (typeof options.defaults !== 'string' || !options.defaults.trim()) {
+    throw new ConformanceError('PostHog browser initialization', 'SDK defaults must be pinned')
+  }
+  if (!options.capture_exceptions) {
+    throw new ConformanceError('PostHog browser initialization', 'exception autocapture must be enabled')
+  }
+  if (options.capture_pageview !== 'history_change') {
+    throw new ConformanceError('PostHog browser initialization', 'SPA pageviews must follow history changes')
+  }
+  if (options.person_profiles !== 'identified_only') {
+    throw new ConformanceError('PostHog browser initialization', 'person profiles must be limited to identified users')
+  }
+  const recording = options.session_recording
+  if (!recording || typeof recording !== 'object' || !('maskAllInputs' in recording) || recording.maskAllInputs !== true) {
+    throw new ConformanceError('PostHog browser initialization', 'session replay must mask all inputs by default')
+  }
+}
+
+type PostHogContextParser = (
+  request: Request,
+  options?: { authenticatedDistinctId?: string; allowAnonymousDistinctId?: boolean },
+) => { distinctId?: string; sessionId?: string; properties: { $session_id?: string } }
+
+export function assertPostHogRequestConformance(parse: PostHogContextParser) {
+  const matched = parse(postHogRequest('person-123', 'session-456'), { authenticatedDistinctId: 'person-123' })
+  if (matched.distinctId !== 'person-123' || matched.sessionId !== 'session-456' || matched.properties.$session_id !== 'session-456') {
+    throw new ConformanceError('authenticated PostHog request', 'expected verified identity and session propagation')
+  }
+  const spoofed = parse(postHogRequest('attacker', 'session-456'), { authenticatedDistinctId: 'person-123' })
+  if (spoofed.distinctId !== undefined) {
+    throw new ConformanceError('spoofed PostHog request', 'unverified distinct id was trusted')
+  }
+  const malformed = parse(postHogRequest('person-123', 'x'.repeat(129)), { authenticatedDistinctId: 'person-123' })
+  if (malformed.sessionId !== undefined || malformed.properties.$session_id !== undefined) {
+    throw new ConformanceError('malformed PostHog request', 'unbounded session id was propagated')
+  }
+}
+
+function postHogRequest(distinctId: string, sessionId: string) {
+  return new Request('https://app.example/action', {
+    headers: { 'x-posthog-distinct-id': distinctId, 'x-posthog-session-id': sessionId },
+  })
+}
+
 async function accepted(scenario: string, work: () => void | Promise<void>) {
   try {
     await work()

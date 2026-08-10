@@ -1,0 +1,42 @@
+name: Upload PostHog source maps
+description: Inject PostHog chunk IDs, upload source maps, and remove maps before the exact assets are deployed.
+
+inputs:
+  directory:
+    description: Final browser asset directory.
+    required: true
+  release-name:
+    description: Application name recorded on the PostHog release.
+    required: true
+  release-version:
+    description: Application version or commit SHA.
+    default: ${{ github.sha }}
+  project-id:
+    description: PostHog project ID.
+    required: true
+  personal-api-key:
+    description: PostHog personal API key with error tracking write access.
+    required: true
+  host:
+    description: PostHog UI host.
+    default: https://us.posthog.com
+
+runs:
+  using: composite
+  steps:
+    - name: Inject and upload source maps
+      shell: bash
+      env:
+        ASSET_DIRECTORY: ${{ inputs.directory }}
+        POSTHOG_CLI_API_KEY: ${{ inputs.personal-api-key }}
+        POSTHOG_CLI_PROJECT_ID: ${{ inputs.project-id }}
+        POSTHOG_HOST: ${{ inputs.host }}
+        RELEASE_NAME: ${{ inputs.release-name }}
+        RELEASE_VERSION: ${{ inputs.release-version }}
+      run: |
+        test -d "$ASSET_DIRECTORY"
+        npx --yes @posthog/cli@0.10.0 --host "$POSTHOG_HOST" sourcemap process \
+          --directory "$ASSET_DIRECTORY" \
+          --release-name "$RELEASE_NAME" \
+          --release-version "$RELEASE_VERSION" \
+          --delete-after

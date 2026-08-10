@@ -3,10 +3,14 @@ import { requireSameOrigin } from '../auth/origins.js'
 import { databaseTarget } from '../database/index.js'
 import { openSqliteClient } from '../database/sqlite.js'
 import { healthResponse } from '../server/health.js'
+import { postHogBrowserOptions } from '../posthog/client.js'
+import { postHogRequestContext } from '../posthog/request.js'
 import {
   assertDatabaseTargetConformance,
   assertHealthHandlerConformance,
   assertMutationOriginConformance,
+  assertPostHogBrowserConformance,
+  assertPostHogRequestConformance,
   assertSqliteConformance,
 } from './index.js'
 
@@ -56,5 +60,28 @@ describe('consumer conformance assertions', () => {
     expect(() => assertDatabaseTargetConformance(({ sqliteFile }) => ({ provider: 'sqlite', file: sqliteFile }))).toThrow(
       'PostgreSQL database target: expected the configured postgres: URL',
     )
+  })
+
+  it('accepts the shared PostHog browser and request composition', () => {
+    expect(() =>
+      assertPostHogBrowserConformance(postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com' })),
+    ).not.toThrow()
+    expect(() => assertPostHogRequestConformance(postHogRequestContext)).not.toThrow()
+  })
+
+  it('identifies PostHog setup without error tracking or identity verification', () => {
+    expect(() =>
+      assertPostHogBrowserConformance({ api_host: '/ingest', ui_host: 'https://us.posthog.com', defaults: '2026-05-30' }),
+    ).toThrow('PostHog browser initialization: exception autocapture must be enabled')
+    expect(() =>
+      assertPostHogRequestConformance((request) => {
+        const sessionId = request.headers.get('x-posthog-session-id')!
+        return {
+          distinctId: request.headers.get('x-posthog-distinct-id')!,
+          sessionId,
+          properties: { $session_id: sessionId },
+        }
+      }),
+    ).toThrow('spoofed PostHog request: unverified distinct id was trusted')
   })
 })
