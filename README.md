@@ -503,7 +503,7 @@ ras-stack-realtime \
   --secret development-secret
 ```
 
-The foreground command follows terminal signals and leaves an existing named container alone. Add `--detach` to replace that named development container and return after startup. Applications with a Centrifugo connect proxy can pass its Docker-reachable URL through `--connect-proxy-endpoint`; channel definitions, proxy authorization, application environment, and Vite configuration remain in the application.
+The foreground command follows terminal signals and leaves an existing named container alone. Add `--detach` to replace that named development container and return after startup. The host binding defaults to `127.0.0.1`; container-based callers that must reach Centrifugo through the Docker host can explicitly pass `--bind-address 0.0.0.0`. Applications with a Centrifugo connect proxy can pass its Docker-reachable URL through `--connect-proxy-endpoint`; channel definitions, proxy authorization, application environment, and Vite configuration remain in the application.
 
 `runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created.
 

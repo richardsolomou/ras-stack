@@ -18,6 +18,7 @@ describe('Docker-backed realtime development', () => {
         port: 8123,
         origin: 'http://localhost:3100',
         secret: 'development-secret',
+        bindAddress: '0.0.0.0',
       },
       { run },
     )
@@ -31,7 +32,7 @@ describe('Docker-backed realtime development', () => {
       '--add-host',
       'host.docker.internal:host-gateway',
       '-p',
-      '127.0.0.1:8123:8000',
+      '0.0.0.0:8123:8000',
       '-e',
       'CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY=development-secret',
       '-e',
@@ -129,6 +130,8 @@ describe('Docker-backed realtime development', () => {
         'example-realtime',
         '--port',
         '8001',
+        '--bind-address',
+        '0.0.0.0',
         '--origin',
         'http://localhost:3001',
         '--secret',
@@ -139,10 +142,28 @@ describe('Docker-backed realtime development', () => {
       configPath: './realtime.json',
       containerName: 'example-realtime',
       port: 8001,
+      bindAddress: '0.0.0.0',
       origin: 'http://localhost:3001',
       secret: 'secret',
       detached: true,
     })
     expect(() => parseRealtimeDevArguments(['--wat'])).toThrow('unknown argument: --wat')
+  })
+
+  it('rejects a non-local bind address', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ras-stack-realtime-dev-'))
+    const configPath = join(directory, 'realtime.json')
+    await writeFile(configPath, '{}')
+    await expect(
+      runRealtimeDev({
+        configPath,
+        containerName: 'example-realtime',
+        port: 8000,
+        origin: 'http://localhost:3000',
+        secret: 'secret',
+        bindAddress: '192.0.2.1',
+      }),
+    ).rejects.toThrow('bindAddress must be 127.0.0.1 or 0.0.0.0')
+    await rm(directory, { recursive: true })
   })
 })

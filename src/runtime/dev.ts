@@ -9,6 +9,7 @@ export type RealtimeDevOptions = {
   configPath: string
   containerName: string
   port: number
+  bindAddress?: string
   origin: string
   secret: string
   detached?: boolean
@@ -28,6 +29,7 @@ export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: 
   }
   const containerName = dockerName(options.containerName)
   const publicPort = tcpPort(options.port)
+  const bindAddress = dockerBindAddress(options.bindAddress ?? '127.0.0.1')
   const origin = httpUrl(options.origin, 'origin')
   const secret = required(options.secret, 'secret')
   const connectProxyEndpoint = options.connectProxyEndpoint ? httpEndpoint(options.connectProxyEndpoint) : undefined
@@ -45,7 +47,7 @@ export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: 
       '--add-host',
       'host.docker.internal:host-gateway',
       '-p',
-      `127.0.0.1:${publicPort}:8000`,
+      `${bindAddress}:${publicPort}:8000`,
       '-e',
       `CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY=${secret}`,
       '-e',
@@ -84,7 +86,7 @@ export function parseRealtimeDevArguments(arguments_: readonly string[]): Realti
       detached = true
       continue
     }
-    if (!['--config', '--name', '--port', '--origin', '--secret', '--connect-proxy-endpoint'].includes(argument)) {
+    if (!['--config', '--name', '--port', '--bind-address', '--origin', '--secret', '--connect-proxy-endpoint'].includes(argument)) {
       throw new Error(`unknown argument: ${argument}`)
     }
     const value = arguments_[index + 1]
@@ -93,10 +95,12 @@ export function parseRealtimeDevArguments(arguments_: readonly string[]): Realti
     index += 1
   }
   const connectProxyEndpoint = values.get('--connect-proxy-endpoint')
+  const bindAddress = values.get('--bind-address')
   return {
     configPath: required(values.get('--config'), '--config'),
     containerName: required(values.get('--name'), '--name'),
     port: Number(required(values.get('--port'), '--port')),
+    ...(bindAddress ? { bindAddress } : {}),
     origin: required(values.get('--origin'), '--origin'),
     secret: required(values.get('--secret'), '--secret'),
     ...(detached ? { detached: true } : {}),
@@ -134,6 +138,11 @@ function dockerName(value: string) {
 
 function tcpPort(value: number) {
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error('port must be a valid TCP port')
+  return value
+}
+
+function dockerBindAddress(value: string) {
+  if (value !== '127.0.0.1' && value !== '0.0.0.0') throw new Error('bindAddress must be 127.0.0.1 or 0.0.0.0')
   return value
 }
 
