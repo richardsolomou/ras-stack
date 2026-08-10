@@ -1,0 +1,42 @@
+:root {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #172033;
+  background: #f4f7fb;
+}
+body {
+  margin: 0;
+}
+main {
+  width: min(42rem, calc(100% - 2rem));
+  margin: 3rem auto;
+}
+section,
+form {
+  padding: 1rem;
+  margin-block: 1rem;
+  border: 1px solid #cad3e0;
+  border-radius: 0.75rem;
+  background: white;
+}
+label {
+  display: grid;
+  gap: 0.35rem;
+  margin-block: 0.75rem;
+}
+input,
+button {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+}
+button {
+  cursor: pointer;
+}
+ul {
+  padding-left: 1.25rem;
+}
+.status {
+  color: #526174;
+}
+.error {
+  color: #a11;
+}

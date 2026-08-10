@@ -1,0 +1,14 @@
+{
+  "client": {
+    "proxy": {
+      "connect": {
+        "enabled": true,
+        "endpoint": "http://127.0.0.1:3101/api/centrifugo/connect",
+        "http_headers": ["Cookie", "Origin", "X-Forwarded-Host", "X-Forwarded-Proto"],
+        "http": { "static_headers": { "X-Proxy-Secret": "${CENTRIFUGO_VAR_PROXY_SECRET}" } }
+      }
+    }
+  },
+  "channel": { "namespaces": [{ "name": "messages", "allow_subscribe_for_client": true }] },
+  "health": { "enabled": true }
+}

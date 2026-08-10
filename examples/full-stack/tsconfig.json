@@ -1,0 +1,8 @@
+{
+  "extends": "ras-stack/config/typescript/tanstack",
+  "compilerOptions": {
+    "paths": { "@/*": ["./src/*"] },
+    "types": ["node", "vite/client", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "vite.config.ts", "vitest.config.ts"]
+}

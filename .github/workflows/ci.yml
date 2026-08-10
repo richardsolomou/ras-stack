@@ -15,9 +15,56 @@ jobs:
       command: just --version && just check
       just-version: '1.58.0'
 
+  example:
+    name: Full-stack example
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - uses: ./actions/setup-playwright
+      - name: Build package and example
+        run: pnpm build && pnpm --filter @ras-stack/example-full-stack check
+      - name: Build production image
+        run: docker build -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
+      - name: Start production image
+        run: |
+          docker run -d --name ras-stack-example-e2e \
+            --read-only \
+            --tmpfs /tmp:rw \
+            --tmpfs /data:rw,uid=1000,gid=1000 \
+            -p 3110:3100 \
+            -e APP_URL=http://127.0.0.1:3110 \
+            -e CENTRIFUGO_API_KEY=example-api-key \
+            -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
+            ras-stack-example:e2e
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3110/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs ras-stack-example-e2e
+          exit 1
+      - name: Exercise full stack
+        run: pnpm --filter @ras-stack/example-full-stack e2e
+      - name: Capture container logs
+        if: always()
+        run: docker logs ras-stack-example-e2e > example-container.log 2>&1 || true
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: full-stack-example-failure
+          path: |
+            example-container.log
+            examples/full-stack/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [check]
+    needs: [check, example]
     permissions:
       contents: write
     uses: ./.github/workflows/release-changesets.yml
