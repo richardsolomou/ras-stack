@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.35.0
+
+### Minor Changes
+
+- 9e5b6d3: Add managed PostHog server analytics, exception, log, RPC, and shutdown telemetry.
+
 ## 0.34.1
 
 ### Patch Changes
