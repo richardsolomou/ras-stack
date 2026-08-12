@@ -1,0 +1,230 @@
+name: Deploy Dokploy preview
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: GHCR package name.
+        type: string
+        required: true
+      local-image:
+        description: Local image name stored in fork artifacts.
+        type: string
+        required: true
+      application-prefix:
+        description: Dokploy application name prefix.
+        type: string
+        required: true
+      domain:
+        description: Preview domain; previews use pr-<number>.<domain>.
+        type: string
+        required: true
+      port:
+        description: Application HTTP port.
+        type: number
+        required: true
+      environment:
+        description: Multiline environment template. Supports {{PR_NUMBER}} and {{RANDOM_HEX_32}}.
+        type: string
+        default: ''
+      health-path:
+        description: HTTP health-check path.
+        type: string
+        default: /api/health
+      marker:
+        description: Stable marker for the pull-request status comment.
+        type: string
+        required: true
+      note:
+        description: Safety and usage note shown in the pull-request comment.
+        type: string
+        default: Preview data is disposable and resets on every deployment.
+      deploy-script:
+        description: Trusted repository script used for app-specific lifecycle hooks.
+        type: string
+        default: ''
+      playwright-config:
+        description: Playwright config used to verify the deployed preview.
+        type: string
+        default: ''
+    secrets:
+      DOKPLOY_URL:
+        required: true
+      DOKPLOY_API_KEY:
+        required: true
+      DOKPLOY_ENVIRONMENT_ID:
+        required: true
+      PREVIEW_REGISTRY_USERNAME:
+        required: false
+      PREVIEW_REGISTRY_PASSWORD:
+        required: false
+      PREVIEW_APP_SECRETS:
+        required: false
+
+env:
+  PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}.${{ inputs.domain }}
+
+jobs:
+  mark-fork-awaiting-approval:
+    if: github.event_name == 'workflow_run' && github.event.action == 'requested' && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.0
+    with:
+      state: awaiting
+      pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+      sha: ${{ github.event.workflow_run.head_sha }}
+      preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+      run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      marker: ${{ inputs.marker }}
+      note: ${{ inputs.note }}
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
+  mark-fork-deploying:
+    if: github.event_name == 'workflow_run' && github.event.action == 'in_progress' && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.0
+    with:
+      state: building
+      pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
+      sha: ${{ github.event.workflow_run.head_sha }}
+      preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+      run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      marker: ${{ inputs.marker }}
+      note: ${{ inputs.note }}
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+      checks: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - name: Publish fork preview image
+        if: github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+        uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.36.0
+        with:
+          artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
+          run-id: ${{ github.event.workflow_run.id }}
+          source-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
+          target-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
+          token: ${{ github.token }}
+      - name: Resolve immutable preview image
+        id: image
+        uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.36.0
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
+          registry-username: ${{ secrets.PREVIEW_REGISTRY_USERNAME }}
+          registry-password: ${{ secrets.PREVIEW_REGISTRY_PASSWORD }}
+      - name: Deploy preview
+        id: deploy
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
+          PREVIEW_REGISTRY_USERNAME: ${{ secrets.PREVIEW_REGISTRY_USERNAME }}
+          PREVIEW_REGISTRY_PASSWORD: ${{ secrets.PREVIEW_REGISTRY_PASSWORD }}
+          PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
+          PREVIEW_IMAGE: ${{ steps.image.outputs.reference }}
+          PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
+          PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_PORT: ${{ inputs.port }}
+          PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
+          PREVIEW_ENVIRONMENT: ${{ inputs.environment }}
+          PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          if [[ -n "$PREVIEW_SCRIPT" ]]; then
+            pnpm exec tsx "$PREVIEW_SCRIPT" deploy
+          else
+            PREVIEW_ENVIRONMENT="${PREVIEW_ENVIRONMENT//'{{PR_NUMBER}}'/$PR_NUMBER}"
+            while [[ "$PREVIEW_ENVIRONMENT" == *'{{RANDOM_HEX_32}}'* ]]; do
+              PREVIEW_ENVIRONMENT="${PREVIEW_ENVIRONMENT/'{{RANDOM_HEX_32}}'/$(openssl rand -hex 32)}"
+            done
+            export PREVIEW_ENVIRONMENT
+            pnpm exec ras preview dokploy deploy
+          fi
+      - name: Install preview browser
+        if: inputs.playwright-config != ''
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verify preview
+        if: inputs.playwright-config != ''
+        env:
+          PREVIEW_BASE_URL: ${{ steps.deploy.outputs.preview-url }}
+          PLAYWRIGHT_CONFIG: ${{ inputs.playwright-config }}
+        run: pnpm exec playwright test --config "$PLAYWRIGHT_CONFIG"
+      - name: Mark preview as ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+          PREVIEW_NOTE: ${{ inputs.note }}
+          PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: pnpm exec ras preview ready
+      - name: Mark preview as failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+          PREVIEW_NOTE: ${{ inputs.note }}
+          PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: pnpm exec ras preview failed
+
+  cleanup:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - name: Delete preview
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
+          PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
+          PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
+          PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_PORT: ${{ inputs.port }}
+          PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
+          PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ -n "$PREVIEW_SCRIPT" ]]; then
+            pnpm exec tsx "$PREVIEW_SCRIPT" delete
+          else
+            pnpm exec ras preview dokploy delete
+          fi
+      - name: Mark preview as deleted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+        run: pnpm exec ras preview deleted
+      - name: Delete preview images
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.36.0
+        with:
+          token: ${{ github.token }}
+          package: ${{ inputs.package }}
+          pr-number: ${{ github.event.pull_request.number }}

@@ -1,5 +1,38 @@
 export type DokployApplication = { applicationId: string; name: string }
 
+export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = process.env) {
+  const username = optionalEnvironment(environment, 'PREVIEW_REGISTRY_USERNAME')
+  const password = optionalEnvironment(environment, 'PREVIEW_REGISTRY_PASSWORD')
+  if (Boolean(username) !== Boolean(password)) throw new Error('preview registry username and password must be configured together')
+  const port = Number(requiredEnvironment(environment, 'PREVIEW_PORT'))
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PREVIEW_PORT must be a valid port')
+  const applicationPrefix = requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX')
+  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(applicationPrefix)) throw new Error('PREVIEW_APPLICATION_PREFIX must be a slug')
+  const domain = requiredEnvironment(environment, 'PREVIEW_DOMAIN')
+  previewHostname(`pr-1.${domain}`)
+  const config = {
+    url: requiredEnvironment(environment, 'DOKPLOY_URL'),
+    apiKey: requiredEnvironment(environment, 'DOKPLOY_API_KEY'),
+    environmentId: requiredEnvironment(environment, 'DOKPLOY_ENVIRONMENT_ID'),
+    applicationPrefix,
+    domain,
+    port,
+    healthPath: optionalEnvironment(environment, 'PREVIEW_HEALTH_PATH'),
+    ...(username && password ? { registry: { username, password } } : {}),
+  }
+  const client = new DokployClient(config)
+  return {
+    config,
+    manager: new DokployPreviewManager({
+      client,
+      applicationName: (prNumber) => `${applicationPrefix}-pr-${prNumber}`,
+      hostname: (prNumber) => `pr-${prNumber}.${domain}`,
+      port,
+      ...(config.healthPath ? { healthPath: config.healthPath } : {}),
+    }),
+  }
+}
+
 export type DokployClientOptions = {
   url: string
   apiKey: string
@@ -235,4 +268,14 @@ function previewApplicationPrNumber(name: string, applicationName: (prNumber: st
   const match = /^(\d+)$/.exec(name.match(/(\d+)$/)?.[1] ?? '')
   const prNumber = match?.[1]
   return prNumber && applicationName(prNumber) === name ? prNumber : undefined
+}
+
+function requiredEnvironment(environment: NodeJS.ProcessEnv, name: string) {
+  const value = optionalEnvironment(environment, name)
+  if (!value) throw new Error(`${name} is required`)
+  return value
+}
+
+function optionalEnvironment(environment: NodeJS.ProcessEnv, name: string) {
+  return environment[name]?.trim() || undefined
 }

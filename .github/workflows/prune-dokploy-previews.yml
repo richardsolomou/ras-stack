@@ -1,0 +1,73 @@
+name: Prune Dokploy previews
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: GHCR package name.
+        type: string
+        required: true
+      application-prefix:
+        description: Dokploy application name prefix.
+        type: string
+        required: true
+      domain:
+        description: Preview domain.
+        type: string
+        required: true
+      port:
+        description: Application HTTP port.
+        type: number
+        required: true
+      deploy-script:
+        description: Trusted repository script used for app-specific lifecycle hooks.
+        type: string
+        default: ''
+    secrets:
+      DOKPLOY_URL:
+        required: true
+      DOKPLOY_API_KEY:
+        required: true
+      DOKPLOY_ENVIRONMENT_ID:
+        required: true
+      PREVIEW_APP_SECRETS:
+        required: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - name: List open pull requests
+        id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "numbers=$(gh pr list --state open --limit 1000 --json number --jq '.[].number' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+      - name: Prune previews without open pull requests
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
+          PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
+          PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
+          PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_PORT: ${{ inputs.port }}
+          PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
+          OPEN_PR_NUMBERS: ${{ steps.open.outputs.numbers }}
+        run: |
+          if [[ -n "$PREVIEW_SCRIPT" ]]; then
+            pnpm exec tsx "$PREVIEW_SCRIPT" prune
+          else
+            pnpm exec ras preview dokploy prune
+          fi
+      - name: Prune preview images
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.36.0
+        with:
+          token: ${{ github.token }}
+          package: ${{ inputs.package }}
+          open-pr-numbers: ${{ steps.open.outputs.numbers }}
