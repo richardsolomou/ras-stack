@@ -130,6 +130,19 @@ e2e:
 
 The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`. Build and browser durations are written to the job summary, and failure artifacts remain configurable. Applications that need extra caches, services, registry publication, or a different PR/main topology can use `actions/build-container` and `actions/setup-playwright` inside their own job instead.
 
+Production deployments can point Dokploy at the exact image that the workflow already published instead of asking Dokploy to rebuild the repository:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/deploy-dokploy-image@v0.36.0
+  with:
+    url: ${{ secrets.DOKPLOY_URL }}
+    api-key: ${{ secrets.DOKPLOY_API_KEY }}
+    application-id: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+    image: ghcr.io/example/application:sha-${{ github.sha }}
+```
+
+The action switches the application to Dokploy's Docker-image provider before deploying. Public images need no registry inputs; private images supply `registry-url`, `registry-username`, and `registry-password` together. The caller owns image publication, the immutable tag or digest, application environment, domains, health verification, and deployment policy.
+
 Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
 
 Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:

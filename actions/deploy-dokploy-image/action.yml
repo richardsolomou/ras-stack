@@ -1,0 +1,40 @@
+name: Deploy Dokploy image
+description: Point a Dokploy application at an existing OCI image and deploy it without rebuilding source.
+
+inputs:
+  url:
+    description: Dokploy base URL.
+    required: true
+  api-key:
+    description: Dokploy API key.
+    required: true
+  application-id:
+    description: Dokploy application ID.
+    required: true
+  image:
+    description: Exact OCI image reference for Dokploy to run.
+    required: true
+  registry-url:
+    description: Registry hostname for a private image.
+    default: ''
+  registry-username:
+    description: Registry username for a private image.
+    default: ''
+  registry-password:
+    description: Registry password or token for a private image.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Configure image provider and deploy
+      shell: bash
+      env:
+        DOKPLOY_URL: ${{ inputs.url }}
+        DOKPLOY_API_KEY: ${{ inputs.api-key }}
+        DOKPLOY_APPLICATION_ID: ${{ inputs.application-id }}
+        DOKPLOY_IMAGE: ${{ inputs.image }}
+        DOKPLOY_REGISTRY_URL: ${{ inputs.registry-url }}
+        DOKPLOY_REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        DOKPLOY_REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      run: bash "$GITHUB_ACTION_PATH/deploy.sh"
