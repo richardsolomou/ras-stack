@@ -24,7 +24,7 @@ mapfile -t version_ids < <(
     | .metadata.container.tags as $tags
     | select(($tags | length) > 0 and all($tags[]; preview))
     | select(
-        if $pr != "" then any($tags[]; startswith("preview-pr-\($pr)-sha-"))
+        if $pr != "" then all($tags[]; startswith("preview-pr-\($pr)-sha-"))
         else all($tags[]; capture("^preview-pr-(?<pr>[0-9]+)-sha-").pr as $tag_pr | ($open | contains(" \($tag_pr) ") | not))
         end
       )

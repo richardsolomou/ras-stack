@@ -17,6 +17,9 @@ inputs:
   registry:
     description: Container registry hostname.
     default: ghcr.io
+  registry-username:
+    description: Container registry username; defaults to the GitHub actor.
+    default: ''
   context:
     description: Docker build context.
     default: .
@@ -45,7 +48,7 @@ runs:
     - uses: docker/login-action@v4
       with:
         registry: ${{ inputs.registry }}
-        username: ${{ github.actor }}
+        username: ${{ inputs.registry-username || github.actor }}
         password: ${{ inputs.token }}
     - name: Build and publish production image
       id: build
@@ -69,7 +72,4 @@ runs:
         DIGEST: ${{ steps.build.outputs.digest }}
         IMAGE: ${{ inputs.image }}
         SHA: ${{ inputs.sha }}
-      run: |
-        [[ $DIGEST =~ ^sha256:[0-9a-f]{64}$ ]]
-        echo "reference=${IMAGE}:sha-${SHA}@${DIGEST}" >> "$GITHUB_OUTPUT"
-        echo "Published \`${IMAGE}:sha-${SHA}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+      run: bash "$GITHUB_ACTION_PATH/record-reference.sh"

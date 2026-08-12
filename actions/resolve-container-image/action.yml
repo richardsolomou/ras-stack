@@ -11,6 +11,9 @@ inputs:
   registry-password:
     description: Registry password or token for a private image.
     default: ''
+  registry:
+    description: Container registry hostname.
+    default: ghcr.io
 
 outputs:
   reference:
@@ -26,19 +29,15 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.image }}
+        REGISTRY: ${{ inputs.registry }}
         REGISTRY_USERNAME: ${{ inputs.registry-username }}
         REGISTRY_PASSWORD: ${{ inputs.registry-password }}
       run: |
         test -n "$REGISTRY_USERNAME" && test -n "$REGISTRY_PASSWORD"
-        echo "$REGISTRY_PASSWORD" | docker login "${IMAGE%%/*}" --username "$REGISTRY_USERNAME" --password-stdin
+        echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" --username "$REGISTRY_USERNAME" --password-stdin
     - name: Resolve immutable reference
       id: resolve
       shell: bash
       env:
         IMAGE: ${{ inputs.image }}
-      run: |
-        set -euo pipefail
-        digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest.Digest}}' | jq -r .)"
-        [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
-        echo "reference=${IMAGE}@${digest}" >> "$GITHUB_OUTPUT"
-        echo "Resolved \`${IMAGE}@${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+      run: bash "$GITHUB_ACTION_PATH/resolve.sh"

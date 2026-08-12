@@ -105,6 +105,30 @@ describe('Dokploy preview lifecycle', () => {
       'Timed out waiting for the Dokploy deployment to finish',
     )
   })
+
+  it('aborts a deployment status request that never responds', async () => {
+    const server = fakeDokploy([], 'hang')
+    const client = new DokployClient({
+      url: 'https://dokploy.example',
+      apiKey: 'secret',
+      environmentId: 'environment',
+      fetch: server.fetch,
+      log: () => undefined,
+    })
+    const manager = new DokployPreviewManager({
+      client,
+      applicationName: (prNumber) => `example-pr-${prNumber}`,
+      hostname: (prNumber) => `pr-${prNumber}.example.com`,
+      port: 3000,
+      fetch: server.fetch,
+      deploymentTimeoutMs: 10,
+      pollIntervalMs: 0,
+      log: () => undefined,
+    })
+    await expect(manager.deploy({ prNumber: '42', image: 'example', environment: '' })).rejects.toThrow(
+      'Timed out waiting for the Dokploy deployment to finish',
+    )
+  })
 })
 
 function previewManager(fetch: typeof globalThis.fetch) {
@@ -126,7 +150,7 @@ function previewManager(fetch: typeof globalThis.fetch) {
   })
 }
 
-function fakeDokploy(initial: { applicationId: string; name: string }[] = [], deploymentStatus = 'done') {
+function fakeDokploy(initial: { applicationId: string; name: string }[] = [], deploymentStatus: string = 'done') {
   const applications = [...initial]
   const procedures: string[] = []
   const bodies = new Map<string, unknown>()
@@ -146,6 +170,11 @@ function fakeDokploy(initial: { applicationId: string; name: string }[] = [], de
     }
     if (procedure === 'application.deploy') deployed = true
     if (procedure === 'application.one') {
+      if (deployed && deploymentStatus === 'hang') {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+        })
+      }
       return Response.json(deployed ? { applicationStatus: deploymentStatus } : { domains: [] })
     }
     return new Response(null)

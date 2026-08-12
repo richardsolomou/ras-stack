@@ -15,6 +15,7 @@ describe('preview image pruning action', () => {
     expect(await readFile(fixture.deletions, 'utf8')).toContain('/versions/1')
     expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/2')
     expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/3')
+    expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/4')
   })
 
   it('keeps open pull request versions during an orphan sweep', async () => {
@@ -35,7 +36,7 @@ async function githubFixture() {
     `#!/usr/bin/env bash
 if [[ "$*" == *"/users/owner --jq .type"* ]]; then echo User; exit 0; fi
 if [[ "$*" == *"--paginate --slurp"* ]]; then
-  echo '[[{"id":1,"metadata":{"container":{"tags":["preview-pr-42-sha-${'a'.repeat(40)}"]}}},{"id":2,"metadata":{"container":{"tags":["preview-pr-43-sha-${'b'.repeat(40)}"]}}},{"id":3,"metadata":{"container":{"tags":["latest","preview-pr-42-sha-${'a'.repeat(40)}"]}}}]]'
+  echo '[[{"id":1,"metadata":{"container":{"tags":["preview-pr-42-sha-${'a'.repeat(40)}"]}}},{"id":2,"metadata":{"container":{"tags":["preview-pr-43-sha-${'b'.repeat(40)}"]}}},{"id":3,"metadata":{"container":{"tags":["latest","preview-pr-42-sha-${'a'.repeat(40)}"]}}},{"id":4,"metadata":{"container":{"tags":["preview-pr-42-sha-${'a'.repeat(40)}","preview-pr-43-sha-${'b'.repeat(40)}"]}}}]]'
   exit 0
 fi
 if [[ "$*" == *"--method DELETE"* ]]; then echo "$*" >> "$DELETIONS"; exit 0; fi

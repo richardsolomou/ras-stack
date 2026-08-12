@@ -153,7 +153,15 @@ Straightforward single- or multi-platform releases can use `actions/publish-prod
 
 Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
 
-Applications without custom lifecycle hooks can use `ras preview dokploy deploy`, `delete`, and `prune` directly. The command reads the Dokploy connection, application prefix, domain, port, image, environment text, optional health path, and optional registry credentials from explicit `DOKPLOY_*` and `PREVIEW_*` environment variables. Applications with external resources keep using `DokployPreviewManager` so their setup and cleanup remain visible in repository-owned code.
+Applications without custom lifecycle hooks can use `ras preview dokploy deploy`, `delete`, and `prune` directly. Applications with external resources keep using `DokployPreviewManager` so their setup and cleanup remain visible in repository-owned code.
+
+All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMENT_ID`, `PREVIEW_APPLICATION_PREFIX`, `PREVIEW_DOMAIN`, and `PREVIEW_PORT`. `PREVIEW_HEALTH_PATH` optionally overrides the default `/api/health`; private images set `PREVIEW_REGISTRY_USERNAME` and `PREVIEW_REGISTRY_PASSWORD` together.
+
+| Command  | Additional environment                                                                |
+| -------- | ------------------------------------------------------------------------------------- |
+| `deploy` | `PR_NUMBER`, `PREVIEW_IMAGE`, and the complete multiline `PREVIEW_ENVIRONMENT` string |
+| `delete` | `PR_NUMBER`                                                                           |
+| `prune`  | Space-separated `OPEN_PR_NUMBERS` (empty means no previews remain open)               |
 
 Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
 

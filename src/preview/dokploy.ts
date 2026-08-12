@@ -21,7 +21,10 @@ export class DokployClient {
     return this.options.environmentId
   }
 
-  async api<T = unknown>(procedure: string, options: { query?: Record<string, string>; body?: unknown } = {}): Promise<T> {
+  async api<T = unknown>(
+    procedure: string,
+    options: { query?: Record<string, string>; body?: unknown; signal?: AbortSignal } = {},
+  ): Promise<T> {
     const url = new URL(`${this.options.url.replace(/\/$/, '')}/api/${procedure}`)
     for (const [key, value] of Object.entries(options.query ?? {})) url.searchParams.set(key, value)
     this.log(`→ ${procedure}`)
@@ -31,6 +34,7 @@ export class DokployClient {
         'x-api-key': this.options.apiKey,
         ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
       },
+      ...(options.signal ? { signal: options.signal } : {}),
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     })
     const text = await response.text()
@@ -175,10 +179,19 @@ export class DokployPreviewManager {
       // Polling is intentionally sequential; each response determines whether another request is needed.
       // oxlint-disable-next-line no-await-in-loop
       await this.pause(this.options.pollIntervalMs ?? 5_000)
-      // oxlint-disable-next-line no-await-in-loop
-      const { applicationStatus } = await this.options.client.api<{ applicationStatus: string }>('application.one', {
-        query: { applicationId },
-      })
+      let applicationStatus: string
+      try {
+        // Polling is intentionally sequential; each response determines whether another request is needed.
+        // oxlint-disable-next-line no-await-in-loop
+        const details = await this.options.client.api<{ applicationStatus: string }>('application.one', {
+          query: { applicationId },
+          signal: AbortSignal.timeout(Math.max(1, deadline - this.now())),
+        })
+        applicationStatus = details.applicationStatus
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'TimeoutError') break
+        throw error
+      }
       if (applicationStatus === 'done') return
       if (applicationStatus === 'error') throw new Error('Dokploy reported a failed deployment')
     }
@@ -192,7 +205,7 @@ export class DokployPreviewManager {
       try {
         // Polling is intentionally sequential; each response determines whether another request is needed.
         // oxlint-disable-next-line no-await-in-loop
-        const response = await this.request(url)
+        const response = await this.request(url, { signal: AbortSignal.timeout(Math.max(1, deadline - this.now())) })
         if (response.status === 200) return
         lastFailure = `status ${response.status}`
       } catch (error) {
