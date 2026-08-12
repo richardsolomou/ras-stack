@@ -1,0 +1,32 @@
+name: Prune preview images
+description: Delete GHCR versions whose preview pull requests are closed.
+
+inputs:
+  token:
+    description: GitHub token with package deletion permission.
+    required: true
+  repository:
+    description: GitHub owner and repository whose container package is pruned.
+    default: ${{ github.repository }}
+  package:
+    description: GHCR container package name.
+    required: true
+  pr-number:
+    description: Closed pull request to remove, or empty when pruning against open-pr-numbers.
+    default: ''
+  open-pr-numbers:
+    description: Space-separated pull request numbers to retain during an orphan sweep.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Delete closed preview image versions
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        PREVIEW_REPOSITORY: ${{ inputs.repository }}
+        PREVIEW_PACKAGE: ${{ inputs.package }}
+        PREVIEW_PR_NUMBER: ${{ inputs.pr-number }}
+        PREVIEW_OPEN_PR_NUMBERS: ${{ inputs.open-pr-numbers }}
+      run: bash "$GITHUB_ACTION_PATH/prune.sh"

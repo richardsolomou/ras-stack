@@ -37,3 +37,10 @@ curl --fail-with-body \
   --header "Content-Type: application/json" \
   --data "$(jq --null-input --arg applicationId "$DOKPLOY_APPLICATION_ID" '{ applicationId: $applicationId }')" \
   "${DOKPLOY_URL%/}/api/application.deploy"
+
+if [[ -n ${GITHUB_OUTPUT:-} ]]; then
+  echo "image-reference=${DOKPLOY_IMAGE}" >> "$GITHUB_OUTPUT"
+fi
+if [[ -n ${GITHUB_STEP_SUMMARY:-} ]]; then
+  echo "Deploying \`${DOKPLOY_IMAGE}\`" >> "$GITHUB_STEP_SUMMARY"
+fi

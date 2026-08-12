@@ -2,4 +2,4 @@
 'ras-stack': minor
 ---
 
-Add a reusable Dokploy action that deploys an existing OCI image without rebuilding application source.
+Add reusable actions and commands that publish, resolve, deploy, manage, and clean up immutable application previews without rebuilding source in Dokploy.

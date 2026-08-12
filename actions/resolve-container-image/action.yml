@@ -1,0 +1,44 @@
+name: Resolve container image
+description: Resolve a readable container tag to a digest-pinned reference.
+
+inputs:
+  image:
+    description: Container image tag to resolve.
+    required: true
+  registry-username:
+    description: Registry username for a private image.
+    default: ''
+  registry-password:
+    description: Registry password or token for a private image.
+    default: ''
+
+outputs:
+  reference:
+    description: Image reference containing both the readable tag and immutable digest.
+    value: ${{ steps.resolve.outputs.reference }}
+
+runs:
+  using: composite
+  steps:
+    - uses: docker/setup-buildx-action@v4
+    - name: Log in to private registry
+      if: inputs.registry-username != '' || inputs.registry-password != ''
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      run: |
+        test -n "$REGISTRY_USERNAME" && test -n "$REGISTRY_PASSWORD"
+        echo "$REGISTRY_PASSWORD" | docker login "${IMAGE%%/*}" --username "$REGISTRY_USERNAME" --password-stdin
+    - name: Resolve immutable reference
+      id: resolve
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        set -euo pipefail
+        digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest.Digest}}' | jq -r .)"
+        [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
+        echo "reference=${IMAGE}@${digest}" >> "$GITHUB_OUTPUT"
+        echo "Resolved \`${IMAGE}@${digest}\`" >> "$GITHUB_STEP_SUMMARY"

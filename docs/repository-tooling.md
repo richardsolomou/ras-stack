@@ -133,17 +133,27 @@ The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`.
 Production deployments can point Dokploy at the exact image that the workflow already published instead of asking Dokploy to rebuild the repository:
 
 ```yaml
+- id: image
+  uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.36.0
+  with:
+    image: ghcr.io/example/application:sha-${{ github.sha }}
 - uses: richardsolomou/ras-stack/actions/deploy-dokploy-image@v0.36.0
   with:
     url: ${{ secrets.DOKPLOY_URL }}
     api-key: ${{ secrets.DOKPLOY_API_KEY }}
     application-id: ${{ secrets.DOKPLOY_APPLICATION_ID }}
-    image: ghcr.io/example/application:sha-${{ github.sha }}
+    image: ${{ steps.image.outputs.reference }}
 ```
 
 The action switches the application to Dokploy's Docker-image provider before deploying. Public images need no registry inputs; private images supply `registry-url`, `registry-username`, and `registry-password` together. The caller owns image publication, the immutable tag or digest, application environment, domains, health verification, and deployment policy.
 
+Preview images use the application package with a readable, commit-specific tag: `preview-pr-<number>-sha-<40-character commit>`. Resolve that tag through `actions/resolve-container-image` before deployment to retain its readable identity while pinning the exact manifest digest. On pull request close, and from a scheduled orphan sweep, `actions/prune-preview-images` removes only versions whose tags all match that preview convention; production versions are never candidates.
+
+Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
+
 Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
+
+Applications without custom lifecycle hooks can use `ras preview dokploy deploy`, `delete`, and `prune` directly. The command reads the Dokploy connection, application prefix, domain, port, image, environment text, optional health path, and optional registry credentials from explicit `DOKPLOY_*` and `PREVIEW_*` environment variables. Applications with external resources keep using `DokployPreviewManager` so their setup and cleanup remain visible in repository-owned code.
 
 Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
 
