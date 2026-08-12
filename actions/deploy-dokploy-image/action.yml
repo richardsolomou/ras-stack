@@ -24,10 +24,16 @@ inputs:
     description: Registry password or token for a private image.
     default: ''
 
+outputs:
+  image-reference:
+    description: Exact image reference configured in Dokploy.
+    value: ${{ steps.deploy.outputs.image-reference }}
+
 runs:
   using: composite
   steps:
     - name: Configure image provider and deploy
+      id: deploy
       shell: bash
       env:
         DOKPLOY_URL: ${{ inputs.url }}
