@@ -1,0 +1,78 @@
+name: Build Dokploy preview
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: GHCR package name.
+        type: string
+        required: true
+      local-image:
+        description: Local image name stored in fork artifacts.
+        type: string
+        required: true
+      domain:
+        description: Preview domain.
+        type: string
+        required: true
+      marker:
+        description: Stable marker for the pull-request status comment.
+        type: string
+        required: true
+      note:
+        description: Safety and usage note shown in the pull-request comment.
+        type: string
+        default: Preview data is disposable and resets on every deployment.
+      context:
+        description: Docker build context.
+        type: string
+        default: .
+      dockerfile:
+        description: Dockerfile path.
+        type: string
+        default: Dockerfile
+      build-args:
+        description: Newline-separated Docker build arguments.
+        type: string
+        default: ''
+      cache-scope:
+        description: GitHub Actions cache scope.
+        type: string
+        default: preview-image
+
+jobs:
+  mark-deploying:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - name: Mark preview as deploying
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+          PREVIEW_NOTE: ${{ inputs.note }}
+          PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.${{ inputs.domain }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: pnpm exec ras preview building
+
+  build:
+    name: Preview image
+    permissions:
+      contents: read
+      packages: write
+    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v0.36.0
+    with:
+      published-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
+      fork-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
+      artifact-name: preview-image-${{ github.event.pull_request.number }}
+      context: ${{ inputs.context }}
+      dockerfile: ${{ inputs.dockerfile }}
+      build-args: ${{ inputs.build-args }}
+      cache-scope: ${{ inputs.cache-scope }}

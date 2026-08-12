@@ -151,17 +151,23 @@ Preview images use the application package with a readable, commit-specific tag:
 
 Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
 
-Dokploy previews can share the application/domain/image/environment/deploy/health/delete/prune lifecycle through `ras-stack/preview/dokploy`. Product-specific Stripe, storage, seed, and verification work stays around the manager's configure and cleanup hooks.
+Dokploy applications share the complete preview lifecycle through three reusable workflows:
 
-Applications without custom lifecycle hooks can use `ras preview dokploy deploy`, `delete`, and `prune` directly. Applications with external resources keep using `DokployPreviewManager` so their setup and cleanup remain visible in repository-owned code.
+- `build-dokploy-preview.yml` builds same-repository images directly in GHCR and keeps fork images in an untrusted artifact.
+- `deploy-dokploy-preview.yml` publishes fork artifacts, resolves immutable image digests, deploys or deletes the Dokploy application, verifies health, reports status, and removes closed-PR images.
+- `prune-dokploy-previews.yml` removes orphaned applications and images on a schedule.
+
+Callers provide only their package, application prefix, domain, port, environment template, status marker, and note. The environment template supports `{{PR_NUMBER}}` and `{{RANDOM_HEX_32}}`, so per-preview URLs and secrets do not require repository scripts. All callers use the standard `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and `DOKPLOY_ENVIRONMENT_ID` secrets; the environment ID must identify a staging environment rather than production.
+
+Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `DokployPreviewManager`; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
 
 All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMENT_ID`, `PREVIEW_APPLICATION_PREFIX`, `PREVIEW_DOMAIN`, and `PREVIEW_PORT`. `PREVIEW_HEALTH_PATH` optionally overrides the default `/api/health`; private images set `PREVIEW_REGISTRY_USERNAME` and `PREVIEW_REGISTRY_PASSWORD` together.
 
-| Command  | Additional environment                                                                |
-| -------- | ------------------------------------------------------------------------------------- |
-| `deploy` | `PR_NUMBER`, `PREVIEW_IMAGE`, and the complete multiline `PREVIEW_ENVIRONMENT` string |
-| `delete` | `PR_NUMBER`                                                                           |
-| `prune`  | Space-separated `OPEN_PR_NUMBERS` (empty means no previews remain open)               |
+| Command  | Additional environment                                                       |
+| -------- | ---------------------------------------------------------------------------- |
+| `deploy` | `PR_NUMBER`, `PREVIEW_IMAGE`, and a multiline `PREVIEW_ENVIRONMENT` template |
+| `delete` | `PR_NUMBER`                                                                  |
+| `prune`  | Space-separated `OPEN_PR_NUMBERS` (empty means no previews remain open)      |
 
 Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
 
@@ -176,7 +182,7 @@ await reportPreviewStatus(
 
 The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Applications retain their preview hostname, access note, seed credentials, and product cleanup hooks.
 
-Trusted preview wrappers can delegate each status transition to the reusable workflow instead of checking out and running a repository-owned comment script:
+The lower-level status workflow remains available when an application needs to report a transition outside the standard lifecycle:
 
 ```yaml
 mark-preview-ready:
@@ -197,9 +203,7 @@ mark-preview-ready:
     token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-The workflow uses `ras preview` from the consuming repository's pinned package. It owns only GitHub check/comment reporting; the caller retains the trusted event conditions, permissions, deployment, deletion, secret mapping, and product verification.
-
-The reusable `build-preview-image.yml` workflow publishes same-repository pull requests directly but turns fork builds into one-day artifacts without exposing a token or secret. A trusted `workflow_run` job can publish that artifact with `actions/publish-preview-image` before running its repository-owned deployment command. The event wrapper and secret-to-environment mapping remain in each application so the trust boundary is visible locally.
+The standard Dokploy workflows compose this reporter with the lower-level image actions. Their `workflow_run` boundary ensures fork code receives neither deployment secrets nor a writable package token: a fork creates a one-day image artifact, and trusted default-branch workflow code publishes and deploys it after approval.
 
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
 
