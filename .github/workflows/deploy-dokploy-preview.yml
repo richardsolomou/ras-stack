@@ -71,7 +71,8 @@ jobs:
       contents: read
       checks: write
       issues: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.0
+      pull-requests: write
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.1
     with:
       state: awaiting
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -89,7 +90,8 @@ jobs:
       contents: read
       checks: write
       issues: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.0
+      pull-requests: write
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.1
     with:
       state: building
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -110,6 +112,7 @@ jobs:
       packages: write
       checks: write
       issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
@@ -195,6 +198,7 @@ jobs:
       contents: read
       issues: write
       packages: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
