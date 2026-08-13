@@ -87,6 +87,16 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 | Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*` | Triggers, permissions, services, deployment, and verification  |
 | Generated repository policy and adoption checks           | `ras policy`                                                                    | Which policies apply and every declared exception              |
 
+## Dokploy previews 🚀
+
+Three reusable workflows provide the standard pull-request preview lifecycle:
+
+- `build-dokploy-preview.yml` builds commit-specific images without exposing secrets to forks.
+- `deploy-dokploy-preview.yml` publishes, resolves, deploys, reports, and removes previews.
+- `prune-dokploy-previews.yml` cleans up applications and images left behind by interrupted runs.
+
+Applications supply only their package, application prefix, domain, port, environment template, and optional product hook. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
+
 ## Guides 📚
 
 | Guide                                                    | What it covers                                                                                                                          |
