@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.36.0
+
+### Minor Changes
+
+- 60bfd8b: Add reusable actions and commands that publish, resolve, deploy, manage, and clean up immutable application previews without rebuilding source in Dokploy.
+
 ## 0.35.0
 
 ### Minor Changes
