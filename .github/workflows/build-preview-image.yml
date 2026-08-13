@@ -59,7 +59,7 @@ jobs:
           build-args: ${{ inputs.build-args }}
           push: true
           cache-from: type=gha,scope=${{ inputs.cache-scope }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
+          cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}
       - name: Build untrusted preview artifact
         if: github.event.pull_request.head.repo.full_name != github.repository
         uses: docker/build-push-action@v7

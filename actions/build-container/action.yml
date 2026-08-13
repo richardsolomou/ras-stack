@@ -40,7 +40,7 @@ runs:
         tags: ${{ inputs.image }}
         build-args: ${{ inputs.build-args }}
         cache-from: type=gha,scope=${{ inputs.cache-scope }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
+        cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}
     - name: Record build duration
       id: duration
       if: always()
