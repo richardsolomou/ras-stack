@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.36.1
+
+### Patch Changes
+
+- 4fd7454: Allow preview workflows to report status on pull requests.
+
 ## 0.36.0
 
 ### Minor Changes
