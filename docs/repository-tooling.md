@@ -130,6 +130,8 @@ e2e:
 
 The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`. Build and browser durations are written to the job summary, and failure artifacts remain configurable. Applications that need extra caches, services, registry publication, or a different PR/main topology can use `actions/build-container` and `actions/setup-playwright` inside their own job instead.
 
+Container actions export the smaller final-image cache by default. `publish-production-image` reads both its production cache and the `e2e-image` cache, so an E2E build can warm unchanged layers for the release build without paying to upload every intermediate BuildKit layer.
+
 Production deployments can point Dokploy at the exact image that the workflow already published instead of asking Dokploy to rebuild the repository:
 
 ```yaml

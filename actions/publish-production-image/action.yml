@@ -35,6 +35,9 @@ inputs:
   cache-scope:
     description: GitHub Actions cache scope.
     default: production-image
+  seed-cache-scope:
+    description: Additional cache scope populated by a pre-release build such as E2E.
+    default: e2e-image
 
 outputs:
   reference:
@@ -63,8 +66,10 @@ runs:
           ${{ inputs.image }}:${{ inputs.release-tag }}
           ${{ inputs.image }}:sha-${{ inputs.sha }}
         build-args: ${{ inputs.build-args }}
-        cache-from: type=gha,scope=${{ inputs.cache-scope }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.cache-scope }}
+        cache-from: |
+          type=gha,scope=${{ inputs.cache-scope }}
+          type=gha,scope=${{ inputs.seed-cache-scope }}
+        cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}
     - name: Record immutable image reference
       id: reference
       shell: bash
