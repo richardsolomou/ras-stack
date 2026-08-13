@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.36.2
+
+### Patch Changes
+
+- 67c36f1: Reduce container cache export time and reuse E2E layers in production builds.
+
 ## 0.36.1
 
 ### Patch Changes
