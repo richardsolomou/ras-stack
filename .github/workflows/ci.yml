@@ -15,6 +15,18 @@ jobs:
       command: just --version && just check
       just-version: '1.58.0'
 
+  actions:
+    name: Actions and workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v4
+      - uses: ./actions/setup-just
+        with:
+          version: '1.58.0'
+      - run: just check-actions
+
   example:
     name: Full-stack example
     runs-on: ubuntu-latest
@@ -53,7 +65,7 @@ jobs:
             -e CENTRIFUGO_API_KEY=example-api-key \
             -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
             ras-stack-example:e2e
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3110/api/health >/dev/null; then
               exit 0
             fi
@@ -79,7 +91,7 @@ jobs:
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [check, example]
+    needs: [actions, check, example]
     permissions:
       contents: write
     uses: ./.github/workflows/release-changesets.yml
@@ -101,7 +113,7 @@ jobs:
           set -euo pipefail
           gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref main -f release_tag="$RELEASE_TAG"
           run_id=""
-          for attempt in $(seq 1 12); do
+          for _ in $(seq 1 12); do
             run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --event workflow_dispatch --limit 20 --json databaseId,displayTitle | jq -r --arg title "Release $RELEASE_TAG" '.[] | select(.displayTitle == $title) | .databaseId' | head -n1)"
             if [ -n "$run_id" ]; then
               break

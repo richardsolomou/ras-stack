@@ -7,13 +7,15 @@ just install
 just check
 ```
 
-`just check` runs formatting, linting, shared-configuration resolution, type checking, unit tests, and the package build.
+`just check` runs formatting, linting, shared-configuration resolution, type checking, unit tests, and the package build. Unit tests enforce the coverage thresholds in `vitest.config.ts`; raise a threshold when a change clears it rather than leaving new code untested.
+
+`just check-actions` lints the shell scripts and workflow definitions the published actions ship. It needs ShellCheck and actionlint, which `mise install` provides at the versions pinned in `mise.toml`.
 
 Repository policy is selected in `ras-stack.policy.json`. Run `node dist/cli.js policy sync` after changing generated policy and `node dist/cli.js policy sync adoption` after changing shared version expectations; `just check` rejects drift.
 
 Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade.
 
-Every exported behavior needs a contract test. Avoid runtime dependencies when a platform API or injected capability is sufficient.
+Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
 ## Releases
 
