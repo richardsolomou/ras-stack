@@ -22,7 +22,7 @@ describe('runRasCli', () => {
 
     await runRasCli(['deploy'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras <assets|policy|preview|realtime> [arguments]')
+    expect(error).toHaveBeenCalledWith('usage: ras <assets|init|policy|preview|realtime> [arguments]')
     expect(process.exitCode).toBe(2)
   })
 

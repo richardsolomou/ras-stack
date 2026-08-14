@@ -137,14 +137,14 @@ check:
     pnpm check
 `
 
-async function readJson(path: string) {
+async function readJson(path: string | URL) {
   const source = await readFile(path, 'utf8').catch(() => undefined)
   return source === undefined ? undefined : (JSON.parse(source) as Record<string, unknown>)
 }
 
 // The generated workflow pins the release doing the generating, so a new repository starts on a version that exists.
 async function rasStackVersion() {
-  const manifest = await readJson(new URL('../../package.json', import.meta.url).pathname)
+  const manifest = await readJson(new URL('../../package.json', import.meta.url))
   const version = manifest?.version
   if (typeof version !== 'string') throw new Error('ras-stack version is unavailable')
   return version
