@@ -49,7 +49,7 @@ export function postgresRateLimitStore(client: Sql, table = 'rate_limit'): RateL
   return {
     async increment(key, windowSeconds, now) {
       const resetAt = now + windowSeconds
-      const [row] = await client<{ count: number; reset_at: number }[]>`
+      const [row] = await client<{ count: number | string; reset_at: number | string }[]>`
         insert into ${name} (key, count, reset_at) values (${key}, 1, ${resetAt})
         on conflict (key) do update set
           count = case when ${name}.reset_at <= ${now} then 1 else ${name}.count + 1 end,
@@ -57,7 +57,8 @@ export function postgresRateLimitStore(client: Sql, table = 'rate_limit'): RateL
         returning count, reset_at
       `
       if (!row) throw new Error('rate limit increment returned no row')
-      return { count: row.count, resetAt: row.reset_at }
+      // A bigint column arrives as a string unless the client configures a parser, and the store owns its own type.
+      return { count: Number(row.count), resetAt: Number(row.reset_at) }
     },
   }
 }

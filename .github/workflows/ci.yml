@@ -27,6 +27,31 @@ jobs:
           version: '1.58.0'
       - run: just check-actions
 
+  postgres:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ras_stack_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - name: Exercise the published PostgreSQL statements
+        env:
+          RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
+        run: pnpm exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
+
   example:
     name: Full-stack example
     runs-on: ubuntu-latest
@@ -91,7 +116,7 @@ jobs:
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [actions, check, example]
+    needs: [actions, check, example, postgres]
     permissions:
       contents: write
     uses: ./.github/workflows/release-changesets.yml
