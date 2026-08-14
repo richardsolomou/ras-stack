@@ -84,6 +84,34 @@ pnpm exec ras policy check adoption
 
 Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
 
+`ras-stack/policy` exposes the same operations to a repository that needs them in its own script rather than through the command line:
+
+```ts
+import { checkRepositoryPolicy, syncAdoptionPolicy } from 'ras-stack/policy'
+
+const drift = await checkRepositoryPolicy(process.cwd())
+if (drift.length > 0) throw new Error(`policy drift: ${drift.join(', ')}`)
+await syncAdoptionPolicy(process.cwd(), 'check')
+```
+
+## Production server assets
+
+A bundled server usually needs files the bundler does not carry, such as Drizzle migrations. Declare them in `ras-stack.assets.json` and copy them into the build output after it exists:
+
+```json
+{
+  "outputDirectory": ".output/server",
+  "assets": [{ "source": "drizzle", "destination": "drizzle" }]
+}
+```
+
+```sh
+pnpm exec ras assets sync
+pnpm exec ras assets check
+```
+
+`sync` copies each declared source into the output, and `check` fails when the output drifts from the source, so a stale build cannot ship. Both refuse paths that escape the repository or the output directory, overlapping destinations, and symbolic links. `ras-stack/build` exposes `loadServerAssetsConfig`, `syncServerAssets`, and `checkServerAssets` for a repository that drives them from its own build script.
+
 ## GitHub Actions
 
 The JavaScript setup action reads the Node version from `engines.node` and the pnpm version from `packageManager` in the consuming repository:
@@ -161,7 +189,23 @@ Dokploy applications share the complete preview lifecycle through three reusable
 
 Callers provide only their package, application prefix, domain, port, environment template, status marker, and note. The environment template supports `{{PR_NUMBER}}` and `{{RANDOM_HEX_32}}`, so per-preview URLs and secrets do not require repository scripts. All callers use the standard `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and `DOKPLOY_ENVIRONMENT_ID` secrets; the environment ID must identify a staging environment rather than production.
 
-Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `DokployPreviewManager`; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
+Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
+
+`dokployPreviewFromEnvironment` reads the same variables the commands use and returns the resolved configuration alongside a `DokployPreviewManager`, so a script only writes the part that differs:
+
+```ts
+import { dokployPreviewFromEnvironment } from 'ras-stack/preview/dokploy'
+
+const { manager } = dokployPreviewFromEnvironment()
+await manager.deploy({
+  prNumber: process.env.PR_NUMBER!,
+  image: process.env.PREVIEW_IMAGE!,
+  environment: process.env.PREVIEW_ENVIRONMENT!,
+  configure: async ({ applicationId }) => provisionTenantFor(applicationId),
+})
+```
+
+`DokployClient` underneath it exposes the raw Dokploy API for anything the manager does not model.
 
 All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMENT_ID`, `PREVIEW_APPLICATION_PREFIX`, `PREVIEW_DOMAIN`, and `PREVIEW_PORT`. `PREVIEW_HEALTH_PATH` optionally overrides the default `/api/health`; private images set `PREVIEW_REGISTRY_USERNAME` and `PREVIEW_REGISTRY_PASSWORD` together.
 
