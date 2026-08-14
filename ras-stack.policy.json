@@ -1,9 +1,7 @@
 {
   "changesets": true,
   "dependabot": true,
-  "pnpm": {
-    "minimumReleaseAge": 0
-  },
+  "pnpm": {},
   "adoption": {
     "minimumRasStackVersion": "0.33.0",
     "minimumWorkflowRasStackVersion": "0.8.3",
