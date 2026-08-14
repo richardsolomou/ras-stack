@@ -48,6 +48,20 @@ Oxlint applications can extend the strict default plus independent layers for sh
 
 These configs do not set include paths, aliases, generated directories outside TanStack's route tree, or framework-specific worker globals. Keep those differences in the consuming repository.
 
+## Adopting the tooling
+
+`ras policy check` fails a repository that has drifted from the adoption baseline, and `ras init` is how a repository reaches it in the first place:
+
+```sh
+pnpm exec ras init
+```
+
+It offers the repository policy and its generated files, the declared Node and pnpm versions, a `tsconfig.json` extending a shared preset, an `.oxlintrc.json`, a CI workflow calling the shared check workflow, and a justfile. Every step is a separate question, so a repository can take the parts that fit and decline the rest. A file that already exists is never replaced without a separate answer for that file, and the generated workflow pins the release that generated it.
+
+`--dry-run` reports the plan without writing anything. The questions need a terminal, so `--yes` accepts every step for a non-interactive run.
+
+This adopts the tooling baseline; it is not an application starter. [`examples/full-stack`](../examples/full-stack) remains an integration contract rather than something to copy.
+
 ## Repository policy
 
 Policy files which cannot inherit can stay committed while being checked against the shared source. Select only the policies a repository wants in `ras-stack.policy.json`:
