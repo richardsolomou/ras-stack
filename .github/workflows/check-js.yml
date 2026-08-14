@@ -47,9 +47,9 @@ jobs:
             echo "dependency branch does not contain the current base; refresh the dependency branch before merging" >&2
             exit 1
           fi
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.8.3
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
       - if: inputs.just-version != ''
-        uses: richardsolomou/ras-stack/actions/setup-just@v0.8.3
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.38.2
         with:
           version: ${{ inputs.just-version }}
       - name: Audit dependencies

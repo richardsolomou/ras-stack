@@ -42,7 +42,7 @@ jobs:
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
       - name: List open pull requests
         id: open
         env:
@@ -66,7 +66,7 @@ jobs:
             pnpm exec ras preview dokploy prune
           fi
       - name: Prune preview images
-        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.36.0
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
         with:
           token: ${{ github.token }}
           package: ${{ inputs.package }}
