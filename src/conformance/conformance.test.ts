@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { requireSameOrigin } from '../auth/origins.js'
 import { databaseTarget } from '../database/index.js'
-import { openSqliteClient } from '../database/sqlite.js'
+import { openSqliteClient, sqliteRateLimitStore } from '../database/sqlite.js'
 import { healthResponse } from '../server/health.js'
+import { memoryRateLimitStore } from '../server/rate-limit.js'
 import { postHogBrowserOptions } from '../posthog/client.js'
 import { postHogRequestContext } from '../posthog/request.js'
 import { signRealtimeToken } from '../realtime/tokens.js'
@@ -12,6 +13,7 @@ import {
   assertMutationOriginConformance,
   assertPostHogBrowserConformance,
   assertPostHogRequestConformance,
+  assertRateLimitStoreConformance,
   assertRealtimeTokenConformance,
   assertSqliteConformance,
 } from './index.js'
@@ -113,6 +115,32 @@ describe('consumer conformance assertions', () => {
     ).rejects.toThrow('realtime token subject: every subject received the same identity')
   })
 
+  it.each([
+    { name: 'in-memory', store: () => memoryRateLimitStore() },
+    { name: 'SQLite', store: () => sqliteRateLimitStore(rateLimitDatabase()) },
+  ])('accepts the shared $name rate limit store', async ({ store }) => {
+    await expect(assertRateLimitStoreConformance(store())).resolves.toBeUndefined()
+  })
+
+  it('identifies a rate limit store that keeps no shared count', async () => {
+    await expect(
+      assertRateLimitStoreConformance({ increment: (_key, window, now) => ({ count: 1, resetAt: now + window }) }),
+    ).rejects.toThrow('rate limit store: expected the second request to count 2, received 1')
+  })
+
+  it('identifies a rate limit store that extends the window on every request', async () => {
+    const counts = new Map<string, number>()
+    await expect(
+      assertRateLimitStoreConformance({
+        increment: (key, window, now) => {
+          const count = (counts.get(key) ?? 0) + 1
+          counts.set(key, count)
+          return { count, resetAt: now + window }
+        },
+      }),
+    ).rejects.toThrow('rate limit store: a request inside the window must not extend it')
+  })
+
   it('identifies an unsigned token', async () => {
     await expect(
       assertRealtimeTokenConformance(
@@ -124,6 +152,12 @@ describe('consumer conformance assertions', () => {
 })
 
 const secret = 'centrifugo-shared-secret'
+
+function rateLimitDatabase() {
+  const client = openSqliteClient(':memory:')
+  client.exec('create table rate_limit (key text primary key, count integer not null, reset_at integer not null)')
+  return client
+}
 
 function encode(value: unknown) {
   return btoa(JSON.stringify(value)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')

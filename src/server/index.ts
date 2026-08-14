@@ -4,6 +4,8 @@ export { errorHasCode, infrastructureDiagnostic, infrastructureFailure, Infrastr
 export type { InfrastructureFailure } from './errors.js'
 export { databaseHealthFailure, healthResponse } from './health.js'
 export type { HealthResponseOptions } from './health.js'
+export { createRateLimit, forwardedClientAddress, memoryRateLimitStore, rateLimitTable } from './rate-limit.js'
+export type { RateLimitCounter, RateLimitDecision, RateLimitOptions, RateLimitStore } from './rate-limit.js'
 export { createRpc } from './rpc.js'
 export type { RpcErrorContext, RpcLogger, RpcOptions } from './rpc.js'
 export { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'

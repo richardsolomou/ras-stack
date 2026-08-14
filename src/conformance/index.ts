@@ -172,6 +172,42 @@ async function verifyHmac(signed: string, signature: string, secret: string) {
   return expected === signature
 }
 
+export type RateLimitStoreProbe = {
+  increment: (
+    key: string,
+    windowSeconds: number,
+    now: number,
+  ) => Promise<{ count: number; resetAt: number }> | { count: number; resetAt: number }
+}
+
+// The package cannot reach a consumer's PostgreSQL, so the store contract travels to wherever the real database is.
+export async function assertRateLimitStoreConformance(store: RateLimitStoreProbe, options: { now?: number } = {}) {
+  const now = options.now ?? Math.floor(Date.now() / 1000)
+  const window = 60
+  const key = `conformance:${crypto.randomUUID()}`
+
+  const first = await store.increment(key, window, now)
+  if (first.count !== 1) throw new ConformanceError('rate limit store', `expected a new key to start at 1, received ${first.count}`)
+  if (first.resetAt !== now + window) {
+    throw new ConformanceError('rate limit store', `expected the window to end at ${now + window}, received ${first.resetAt}`)
+  }
+
+  const second = await store.increment(key, window, now + 1)
+  if (second.count !== 2) throw new ConformanceError('rate limit store', `expected the second request to count 2, received ${second.count}`)
+  if (second.resetAt !== first.resetAt) {
+    throw new ConformanceError('rate limit store', 'a request inside the window must not extend it')
+  }
+
+  const other = await store.increment(`conformance:${crypto.randomUUID()}`, window, now)
+  if (other.count !== 1) throw new ConformanceError('rate limit store', 'one key consumed another key budget')
+
+  const expired = await store.increment(key, window, first.resetAt)
+  if (expired.count !== 1) throw new ConformanceError('rate limit store', 'an elapsed window must start a new count')
+  if (expired.resetAt !== first.resetAt + window) {
+    throw new ConformanceError('rate limit store', 'an elapsed window must start a new window')
+  }
+}
+
 export type DatabaseTarget = { provider: 'sqlite'; file: string } | { provider: 'postgres'; url: string }
 
 export type DatabaseTargetResolver = (options: { databaseUrl?: string; sqliteFile: string }) => DatabaseTarget
