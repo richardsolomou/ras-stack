@@ -28,7 +28,7 @@
     "centrifuge": "5.7.0",
     "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",
-    "posthog-js": "^1.415.0",
+    "posthog-js": "^1.414.0",
     "posthog-node": "^5.48.1",
     "ras-stack": "workspace:*",
     "react": "19.2.8",
@@ -39,7 +39,7 @@
   "devDependencies": {
     "@playwright/test": "1.62.1",
     "@types/better-sqlite3": "9.6.0",
-    "@types/node": "^26.0.0",
+    "@types/node": "^24.0.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.5",

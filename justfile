@@ -22,3 +22,8 @@ test *args:
 
 check:
     pnpm check
+
+# Lints the shell scripts and workflow definitions the published actions ship.
+check-actions:
+    shellcheck actions/*/*.sh
+    actionlint
