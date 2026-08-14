@@ -54,6 +54,7 @@ const surface = {
     'assertMutationOriginConformance',
     'assertPostHogBrowserConformance',
     'assertPostHogRequestConformance',
+    'assertRealtimeTokenConformance',
     'assertSqliteConformance',
   ],
   './database': ['bundledDirectory', 'databaseTarget'],

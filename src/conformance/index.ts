@@ -97,6 +97,81 @@ export async function assertSqliteConformance(readPragma: SqlitePragmaReader) {
   }
 }
 
+export type RealtimeTokenSigner = (subject: string, claims: Record<string, unknown>) => string | Promise<string>
+
+export type RealtimeTokenConformanceOptions = { secret: string; maxTtlSeconds?: number; now?: number }
+
+export async function assertRealtimeTokenConformance(sign: RealtimeTokenSigner, options: RealtimeTokenConformanceOptions) {
+  const now = options.now ?? Math.floor(Date.now() / 1000)
+  const maxTtlSeconds = options.maxTtlSeconds ?? 60 * 60
+  const token = await sign('person-123', { channel: 'room:1' })
+  const { header, payload, signed, signature } = decodeToken(token)
+
+  if (header.alg !== 'HS256') {
+    throw new ConformanceError('realtime token algorithm', `expected HS256, received ${JSON.stringify(header.alg)}`)
+  }
+  if (payload.sub !== 'person-123') {
+    throw new ConformanceError('realtime token subject', 'token must bind the subject it was signed for')
+  }
+  if (payload.channel !== 'room:1') {
+    throw new ConformanceError('realtime token claims', 'token must carry the claims it was signed with')
+  }
+  if (typeof payload.exp !== 'number') {
+    throw new ConformanceError('realtime token expiry', 'token must expire')
+  }
+  if (payload.exp <= now) {
+    throw new ConformanceError('realtime token expiry', 'token expired before it was issued')
+  }
+  if (payload.exp - now > maxTtlSeconds) {
+    throw new ConformanceError('realtime token expiry', `token outlives the ${maxTtlSeconds} second maximum`)
+  }
+  if (!(await verifyHmac(signed, signature, options.secret))) {
+    throw new ConformanceError('realtime token signature', 'token is not signed with the shared Centrifugo secret')
+  }
+
+  const other = decodeToken(await sign('person-456', { channel: 'room:1' })).payload
+  if (other.sub === payload.sub) {
+    throw new ConformanceError('realtime token subject', 'every subject received the same identity')
+  }
+}
+
+function decodeToken(token: string) {
+  const segments = token.split('.')
+  if (segments.length !== 3) throw new ConformanceError('realtime token format', 'expected a three-segment JWT')
+  const [header, claims, signature] = segments as [string, string, string]
+  return {
+    header: decodeSegment(header, 'header'),
+    payload: decodeSegment(claims, 'payload'),
+    signed: `${header}.${claims}`,
+    signature,
+  }
+}
+
+function decodeSegment(segment: string, name: string): Record<string, unknown> {
+  try {
+    const padded = segment
+      .replaceAll('-', '+')
+      .replaceAll('_', '/')
+      .padEnd(Math.ceil(segment.length / 4) * 4, '=')
+    const value: unknown = JSON.parse(atob(padded))
+    if (value && typeof value === 'object') return value as Record<string, unknown>
+  } catch (error) {
+    throw new ConformanceError('realtime token format', `${name} is not base64url JSON`, { cause: error })
+  }
+  throw new ConformanceError('realtime token format', `${name} is not an object`)
+}
+
+async function verifyHmac(signed: string, signature: string, secret: string) {
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const digest = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(signed)))
+  const expected = btoa(String.fromCharCode(...digest))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '')
+  return expected === signature
+}
+
 export type DatabaseTarget = { provider: 'sqlite'; file: string } | { provider: 'postgres'; url: string }
 
 export type DatabaseTargetResolver = (options: { databaseUrl?: string; sqliteFile: string }) => DatabaseTarget

@@ -199,6 +199,16 @@ The client factory may return a client or a promise, so applications can fetch a
 
 The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
+Because the application owns the route that mints tokens, a mistake there is only visible once Centrifugo rejects a connection or, worse, accepts one it should not. Consumer tests can check the route's signer against the shared secret instead:
+
+```ts
+import { assertRealtimeTokenConformance } from 'ras-stack/conformance'
+
+await assertRealtimeTokenConformance((subject, claims) => mintRealtimeToken(subject, claims), { secret })
+```
+
+It verifies the token is HS256, binds the subject it was asked for, carries its claims, expires within an hour, and is signed with the secret Centrifugo shares. Pass `maxTtlSeconds` to hold a shorter deadline.
+
 ## Email and uploads
 
 The optional integrations return the underlying library objects when an application needs more control:
