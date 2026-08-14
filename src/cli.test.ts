@@ -31,7 +31,7 @@ describe('runRasCli', () => {
 
     await runRasCli(['policy', 'fleet'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync> [adoption]')
+    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync>')
     expect(process.exitCode).toBe(2)
   })
 })

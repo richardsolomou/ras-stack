@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
 
@@ -39,21 +39,6 @@ export type RepositoryPolicy = {
   changesets?: PolicySelection
   dependabot?: PolicySelection
   pnpm?: false | { minimumReleaseAge?: number }
-  adoption?: false | AdoptionPolicy
-}
-
-export type AdoptionPolicy = {
-  minimumRasStackVersion?: string
-  minimumWorkflowRasStackVersion?: string
-  node?: string
-  pnpm?: string
-  just?: string
-  requiredReferences?: string[]
-}
-
-export type AdoptionSnapshot = {
-  manifest: Record<string, unknown>
-  files: Map<string, string>
 }
 
 export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write') {
@@ -76,74 +61,7 @@ export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write'
 
 export async function checkRepositoryPolicy(root: string) {
   const files = await syncRepositoryPolicy(root, 'check')
-  const config = repositoryPolicy(await readFile(join(root, 'ras-stack.policy.json'), 'utf8'))
-  return [...files.map((path) => `policy drift: ${path}`), ...(config.adoption ? await adoptionDrift(root, config.adoption) : [])]
-}
-
-export async function syncAdoptionPolicy(root: string, mode: 'check' | 'write') {
-  const config = repositoryPolicy(await readFile(join(root, 'ras-stack.policy.json'), 'utf8'))
-  if (!config.adoption) return []
-  const files = await renderedAdoptionFiles(root, config.adoption)
-  const changed = await Promise.all(
-    [...files].map(async ([path, expected]) => {
-      const absolute = join(root, path)
-      const actual = await readFile(absolute, 'utf8')
-      if (actual === expected) return undefined
-      if (mode === 'write') await writeFile(absolute, expected)
-      return path
-    }),
-  )
-  return changed.filter((path) => path !== undefined)
-}
-
-export async function adoptionDrift(root: string, policy: AdoptionPolicy) {
-  const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as Record<string, unknown>
-  const files = await adoptionFiles(root)
-  return adoptionSnapshotDrift({ manifest, files }, policy)
-}
-
-export function adoptionSnapshotDrift(snapshot: AdoptionSnapshot, policy: AdoptionPolicy) {
-  const drift: string[] = []
-  const { manifest, files } = snapshot
-  if (policy.node && manifest.engines && plainObject(manifest.engines) && manifest.engines.node !== policy.node) {
-    drift.push(`toolchain drift: package.json engines.node must be ${policy.node}`)
-  }
-  if (policy.pnpm && manifest.packageManager !== `pnpm@${policy.pnpm}`) {
-    drift.push(`toolchain drift: package.json packageManager must be pnpm@${policy.pnpm}`)
-  }
-  if (policy.minimumRasStackVersion) {
-    const dependency = dependencyVersion(manifest, 'ras-stack')
-    if (dependency && compareVersions(dependency, policy.minimumRasStackVersion) < 0) {
-      drift.push(`ras-stack drift: package.json uses ${dependency}, minimum is ${policy.minimumRasStackVersion}`)
-    }
-  }
-
-  const workflows = new Map([...files].filter(([path]) => path.startsWith('.github/') && /\.ya?ml$/.test(path)))
-  const workflowMinimum = policy.minimumWorkflowRasStackVersion ?? policy.minimumRasStackVersion
-  for (const [path, source] of workflows) {
-    if (workflowMinimum) {
-      for (const match of source.matchAll(/richardsolomou\/ras-stack\/[^\s'"}]+@v(\d+\.\d+\.\d+)/g)) {
-        const version = match[1]
-        if (version && compareVersions(version, workflowMinimum) < 0) {
-          drift.push(`ras-stack drift: ${path} uses v${version}, minimum is v${workflowMinimum}`)
-        }
-      }
-    }
-  }
-  if (
-    policy.just &&
-    ![...workflows.values()].some(
-      (source) => source.includes(`just-version: '${policy.just}'`) || source.includes(`just-version: ${policy.just}`),
-    )
-  ) {
-    drift.push(`toolchain drift: no workflow declares just-version ${policy.just}`)
-  }
-  for (const reference of policy.requiredReferences ?? []) {
-    if (![...files.values()].some((source) => source.includes(reference))) {
-      drift.push(`shared config drift: no configuration references ${reference}`)
-    }
-  }
-  return [...new Set(drift)]
+  return files.map((path) => `policy drift: ${path}`)
 }
 
 export async function renderedPolicyFiles(root: string, config: RepositoryPolicy) {
@@ -175,112 +93,7 @@ function repositoryPolicy(source: string): RepositoryPolicy {
       throw new Error('pnpm.minimumReleaseAge must be a non-negative integer')
     }
   }
-  const adoption = value.adoption
-  if (adoption !== undefined && adoption !== false) {
-    if (!plainObject(adoption)) throw new Error('adoption policy must be false or an object')
-    for (const key of ['minimumRasStackVersion', 'minimumWorkflowRasStackVersion', 'node', 'pnpm', 'just']) {
-      if (adoption[key] !== undefined && typeof adoption[key] !== 'string') throw new Error(`adoption.${key} must be a string`)
-    }
-    if (adoption.requiredReferences !== undefined && !stringArray(adoption.requiredReferences)) {
-      throw new Error('adoption.requiredReferences must be an array of strings')
-    }
-  }
   return value
-}
-
-function dependencyVersion(manifest: Record<string, unknown>, name: string) {
-  for (const field of ['dependencies', 'devDependencies']) {
-    const dependencies = manifest[field]
-    const value = plainObject(dependencies) ? dependencies[name] : undefined
-    if (typeof value === 'string') return /\d+\.\d+\.\d+/.exec(value)?.[0]
-  }
-  return undefined
-}
-
-function compareVersions(left: string, right: string) {
-  const a = left.split('.').map(Number)
-  const b = right.split('.').map(Number)
-  for (let index = 0; index < 3; index += 1) {
-    if (a[index] !== b[index]) return (a[index] ?? 0) - (b[index] ?? 0)
-  }
-  return 0
-}
-
-async function textFiles(directory: string, root = directory): Promise<Map<string, string>> {
-  const files = new Map<string, string>()
-  const entries = await readdir(directory, { withFileTypes: true }).catch(() => [])
-  const results = await Promise.all(
-    entries.map(async (entry) => {
-      const path = join(directory, entry.name)
-      if (entry.isDirectory()) return textFiles(path, root)
-      if (/\.ya?ml$/.test(entry.name)) return new Map([[path.slice(root.length + 1), await readFile(path, 'utf8')]])
-      return new Map<string, string>()
-    }),
-  )
-  for (const result of results) {
-    for (const [path, source] of result) files.set(path, source)
-  }
-  return files
-}
-
-async function adoptionFiles(root: string) {
-  const files = await textFiles(join(root, '.github'), root)
-  const entries = await readdir(root, { withFileTypes: true })
-  await Promise.all(
-    entries.map(async (entry) => {
-      if (!entry.isFile() || !/^(?:ras-stack\.policy|oxlint|tsconfig(?:\.[^.]+)*)\.json$/.test(entry.name)) return
-      files.set(entry.name, await readFile(join(root, entry.name), 'utf8'))
-    }),
-  )
-  return files
-}
-
-async function renderedAdoptionFiles(root: string, policy: AdoptionPolicy) {
-  const files = new Map<string, string>()
-  const manifestPath = join(root, 'package.json')
-  const manifestSource = await readFile(manifestPath, 'utf8')
-  const manifest = JSON.parse(manifestSource) as Record<string, unknown>
-  if (policy.node) {
-    const engines = plainObject(manifest.engines) ? manifest.engines : {}
-    manifest.engines = { ...engines, node: policy.node }
-  }
-  if (policy.pnpm) manifest.packageManager = `pnpm@${policy.pnpm}`
-  if (policy.minimumRasStackVersion) {
-    for (const field of ['dependencies', 'devDependencies']) {
-      const dependencies = manifest[field]
-      if (!plainObject(dependencies) || typeof dependencies['ras-stack'] !== 'string') continue
-      dependencies['ras-stack'] = versionAtLeast(dependencies['ras-stack'], policy.minimumRasStackVersion)
-    }
-  }
-  const renderedManifest = `${JSON.stringify(manifest, null, 2)}\n`
-  if (renderedManifest !== manifestSource) files.set('package.json', renderedManifest)
-
-  const workflowVersion = policy.minimumWorkflowRasStackVersion ?? policy.minimumRasStackVersion
-  const workflows = await textFiles(join(root, '.github'), root)
-  for (const [path, source] of workflows) {
-    let rendered = source
-    if (workflowVersion) {
-      rendered = rendered.replace(/(richardsolomou\/ras-stack\/[^\s'"}]+@v)(\d+\.\d+\.\d+)/g, (reference, prefix, current) =>
-        compareVersions(current, workflowVersion) < 0 ? `${prefix}${workflowVersion}` : reference,
-      )
-    }
-    if (policy.just) {
-      rendered = rendered.replace(/(just-version:\s*)(['"]?)\d+\.\d+\.\d+\2/g, `$1$2${policy.just}$2`)
-      rendered = rendered.replace(
-        /(richardsolomou\/ras-stack\/actions\/setup-just@[^\n]+\n(?:(?!\n\s*-\s+uses:)[\s\S]){0,300}?\n\s+version:\s*)(['"]?)\d+\.\d+\.\d+\2/g,
-        `$1$2${policy.just}$2`,
-      )
-    }
-    if (rendered !== source) files.set(path, rendered)
-  }
-  return files
-}
-
-function versionAtLeast(current: string, version: string) {
-  const match = /^(\s*(?:\^|~|>=|>|<=|<|=)?\s*)\d+\.\d+\.\d+(.*)$/.exec(current)
-  const currentVersion = /\d+\.\d+\.\d+/.exec(current)?.[0]
-  if (currentVersion && compareVersions(currentVersion, version) >= 0) return current
-  return match ? `${match[1]}${version}${match[2]}` : version
 }
 
 function validateSelection(name: string, value: unknown) {
@@ -306,8 +119,4 @@ function deepMerge(base: Record<string, unknown>, overrides: Record<string, unkn
 
 function plainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function stringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }

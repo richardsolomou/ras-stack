@@ -50,7 +50,7 @@ These configs do not set include paths, aliases, generated directories outside T
 
 ## Adopting the tooling
 
-`ras policy check` fails a repository that has drifted from the adoption baseline, and `ras init` is how a repository reaches it in the first place:
+`ras init` lays down the shared tooling a repository wants:
 
 ```sh
 pnpm exec ras init
@@ -60,7 +60,7 @@ It offers the repository policy and its generated files, the declared Node and p
 
 `--dry-run` reports the plan without writing anything. The questions need a terminal, so `--yes` accepts every step for a non-interactive run.
 
-This adopts the tooling baseline; it is not an application starter. [`examples/full-stack`](../examples/full-stack) remains an integration contract rather than something to copy.
+This lays down tooling; it is not an application starter. [`examples/full-stack`](../examples/full-stack) remains an integration contract rather than something to copy.
 
 ## Repository policy
 
@@ -75,13 +75,7 @@ Policy files which cannot inherit can stay committed while being checked against
     }
   },
   "dependabot": true,
-  "pnpm": {},
-  "adoption": {
-    "minimumRasStackVersion": "0.33.0",
-    "node": ">=24 <25",
-    "pnpm": "11.15.0",
-    "just": "1.58.0"
-  }
+  "pnpm": {}
 }
 ```
 
@@ -90,22 +84,20 @@ Then generate or verify the effective files:
 ```sh
 pnpm exec ras policy sync
 pnpm exec ras policy check
-pnpm exec ras policy sync adoption
-pnpm exec ras policy check adoption
 ```
 
 `changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
-Adoption synchronization updates older ras-stack package and workflow references plus the declared Node, pnpm, and Just versions. It preserves package range style, explicit workflow-version exceptions, newer ras-stack versions, application dependencies, and workflow structure. Check mode reports the exact files that would change without writing them. Shared config references remain check-only because adding them requires application-specific include paths and overrides.
+The package does not police which ras-stack version a repository is on. Pick the version you want to ship; if it lacks something you use, the type checker and the failing import say so more precisely than a declared floor ever could.
 
 `ras-stack/policy` exposes the same operations to a repository that needs them in its own script rather than through the command line:
 
 ```ts
-import { checkRepositoryPolicy, syncAdoptionPolicy } from 'ras-stack/policy'
+import { checkRepositoryPolicy, syncRepositoryPolicy } from 'ras-stack/policy'
 
 const drift = await checkRepositoryPolicy(process.cwd())
 if (drift.length > 0) throw new Error(`policy drift: ${drift.join(', ')}`)
-await syncAdoptionPolicy(process.cwd(), 'check')
+await syncRepositoryPolicy(process.cwd(), 'write')
 ```
 
 ## Production server assets

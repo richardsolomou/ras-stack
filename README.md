@@ -85,7 +85,7 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 | Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras assets`                            | Templates, metadata, quotas, storage, and asset contents       |
 | Production or development realtime runtime                | `ras-stack/runtime`, `ras realtime`                                             | Images, ports, secrets, volumes, and distributed policy        |
 | Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*` | Triggers, permissions, services, deployment, and verification  |
-| Generated repository policy and adoption checks           | `ras policy`                                                                    | Which policies apply and every declared exception              |
+| Generated repository policy files                         | `ras policy`                                                                    | Which policies apply and every declared override               |
 
 ## Dokploy previews 🚀
 

@@ -10,12 +10,21 @@ describe('policy CLI', () => {
     vi.restoreAllMocks()
   })
 
+  it('rejects the removed adoption argument rather than syncing something else', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await runPolicyCli(['sync', 'adoption'])
+
+    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync>')
+    expect(process.exitCode).toBe(2)
+  })
+
   it('rejects the removed fleet command', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
     await runPolicyCli(['fleet'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync> [adoption]')
+    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync>')
     expect(process.exitCode).toBe(2)
   })
 

@@ -71,14 +71,7 @@ const surface = {
   ],
   './database/sqlite': ['closeDrizzleSqlite', 'configureSqlite', 'openDrizzleSqlite', 'openSqliteClient', 'sqliteRateLimitStore'],
   './email': ['createSmtpDelivery', 'createSmtpTransport', 'smtpConfigFromEnvironment'],
-  './policy': [
-    'adoptionDrift',
-    'adoptionSnapshotDrift',
-    'checkRepositoryPolicy',
-    'renderedPolicyFiles',
-    'syncAdoptionPolicy',
-    'syncRepositoryPolicy',
-  ],
+  './policy': ['checkRepositoryPolicy', 'renderedPolicyFiles', 'syncRepositoryPolicy'],
   './posthog': [
     'POSTHOG_DISTINCT_ID_HEADER',
     'POSTHOG_SESSION_ID_HEADER',
