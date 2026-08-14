@@ -1,5 +1,16 @@
 # ras-stack
 
+## 0.38.0
+
+### Minor Changes
+
+- dd91690: Add `ras init`, which walks a repository to the adoption baseline the policy already enforces. It offers the policy selection and its generated files, the declared Node and pnpm versions, a `tsconfig.json` extending a shared preset, an `.oxlintrc.json`, a CI workflow pinned to the release that generated it, and a justfile. Every step is a separate question, an existing file needs its own answer before it is replaced, `--dry-run` reports the plan, and `--yes` accepts everything for a non-interactive run.
+- a685a80: Add rate limiting for the routes an application writes, which Better Auth's own limiter does not reach. `createRateLimit` composes into the same `requireMutation` hook as the origin check, rejecting with `429` and `Retry-After`, `403` for a client it cannot identify, and a retryable `InfrastructureError` when the store is unavailable.
+
+  Counters are shared rather than per-process so replicas enforce one budget between them: `postgresRateLimitStore` and `sqliteRateLimitStore` each increment in a single statement, and `memoryRateLimitStore` covers development. Applications own the table. `assertRateLimitStoreConformance` checks a store against the real database.
+
+- 53c2306: Add conformance suites for three more mechanics that fail invisibly until production. `assertAuthSecretConformance` checks that the secret is long, random-looking, stable across calls, and overridden by `AUTH_SECRET`. `assertRealtimePublisherConformance` checks that a publisher bounds what it accepts and refuses work after `close()`. `assertSmtpConfigConformance` checks that half-configured SMTP is rejected rather than carried into a deployment.
+
 ## 0.37.0
 
 ### Minor Changes
