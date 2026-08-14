@@ -15,6 +15,8 @@ Repository policy is selected in `ras-stack.policy.json`. Run `node dist/cli.js 
 
 Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade.
 
+`build`, `policy`, and `preview` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
+
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
 ## Releases

@@ -5,12 +5,14 @@ import { openSqliteClient } from '../database/sqlite.js'
 import { healthResponse } from '../server/health.js'
 import { postHogBrowserOptions } from '../posthog/client.js'
 import { postHogRequestContext } from '../posthog/request.js'
+import { signRealtimeToken } from '../realtime/tokens.js'
 import {
   assertDatabaseTargetConformance,
   assertHealthHandlerConformance,
   assertMutationOriginConformance,
   assertPostHogBrowserConformance,
   assertPostHogRequestConformance,
+  assertRealtimeTokenConformance,
   assertSqliteConformance,
 } from './index.js'
 
@@ -84,4 +86,45 @@ describe('consumer conformance assertions', () => {
       }),
     ).toThrow('spoofed PostHog request: unverified distinct id was trusted')
   })
+
+  it('accepts the shared realtime token signer', async () => {
+    await expect(
+      assertRealtimeTokenConformance((subject, claims) => signRealtimeToken(subject, claims, { secret }), { secret }),
+    ).resolves.toBeUndefined()
+  })
+
+  it('identifies a token signed with a secret Centrifugo does not share', async () => {
+    await expect(
+      assertRealtimeTokenConformance((subject, claims) => signRealtimeToken(subject, claims, { secret: 'other-secret' }), { secret }),
+    ).rejects.toThrow('realtime token signature: token is not signed with the shared Centrifugo secret')
+  })
+
+  it('identifies a token that outlives the connection it authorizes', async () => {
+    await expect(
+      assertRealtimeTokenConformance((subject, claims) => signRealtimeToken(subject, claims, { secret, ttlSeconds: 60 * 60 * 24 }), {
+        secret,
+      }),
+    ).rejects.toThrow('realtime token expiry: token outlives the 3600 second maximum')
+  })
+
+  it('identifies a signer that grants every subject the same identity', async () => {
+    await expect(
+      assertRealtimeTokenConformance((_subject, claims) => signRealtimeToken('person-123', claims, { secret }), { secret }),
+    ).rejects.toThrow('realtime token subject: every subject received the same identity')
+  })
+
+  it('identifies an unsigned token', async () => {
+    await expect(
+      assertRealtimeTokenConformance(
+        (subject) => `${encode({ alg: 'none', typ: 'JWT' })}.${encode({ sub: subject, channel: 'room:1', exp: 2 ** 40 })}.`,
+        { secret },
+      ),
+    ).rejects.toThrow('realtime token algorithm: expected HS256, received "none"')
+  })
 })
+
+const secret = 'centrifugo-shared-secret'
+
+function encode(value: unknown) {
+  return btoa(JSON.stringify(value)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+}
