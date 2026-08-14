@@ -3,17 +3,22 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runInitCli, type InitPrompts } from './init-cli.js'
-import { applyRepositoryInit, INIT_ADOPTION, INIT_STEPS, planRepositoryInit, type TypeScriptPreset } from './init.js'
+import { applyRepositoryInit, INIT_STEPS, INIT_TOOLCHAIN, planRepositoryInit, type TypeScriptPreset } from './init.js'
 
 const everyStep = INIT_STEPS.map((step) => step.name)
 
 describe('repository initialization plan', () => {
-  it('starts from the adoption versions this repository declares', async () => {
-    const policy = JSON.parse(await readFile(new URL('../../ras-stack.policy.json', import.meta.url), 'utf8')) as {
-      adoption: Record<string, string>
+  // A generated repository should start on the toolchain this one runs, not on a copy that quietly falls behind it.
+  it('starts a repository on the toolchain this one runs', async () => {
+    const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')) as {
+      engines: { node: string }
+      packageManager: string
     }
 
-    expect(INIT_ADOPTION).toEqual({ node: policy.adoption.node, pnpm: policy.adoption.pnpm, just: policy.adoption.just })
+    expect({ node: INIT_TOOLCHAIN.node, pnpm: `pnpm@${INIT_TOOLCHAIN.pnpm}` }).toEqual({
+      node: manifest.engines.node,
+      pnpm: manifest.packageManager,
+    })
   })
 
   it('plans nothing for an empty selection', async () => {
@@ -35,9 +40,7 @@ describe('repository initialization plan', () => {
       '.github/dependabot.yml',
       'pnpm-workspace.yaml',
     ])
-    expect(JSON.parse(planned[0]!.contents)).toMatchObject({
-      adoption: { minimumRasStackVersion: '1.2.3', minimumWorkflowRasStackVersion: '1.2.3', node: INIT_ADOPTION.node },
-    })
+    expect(JSON.parse(planned[0]!.contents)).toEqual({ changesets: true, dependabot: true, pnpm: {} })
   })
 
   it('pins the generated workflow to the release that generated it', async () => {
@@ -54,8 +57,8 @@ describe('repository initialization plan', () => {
     expect(JSON.parse(manifest!.contents)).toEqual({
       name: 'example',
       scripts: { check: 'pnpm test' },
-      engines: { node: INIT_ADOPTION.node },
-      packageManager: `pnpm@${INIT_ADOPTION.pnpm}`,
+      engines: { node: INIT_TOOLCHAIN.node },
+      packageManager: `pnpm@${INIT_TOOLCHAIN.pnpm}`,
     })
   })
 
@@ -122,7 +125,7 @@ describe('repository initialization CLI', () => {
 
     await runInitCli([], answering([true, ...INIT_STEPS.slice(1).map(() => false)]))
 
-    await expect(readFile(join(root, 'ras-stack.policy.json'), 'utf8')).resolves.toContain('adoption')
+    await expect(readFile(join(root, 'ras-stack.policy.json'), 'utf8')).resolves.toContain('changesets')
     expect(log).toHaveBeenCalledWith('wrote ras-stack.policy.json')
   })
 

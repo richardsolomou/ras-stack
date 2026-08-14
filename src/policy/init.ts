@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { renderedPolicyFiles, type AdoptionPolicy } from './index.js'
+import { renderedPolicyFiles } from './index.js'
 
 export type InitStepName = 'policy' | 'toolchain' | 'typescript' | 'oxlint' | 'workflow' | 'justfile'
 
@@ -12,8 +12,8 @@ export type InitAnswers = { steps: readonly InitStepName[]; typescriptPreset?: T
 
 export type PlannedFile = { path: string; contents: string; existing?: string }
 
-// Adoption values a generated repository starts from. `init.test.ts` holds these to this repository's own policy.
-export const INIT_ADOPTION: AdoptionPolicy = {
+// Toolchain a generated repository starts on. `init.test.ts` holds these to what this repository itself runs.
+export const INIT_TOOLCHAIN = {
   node: '>=24 <25',
   pnpm: '11.15.0',
   just: '1.58.0',
@@ -38,12 +38,7 @@ export async function planRepositoryInit(root: string, answers: InitAnswers, rel
   const planned: PlannedFile[] = []
 
   if (selected.has('policy')) {
-    const policy = {
-      changesets: true,
-      dependabot: true,
-      pnpm: {},
-      adoption: { ...INIT_ADOPTION, minimumRasStackVersion: version, minimumWorkflowRasStackVersion: version },
-    }
+    const policy = { changesets: true, dependabot: true, pnpm: {} }
     planned.push({ path: 'ras-stack.policy.json', contents: `${JSON.stringify(policy, null, 2)}\n` })
     for (const [path, contents] of await renderedPolicyFiles(root, policy)) planned.push({ path, contents })
   }
@@ -52,7 +47,7 @@ export async function planRepositoryInit(root: string, answers: InitAnswers, rel
     const manifest = await readJson(join(root, 'package.json'))
     if (!manifest) throw new Error('package.json is required before the toolchain can be configured')
     const engines = manifest.engines && typeof manifest.engines === 'object' ? manifest.engines : {}
-    const configured = { ...manifest, engines: { ...engines, node: INIT_ADOPTION.node }, packageManager: `pnpm@${INIT_ADOPTION.pnpm}` }
+    const configured = { ...manifest, engines: { ...engines, node: INIT_TOOLCHAIN.node }, packageManager: `pnpm@${INIT_TOOLCHAIN.pnpm}` }
     planned.push({ path: 'package.json', contents: `${JSON.stringify(configured, null, 2)}\n` })
   }
 
@@ -110,7 +105,7 @@ jobs:
     uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v${version}
     with:
       command: just check
-      just-version: '${INIT_ADOPTION.just}'
+      just-version: '${INIT_TOOLCHAIN.just}'
 `
 }
 

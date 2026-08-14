@@ -11,7 +11,7 @@ just check
 
 `just check-actions` lints the shell scripts and workflow definitions the published actions ship. It needs ShellCheck and actionlint, which `mise install` provides at the versions pinned in `mise.toml`.
 
-Repository policy is selected in `ras-stack.policy.json`. Run `node dist/cli.js policy sync` after changing generated policy and `node dist/cli.js policy sync adoption` after changing shared version expectations; `just check` rejects drift.
+Repository policy is selected in `ras-stack.policy.json`. Run `node dist/cli.js policy sync` after changing generated policy; `just check` rejects drift.
 
 Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade.
 

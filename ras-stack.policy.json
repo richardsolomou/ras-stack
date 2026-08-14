@@ -1,12 +1,5 @@
 {
   "changesets": true,
   "dependabot": true,
-  "pnpm": {},
-  "adoption": {
-    "minimumRasStackVersion": "0.38.2",
-    "minimumWorkflowRasStackVersion": "0.38.2",
-    "node": ">=24 <25",
-    "pnpm": "11.15.0",
-    "just": "1.58.0"
-  }
+  "pnpm": {}
 }
