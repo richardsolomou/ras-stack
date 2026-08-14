@@ -38,6 +38,80 @@ describe('Centrifugo publisher', () => {
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish failed with status 400' }), 'one')
   })
 
+  it('stays disabled without an API URL instead of publishing nowhere', async () => {
+    const request = vi.fn<typeof fetch>()
+    const publisher = new CentrifugoPublisher({ apiUrl: '', apiKey: 'key', fetch: request, onError: vi.fn() })
+
+    expect(publisher.publish('one', { type: 'change' })).toBe(false)
+    await publisher.idle()
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  // fetch rejects with a TypeError when the connection itself fails, which is worth another attempt.
+  it('retries a connection failure', async () => {
+    const onRetry = vi.fn()
+    const request = vi.fn<typeof fetch>().mockRejectedValueOnce(new TypeError('fetch failed')).mockResolvedValue(new Response('{}'))
+    const publisher = publisherWith(request, { onRetry })
+
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish request failed' }), 'one')
+  })
+
+  it('retries a request that timed out', async () => {
+    const onRetry = vi.fn()
+    const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    const request = vi.fn<typeof fetch>().mockRejectedValueOnce(timeout).mockResolvedValue(new Response('{}'))
+    const publisher = publisherWith(request, { onRetry })
+
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
+  // Centrifugo answers 200 with an error object, so the body decides whether another attempt is worthwhile.
+  it('retries the internal error Centrifugo reports in a successful response', async () => {
+    const onRetry = vi.fn()
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ error: { code: 100, message: 'internal server error' } }))
+      .mockResolvedValue(new Response('{}'))
+    const publisher = publisherWith(request, { onRetry })
+
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+
+    expect(request).toHaveBeenCalledTimes(2)
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish failed: internal server error' }), 'one')
+  })
+
+  it('reports a permanent error Centrifugo describes without retrying', async () => {
+    const onError = vi.fn()
+    const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ error: { code: 102, message: 'unknown channel' } }))
+    const publisher = publisherWith(request, { onError })
+
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+
+    expect(request).toHaveBeenCalledOnce()
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish failed: unknown channel' }), 'one')
+  })
+
+  it('describes an error Centrifugo reports without a message', async () => {
+    const onError = vi.fn()
+    const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ error: { code: 102 } }))
+    const publisher = publisherWith(request, { onError })
+
+    publisher.publish('one', { type: 'change' })
+    await publisher.idle()
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publish failed: code 102' }), 'one')
+  })
+
   it('publishes application-owned channels and payloads', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
     const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api/', apiKey: 'key', fetch: request, onError: vi.fn() })
@@ -209,3 +283,14 @@ describe('Centrifugo publisher', () => {
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publisher is closed' }), 'two')
   })
 })
+
+function publisherWith(request: ReturnType<typeof vi.fn<typeof fetch>>, overrides: Record<string, unknown> = {}) {
+  return new CentrifugoPublisher({
+    apiUrl: 'http://realtime/api',
+    apiKey: 'key',
+    fetch: request,
+    retryMs: 0,
+    onError: vi.fn(),
+    ...overrides,
+  })
+}
