@@ -21,6 +21,21 @@ describe('canonical redirects', () => {
     )
   })
 
+  // Centrifugo's connect proxy calls the application over the loopback interface. A redirect there sends an
+  // internal request out to the public name, and Go's client turns the POST into a GET, which lands on the
+  // page shell and hands Centrifugo HTML to parse as JSON.
+  it.each([
+    'http://127.0.0.1:3001/api/centrifugo/connect',
+    'http://[::1]:3001/api/centrifugo/connect',
+    'http://localhost:3001/api/centrifugo/connect',
+  ])('serves %s without redirecting an internal caller', (url) => {
+    expect(canonicalRedirect(url, { canonicalUrl: 'https://example.com' })).toBeNull()
+  })
+
+  it('still redirects a hostname that merely starts with the loopback digits', () => {
+    expect(canonicalRedirect('http://127.example.com/path', { canonicalUrl: 'https://example.com' })).toBe('https://example.com/path')
+  })
+
   it('serves explicitly excluded endpoints on any host', () => {
     expect(
       canonicalRedirect('http://internal/api/health', {
