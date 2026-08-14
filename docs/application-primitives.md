@@ -59,6 +59,45 @@ Applications still own their auth clients, authorization, file-route declaration
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
+### Rate limiting the application's own routes
+
+`standardRateLimitOptions` covers the Better Auth routes. The server functions and realtime token routes an application writes are its own, so `createRateLimit` composes into the same `requireMutation` hook the origin check already uses:
+
+```ts
+import { createRateLimit, forwardedClientAddress } from 'ras-stack/server'
+import { sqliteRateLimitStore } from 'ras-stack/database/sqlite'
+
+const limitMutations = createRateLimit({
+  store: sqliteRateLimitStore(database.$client),
+  rule: { window: 60, max: 60 },
+  scope: 'mutations',
+  identify: (request) => sessionUserId(request) ?? forwardedClientAddress(request, { trustForwardedHeaders: true }),
+})
+
+export const { rpc, mutationRpc } = createTanStackRpc({
+  requireMutation: async (request) => {
+    requireTanStackMutationOrigin({ configured: [process.env.APP_URL], trustForwardedHeaders: true }, request)
+    await limitMutations(request)
+  },
+})
+```
+
+Counters are shared rather than per-process, so replicas enforce one budget between them. Use `postgresRateLimitStore(client)` when the deployment runs more than one replica; `memoryRateLimitStore()` is for development and tests, where each process keeps its own count. Applications own the table, as they own every other schema:
+
+```sql
+CREATE TABLE rate_limit (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at BIGINT NOT NULL);
+```
+
+Requests over the limit are rejected with a `429` carrying `Retry-After`. A client the application cannot identify is rejected with a `403`, and a store outage raises a retryable `InfrastructureError` rather than blaming the client, so it classifies with every other infrastructure failure. Both defaults fail closed; `onUnidentified` and `onUnavailable` accept `'allow'` where availability matters more.
+
+Because the store is the part that has to be correct under concurrent replicas, it has its own conformance suite. Run it against the real database rather than trusting the wiring:
+
+```ts
+import { assertRateLimitStoreConformance } from 'ras-stack/conformance'
+
+await assertRateLimitStoreConformance(postgresRateLimitStore(client))
+```
+
 Infrastructure boundaries can keep approved client output separate from private causes:
 
 ```ts
