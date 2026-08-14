@@ -72,7 +72,7 @@ jobs:
       checks: write
       issues: write
       pull-requests: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.1
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.38.2
     with:
       state: awaiting
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -91,7 +91,7 @@ jobs:
       checks: write
       issues: write
       pull-requests: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.36.1
+    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.38.2
     with:
       state: building
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -115,10 +115,10 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
       - name: Publish fork preview image
         if: github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
-        uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.36.0
+        uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.38.2
         with:
           artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
           run-id: ${{ github.event.workflow_run.id }}
@@ -127,7 +127,7 @@ jobs:
           token: ${{ github.token }}
       - name: Resolve immutable preview image
         id: image
-        uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.36.0
+        uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.38.2
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
           registry-username: ${{ secrets.PREVIEW_REGISTRY_USERNAME }}
@@ -201,7 +201,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
       - name: Delete preview
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
@@ -227,7 +227,7 @@ jobs:
           PREVIEW_MARKER: ${{ inputs.marker }}
         run: pnpm exec ras preview deleted
       - name: Delete preview images
-        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.36.0
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
         with:
           token: ${{ github.token }}
           package: ${{ inputs.package }}

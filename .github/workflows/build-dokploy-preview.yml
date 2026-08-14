@@ -51,7 +51,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.36.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
       - name: Mark preview as deploying
         env:
           GH_TOKEN: ${{ github.token }}
@@ -68,7 +68,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v0.36.0
+    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v0.38.2
     with:
       published-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
       fork-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
