@@ -131,6 +131,16 @@ if (!result.error) await navigateAfterSignIn()
 
 Applications retain field models, validation, password-reset disclosure policy, two-factor transitions, telemetry, copy, and success navigation.
 
+The auth secret is worth checking in a consumer test, because a secret that changes between restarts signs out every session and a short one is guessable, and neither shows up until production:
+
+```ts
+import { assertAuthSecretConformance } from 'ras-stack/conformance'
+
+await assertAuthSecretConformance((environment) => persistedSecret({ directory, environment }))
+```
+
+It checks that the secret is long and random-looking, that repeated calls return the same value, and that `AUTH_SECRET` takes precedence over a generated one.
+
 ## Database lifecycle
 
 The SQLite entrypoint owns the native client lifecycle, standard safety PRAGMAs, and optional Drizzle migrations while returning the upstream typed database:
@@ -236,6 +246,16 @@ const clients = useRealtimePresence(subscription)
 
 The client factory may return a client or a promise, so applications can fetch and validate an initial ticket before connecting. Pass `onError` as the third argument to handle asynchronous ticket failures. A client that resolves after unmount is disconnected without ever connecting. The factory, error handler, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
 
+A publisher that accepts every channel turns a burst into unbounded memory, and one that accepts work after `close()` loses publications during shutdown. Both appear only under load, so the contract is checkable:
+
+```ts
+import { assertRealtimePublisherConformance } from 'ras-stack/conformance'
+
+await assertRealtimePublisherConformance(() => new CentrifugoPublisher({ ...options, fetch: stubFetch }))
+```
+
+Pass a publisher whose `fetch` does not reach a real Centrifugo; the suite fills it past capacity and then closes it.
+
 The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
 
 Because the application owns the route that mints tokens, a mistake there is only visible once Centrifugo rejects a connection or, worse, accepts one it should not. Consumer tests can check the route's signer against the shared secret instead:
@@ -269,6 +289,16 @@ const upload = createTusUpload({
 
 await startTusUpload(upload)
 ```
+
+Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to:
+
+```ts
+import { assertSmtpConfigConformance } from 'ras-stack/conformance'
+
+expect(() => assertSmtpConfigConformance(smtpConfigFromEnvironment)).not.toThrow()
+```
+
+It checks that an unset environment yields no configuration, that a host and sender produce the default port, and that a host without a sender, a sender without a host, an out-of-range port, and a user without a password are each rejected.
 
 Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 

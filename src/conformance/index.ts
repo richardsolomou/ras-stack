@@ -208,6 +208,71 @@ export async function assertRateLimitStoreConformance(store: RateLimitStoreProbe
   }
 }
 
+export type AuthSecretProvider = (environment: NodeJS.ProcessEnv) => string | Promise<string>
+
+// A secret that changes between restarts signs out every session, and a short one is guessable. Neither shows up
+// until it is already in production, so the contract is checked against the provider an application wired.
+export async function assertAuthSecretConformance(secret: AuthSecretProvider, options: { environmentKey?: string } = {}) {
+  const key = options.environmentKey ?? 'AUTH_SECRET'
+  const configured = 'configured-secret-value-that-is-long-enough'
+
+  const first = await secret({})
+  if (typeof first !== 'string' || !first.trim()) throw new ConformanceError('auth secret', 'provider returned no secret')
+  if (first.length < 32) throw new ConformanceError('auth secret', `expected at least 32 characters, received ${first.length}`)
+  if (new Set(first).size < 8) throw new ConformanceError('auth secret', 'secret does not look randomly generated')
+
+  if ((await secret({})) !== first) {
+    throw new ConformanceError('auth secret', 'secret changed between calls, which signs out every session on restart')
+  }
+  if ((await secret({ [key]: configured })) !== configured) {
+    throw new ConformanceError('auth secret', `${key} must take precedence over a generated secret`)
+  }
+}
+
+export type RealtimePublisherProbe = { publish: (channel: string, data: unknown) => boolean; close: () => Promise<void> }
+
+// A publisher that accepts every channel turns a burst into unbounded memory, and one that accepts work after close
+// loses publications during shutdown. Both appear only under load.
+export async function assertRealtimePublisherConformance(create: () => RealtimePublisherProbe, options: { probes?: number } = {}) {
+  const probes = options.probes ?? 5_000
+  const bounded = create()
+  let admitted = 0
+  for (let attempt = 0; attempt < probes; attempt++) if (bounded.publish(`conformance-${attempt}`, { attempt })) admitted += 1
+  if (admitted === probes) throw new ConformanceError('realtime publisher', `accepted all ${probes} channels without a capacity limit`)
+  if (admitted === 0) throw new ConformanceError('realtime publisher', 'rejected every publication')
+  await bounded.close()
+
+  const closed = create()
+  await closed.close()
+  if (closed.publish('conformance', {})) throw new ConformanceError('realtime publisher', 'accepted work after it was closed')
+}
+
+export type SmtpConfigReader = (environment: NodeJS.ProcessEnv) => { host: string; port: number; from: string } | undefined
+
+// Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to.
+export function assertSmtpConfigConformance(read: SmtpConfigReader) {
+  if (read({}) !== undefined) throw new ConformanceError('SMTP configuration', 'expected no configuration when nothing is set')
+
+  const configured = read({ SMTP_HOST: 'smtp.example', EMAIL_FROM: 'app@example.com' })
+  if (!configured) throw new ConformanceError('SMTP configuration', 'expected a configuration from a host and sender')
+  if (configured.port !== 587)
+    throw new ConformanceError('SMTP configuration', `expected the default port 587, received ${configured.port}`)
+
+  rejects(read, { SMTP_HOST: 'smtp.example' }, 'a host without a sender')
+  rejects(read, { EMAIL_FROM: 'app@example.com' }, 'a sender without a host')
+  rejects(read, { SMTP_HOST: 'smtp.example', EMAIL_FROM: 'app@example.com', SMTP_PORT: '70000' }, 'a port outside the valid range')
+  rejects(read, { SMTP_HOST: 'smtp.example', EMAIL_FROM: 'app@example.com', SMTP_USER: 'user' }, 'a user without a password')
+}
+
+function rejects(read: SmtpConfigReader, environment: NodeJS.ProcessEnv, scenario: string) {
+  try {
+    read(environment)
+  } catch {
+    return
+  }
+  throw new ConformanceError('SMTP configuration', `expected ${scenario} to be rejected`)
+}
+
 export type DatabaseTarget = { provider: 'sqlite'; file: string } | { provider: 'postgres'; url: string }
 
 export type DatabaseTargetResolver = (options: { databaseUrl?: string; sqliteFile: string }) => DatabaseTarget
