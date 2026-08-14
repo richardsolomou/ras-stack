@@ -86,6 +86,18 @@ describe('request rate limiting', () => {
     await expect(limit(request('person-1'))).resolves.toBeUndefined()
   })
 
+  it('bounds the development store when a burst of live keys never expires', async () => {
+    const store = memoryRateLimitStore({ maxKeys: 4 })
+    const limit = createRateLimit({ store, rule: { window: 600, max: 1 }, identify, now: frozen })
+    for (let attempt = 0; attempt < 50; attempt++) {
+      // Each key has to be admitted before the next, so the store observes them one at a time.
+      // oxlint-disable-next-line no-await-in-loop
+      await limit(request(`person-${attempt}`))
+    }
+
+    await expect(limit(request('person-0'))).resolves.toMatchObject({ remaining: 0 })
+  })
+
   it.each([
     { rule: { window: 0, max: 1 }, message: 'rate limit window must be a positive integer' },
     { rule: { window: 60, max: 0 }, message: 'rate limit max must be a positive integer' },

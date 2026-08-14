@@ -61,6 +61,8 @@ export function memoryRateLimitStore(options: { maxKeys?: number } = {}): RateLi
       }
       if (counters.size >= maxKeys) {
         for (const [candidate, counter] of counters) if (counter.resetAt <= now) counters.delete(candidate)
+        // Expiring nothing under a burst of distinct keys would otherwise grow the map without a bound.
+        while (counters.size >= maxKeys) counters.delete(counters.keys().next().value!)
       }
       const counter = { count: 1, resetAt: now + windowSeconds }
       counters.set(key, counter)
