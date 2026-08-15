@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.39.2
+
+### Patch Changes
+
+- 0deaa5d: Add a client-transform-safe TanStack middleware entrypoint for canonical-host handling.
+
 ## 0.39.1
 
 ### Patch Changes
