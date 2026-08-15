@@ -76,16 +76,16 @@ pnpm add postgres drizzle-orm
 
 Start with the narrowest public entrypoint that owns the repeated mechanic:
 
-| Need                                                      | Entrypoint or command                                                           | The application still owns                                     |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Authentication defaults and browser action state          | `ras-stack/auth`, `ras-stack/auth/client`, `ras-stack/auth/react`               | Better Auth configuration, forms, policy, and navigation       |
-| RPC, mutation-origin, health, and canonical-host handling | `ras-stack/server`, `ras-stack/tanstack/server`                                 | Routes, authorization, logging, and health work                |
-| SQLite or PostgreSQL lifecycle                            | `ras-stack/database/*`                                                          | Schemas, migrations, repositories, and transactions            |
-| Realtime publication and browser lifecycle                | `ras-stack/realtime/*`                                                          | Channels, tickets, payloads, presence models, and invalidation |
-| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras assets`                            | Templates, metadata, quotas, storage, and asset contents       |
-| Production or development realtime runtime                | `ras-stack/runtime`, `ras realtime`                                             | Images, ports, secrets, volumes, and distributed policy        |
-| Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*` | Triggers, permissions, services, deployment, and verification  |
-| Generated repository policy files                         | `ras policy`                                                                    | Which policies apply and every declared override               |
+| Need                                                      | Entrypoint or command                                                            | The application still owns                                     |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Authentication defaults and browser action state          | `ras-stack/auth`, `ras-stack/auth/client`, `ras-stack/auth/react`                | Better Auth configuration, forms, policy, and navigation       |
+| RPC, mutation-origin, health, and canonical-host handling | `ras-stack/server`, `ras-stack/tanstack/server`, `ras-stack/tanstack/middleware` | Routes, authorization, logging, and health work                |
+| SQLite or PostgreSQL lifecycle                            | `ras-stack/database/*`                                                           | Schemas, migrations, repositories, and transactions            |
+| Realtime publication and browser lifecycle                | `ras-stack/realtime/*`                                                           | Channels, tickets, payloads, presence models, and invalidation |
+| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras assets`                             | Templates, metadata, quotas, storage, and asset contents       |
+| Production or development realtime runtime                | `ras-stack/runtime`, `ras realtime`                                              | Images, ports, secrets, volumes, and distributed policy        |
+| Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*`  | Triggers, permissions, services, deployment, and verification  |
+| Generated repository policy files                         | `ras policy`                                                                     | Which policies apply and every declared override               |
 
 ## Dokploy previews 🚀
 

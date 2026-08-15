@@ -1,5 +1,5 @@
 import { createStart } from '@tanstack/react-start'
-import { canonicalHostMiddleware } from 'ras-stack/tanstack/server'
+import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
 
 // The Centrifugo connect proxy is deliberately absent from this set: it calls in over the loopback interface,
 // which canonicalRedirect leaves alone. Listing it here would hide a regression in that behaviour from the

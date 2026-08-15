@@ -23,6 +23,13 @@ describe('module boundaries', () => {
 
     expect(crossings.flat()).toEqual([])
   })
+
+  it('keeps the TanStack middleware entrypoint safe for the client transform', async () => {
+    const source = await readFile(new URL('tanstack/middleware.ts', import.meta.url), 'utf8')
+
+    expect(source).not.toContain('@tanstack/react-start/server')
+    expect(source).not.toContain('../server/index.js')
+  })
 })
 
 async function toolingImports(directory: string) {

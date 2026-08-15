@@ -29,13 +29,8 @@ The optional TanStack entrypoints bind the shared primitives to TanStack Start's
 
 ```ts
 import { createStackQueryClient } from 'ras-stack/tanstack/query'
-import {
-  betterAuthHandlers,
-  canonicalHostMiddleware,
-  createTanStackRpc,
-  requireTanStackMutationOrigin,
-  tanStackHealthHandler,
-} from 'ras-stack/tanstack/server'
+import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
+import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from 'ras-stack/tanstack/server'
 
 export const { rpc, mutationRpc } = createTanStackRpc({
   requireMutation: (request) =>
@@ -56,6 +51,8 @@ export const canonicalHost = canonicalHostMiddleware(() => ({ canonicalUrl: proc
 ```
 
 Applications still own their auth clients, authorization, file-route declarations, router, logging, health-check work, and Query configuration. Both integrations remain optional, and their upstream libraries remain directly accessible.
+
+Import middleware used by `src/start.ts` from `ras-stack/tanstack/middleware`. That entrypoint is safe for TanStack's client transform; `ras-stack/tanstack/server` also exports server-only request helpers and must stay behind server boundaries.
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
