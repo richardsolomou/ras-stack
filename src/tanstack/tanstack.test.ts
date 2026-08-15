@@ -1,12 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createStackQueryClient, queryErrorMessage } from './query.js'
-import {
-  betterAuthHandlers,
-  canonicalHostRequest,
-  createTanStackRpc,
-  requireTanStackMutationOrigin,
-  tanStackHealthHandler,
-} from './server.js'
+import { canonicalHostRequest } from './middleware.js'
+import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
 
 describe('TanStack RPC integration', () => {
   it('uses the ambient request for mutation policy', async () => {

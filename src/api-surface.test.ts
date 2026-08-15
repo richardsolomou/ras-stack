@@ -23,6 +23,7 @@ import * as realtimeReact from './realtime/react.js'
 import * as runtime from './runtime/index.js'
 import * as server from './server/index.js'
 import * as tanstackQuery from './tanstack/query.js'
+import * as tanstackMiddleware from './tanstack/middleware.js'
 import * as tanstackServer from './tanstack/server.js'
 import * as uploads from './uploads/index.js'
 
@@ -147,6 +148,7 @@ const surface = {
     'safeInfrastructureError',
   ],
   './tanstack/query': ['createStackQueryClient', 'queryErrorMessage'],
+  './tanstack/middleware': ['canonicalHostMiddleware', 'canonicalHostRequest'],
   './tanstack/server': [
     'betterAuthHandlers',
     'canonicalHostMiddleware',
@@ -182,6 +184,7 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './runtime': runtime,
   './server': server,
   './tanstack/query': tanstackQuery,
+  './tanstack/middleware': tanstackMiddleware,
   './tanstack/server': tanstackServer,
   './uploads': uploads,
 }

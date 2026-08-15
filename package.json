@@ -118,6 +118,10 @@
       "types": "./dist/tanstack/query.d.ts",
       "default": "./dist/tanstack/query.js"
     },
+    "./tanstack/middleware": {
+      "types": "./dist/tanstack/middleware.d.ts",
+      "default": "./dist/tanstack/middleware.js"
+    },
     "./tanstack/server": {
       "types": "./dist/tanstack/server.d.ts",
       "default": "./dist/tanstack/server.js"
