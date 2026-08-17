@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.39.3
+
+### Patch Changes
+
+- c597d95: Accept current dependency branches in shallow CI checkouts.
+
 ## 0.39.2
 
 ### Patch Changes
