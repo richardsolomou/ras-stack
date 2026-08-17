@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.39.5
+
+### Patch Changes
+
+- c9abae8: Use the shallow-safe setup action across shared workflows.
+
 ## 0.39.4
 
 ### Patch Changes
