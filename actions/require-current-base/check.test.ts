@@ -17,6 +17,15 @@ describe('current base check', () => {
     await expect(run(repository, base, head)).resolves.toMatchObject({ stdout: expect.stringContaining('contains base') })
   })
 
+  it('accepts a head containing the declared base in a shallow checkout', async () => {
+    const source = await fixtureRepository()
+    const base = await commit(source, 'base')
+    const head = await commit(source, 'head')
+    const repository = await shallowClone(source, head)
+
+    await expect(run(repository, base, head)).resolves.toMatchObject({ stdout: expect.stringContaining('contains base') })
+  })
+
   it('rejects a head missing the declared base', async () => {
     const repository = await fixtureRepository()
     const original = await commit(repository, 'original')
@@ -50,6 +59,14 @@ async function commit(repository: string, contents: string) {
   await exec('git', ['add', 'fixture.txt'], { cwd: repository })
   await exec('git', ['commit', '-m', contents], { cwd: repository })
   return (await exec('git', ['rev-parse', 'HEAD'], { cwd: repository })).stdout.trim()
+}
+
+async function shallowClone(source: string, head: string) {
+  const parent = await mkdtemp(join(tmpdir(), 'ras-stack-current-base-clone-'))
+  const repository = join(parent, 'repository')
+  await exec('git', ['clone', '--depth=1', '--no-local', source, repository])
+  await exec('git', ['checkout', head], { cwd: repository })
+  return repository
 }
 
 async function run(repository: string, base: string, head: string) {
