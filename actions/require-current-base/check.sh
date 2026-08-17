@@ -19,6 +19,10 @@ ensure_commit() {
 ensure_commit "$BASE_SHA"
 ensure_commit "$HEAD_SHA"
 
+if [[ $(git rev-parse --is-shallow-repository) == true ]]; then
+  git fetch --no-tags --filter=blob:none --unshallow origin "$HEAD_SHA"
+fi
+
 if ! git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"; then
   echo "dependency branch does not contain the current base; refresh the dependency branch before merging" >&2
   exit 1
