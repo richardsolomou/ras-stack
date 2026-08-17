@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.39.4
+
+### Patch Changes
+
+- 95e1db6: Use the shallow-safe dependency base check in the shared check workflow.
+
 ## 0.39.3
 
 ### Patch Changes
