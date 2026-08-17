@@ -48,9 +48,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
       - if: inputs.just-version != ''
-        uses: richardsolomou/ras-stack/actions/setup-just@v0.38.2
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.39.3
         with:
           version: ${{ inputs.just-version }}
       - name: Prepare application

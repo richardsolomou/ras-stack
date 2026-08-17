@@ -37,9 +37,9 @@ jobs:
         with:
           base-sha: ${{ github.event.pull_request.base.sha }}
           head-sha: ${{ github.event.pull_request.head.sha }}
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
       - if: inputs.just-version != ''
-        uses: richardsolomou/ras-stack/actions/setup-just@v0.38.2
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.39.3
         with:
           version: ${{ inputs.just-version }}
       - name: Audit dependencies
