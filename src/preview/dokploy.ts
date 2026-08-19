@@ -98,9 +98,9 @@ export class DokployClient {
   }
 
   async generatedDomain(appName: string, serverId?: string, existing: string[] = []) {
-    const serverIp = await this.api('domain.canGenerateTraefikMeDomains', {
-      query: { serverId: serverId ?? '' },
-    })
+    const serverIp = serverId
+      ? await this.api('domain.canGenerateTraefikMeDomains', { query: { serverId } })
+      : await this.api('settings.getIp')
     const publicIp = previewServerIp(serverIp)
     const current = existing.find((host) => isCurrentGeneratedPreviewHostname(host, appName, publicIp))
     if (current) return current
@@ -161,9 +161,9 @@ export class DokployPreviewManager {
       if (!application) throw new Error(`Dokploy did not report ${name} after creating it`)
     }
     const applicationId = application.applicationId
-    const details = await this.options.client.api<{ domains?: { domainId?: string; host: string }[] } | undefined>('application.one', {
-      query: { applicationId },
-    })
+    const details = await this.options.client.api<
+      { domains?: { domainId?: string; host: string }[]; serverId?: string | null } | undefined
+    >('application.one', { query: { applicationId } })
     const generated = !this.options.hostname
     const managedDomains = details?.domains?.filter((domain) => isGeneratedPreviewHostname(domain.host, generatedPreviewName)) ?? []
     const host = previewHostname(
@@ -171,7 +171,7 @@ export class DokployPreviewManager {
         ? this.options.hostname(prNumber)
         : await this.options.client.generatedDomain(
             generatedPreviewName,
-            application.serverId ?? undefined,
+            details?.serverId ?? application.serverId ?? undefined,
             managedDomains.map((domain) => domain.host),
           ),
     )
