@@ -39,9 +39,6 @@ function Home() {
 
 function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
   const [mode, setMode] = useState<'sign-up' | 'sign-in'>('sign-up')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [notice, setNotice] = useState('')
   const queryClient = useQueryClient()
   const action = useAuthAction()
@@ -50,6 +47,10 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
       onSubmit={async (event) => {
         event.preventDefault()
         setNotice('')
+        const form = new FormData(event.currentTarget)
+        const name = formText(form, 'name')
+        const email = formText(form, 'email')
+        const password = formText(form, 'password')
         const result = await action.run(async () => {
           const response =
             mode === 'sign-up'
@@ -67,21 +68,20 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
       {mode === 'sign-up' && (
         <label>
           Name
-          <input aria-label="Name" autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
+          <input aria-label="Name" autoComplete="name" name="name" />
         </label>
       )}
       <label>
         Email
-        <input aria-label="Email" autoComplete="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <input aria-label="Email" autoComplete="email" name="email" type="email" />
       </label>
       <label>
         Password
         <input
           aria-label="Password"
           autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
+          name="password"
           type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
         />
       </label>
       <button disabled={action.busy}>{mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
@@ -91,7 +91,10 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
       {emailConfigured && (
         <button
           type="button"
-          onClick={async () => {
+          onClick={async (event) => {
+            const form = event.currentTarget.form
+            if (!form) return
+            const email = formText(new FormData(form), 'email')
             await authClient.requestPasswordReset({ email, redirectTo: '/' })
             setNotice('If that account exists, a reset link has been sent.')
           }}
@@ -103,6 +106,11 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
       {action.error && <p className="error">{action.error}</p>}
     </form>
   )
+}
+
+function formText(form: FormData, name: string) {
+  const value = form.get(name)
+  return typeof value === 'string' ? value : ''
 }
 
 function Messages({ name, signOut }: { name: string; signOut: () => Promise<void> }) {
