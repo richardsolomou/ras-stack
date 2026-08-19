@@ -16,15 +16,15 @@ on:
         type: string
         required: true
       domain:
-        description: Preview domain; previews use pr-<number>.<domain>.
+        description: Custom preview domain. Omit to use a Dokploy generated sslip.io domain.
         type: string
-        required: true
+        default: ''
       port:
         description: Application HTTP port.
         type: number
         required: true
       environment:
-        description: Multiline environment template. Supports {{PR_NUMBER}} and {{RANDOM_HEX_32}}.
+        description: Multiline environment template. Supports {{PR_NUMBER}}, {{PREVIEW_URL}}, and {{RANDOM_HEX_32}}.
         type: string
         default: ''
       health-path:
@@ -62,7 +62,7 @@ on:
         required: false
 
 env:
-  PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}.${{ inputs.domain }}
+  CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
 
 jobs:
   mark-fork-awaiting-approval:
@@ -77,7 +77,7 @@ jobs:
       state: awaiting
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
       sha: ${{ github.event.workflow_run.head_sha }}
-      preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+      preview-url: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
       run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       marker: ${{ inputs.marker }}
       note: ${{ inputs.note }}
@@ -96,7 +96,7 @@ jobs:
       state: building
       pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
       sha: ${{ github.event.workflow_run.head_sha }}
-      preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+      preview-url: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
       run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       marker: ${{ inputs.marker }}
       note: ${{ inputs.note }}
@@ -166,7 +166,7 @@ jobs:
       - name: Verify preview
         if: inputs.playwright-config != ''
         env:
-          PREVIEW_BASE_URL: ${{ steps.deploy.outputs.preview-url }}
+          PREVIEW_BASE_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           PLAYWRIGHT_CONFIG: ${{ inputs.playwright-config }}
         run: pnpm exec playwright test --config "$PLAYWRIGHT_CONFIG"
       - name: Mark preview as ready
@@ -176,7 +176,7 @@ jobs:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
-          PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview ready
       - name: Mark preview as failed
@@ -187,7 +187,7 @@ jobs:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
-          PREVIEW_URL: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.${{ inputs.domain }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview failed
 

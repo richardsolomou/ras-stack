@@ -1,6 +1,9 @@
-export type DokployApplication = { applicationId: string; name: string }
+import { appendFileSync } from 'node:fs'
+
+export type DokployApplication = { applicationId: string; name: string; serverId?: string | null }
 
 export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = process.env) {
+  const githubOutput = optionalEnvironment(environment, 'GITHUB_OUTPUT')
   const username = optionalEnvironment(environment, 'PREVIEW_REGISTRY_USERNAME')
   const password = optionalEnvironment(environment, 'PREVIEW_REGISTRY_PASSWORD')
   if (Boolean(username) !== Boolean(password)) throw new Error('preview registry username and password must be configured together')
@@ -8,8 +11,8 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PREVIEW_PORT must be a valid port')
   const applicationPrefix = requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX')
   if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(applicationPrefix)) throw new Error('PREVIEW_APPLICATION_PREFIX must be a slug')
-  const domain = requiredEnvironment(environment, 'PREVIEW_DOMAIN')
-  previewHostname(`pr-1.${domain}`)
+  const domain = optionalEnvironment(environment, 'PREVIEW_DOMAIN')
+  if (domain) previewHostname(`pr-1.${domain}`)
   const config = {
     url: requiredEnvironment(environment, 'DOKPLOY_URL'),
     apiKey: requiredEnvironment(environment, 'DOKPLOY_API_KEY'),
@@ -26,9 +29,10 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
     manager: new DokployPreviewManager({
       client,
       applicationName: (prNumber) => `${applicationPrefix}-pr-${prNumber}`,
-      hostname: (prNumber) => `pr-${prNumber}.${domain}`,
+      ...(domain ? { hostname: (prNumber: string) => `pr-${prNumber}.${domain}` } : {}),
       port,
       ...(config.healthPath ? { healthPath: config.healthPath } : {}),
+      ...(githubOutput ? { onResolved: ({ url }: { url: string }) => appendFileSync(githubOutput, `preview-url=${url}\n`) } : {}),
     }),
   }
 }
@@ -91,12 +95,22 @@ export class DokployClient {
   async application(name: string) {
     return (await this.applications()).find((application) => application.name === name)
   }
+
+  async generateDomain(appName: string, serverId?: string) {
+    const generated = await this.api('domain.generateDomain', {
+      body: { appName, ...(serverId ? { serverId } : {}) },
+    })
+    if (typeof generated !== 'string') throw new Error('domain.generateDomain returned an invalid hostname')
+    const host = previewHostname(generated)
+    if (!host.endsWith('.sslip.io')) throw new Error('domain.generateDomain did not return an sslip.io hostname')
+    return host
+  }
 }
 
 export type DokployPreviewOptions = {
   client: DokployClient
   applicationName: (prNumber: string) => string
-  hostname: (prNumber: string) => string
+  hostname?: (prNumber: string) => string
   port: number
   healthPath?: string
   deploymentTimeoutMs?: number
@@ -106,14 +120,15 @@ export type DokployPreviewOptions = {
   sleep?: (milliseconds: number) => Promise<void>
   now?: () => number
   log?: (message: string) => void
+  onResolved?: (context: { host: string; url: string }) => void | Promise<void>
 }
 
 export type DeployPreviewOptions = {
   prNumber: string
   image: string
-  environment: string
+  environment: string | ((context: { host: string; url: string }) => string)
   registry?: { username: string; password: string }
-  configure?: (context: { applicationId: string; client: DokployClient; host: string }) => void | Promise<void>
+  configure?: (context: { applicationId: string; client: DokployClient; host: string; url: string }) => void | Promise<void>
 }
 
 export class DokployPreviewManager {
@@ -132,7 +147,6 @@ export class DokployPreviewManager {
   async deploy(options: DeployPreviewOptions) {
     const prNumber = pullRequestNumber(options.prNumber)
     const name = this.options.applicationName(prNumber)
-    const host = previewHostname(this.options.hostname(prNumber))
     let application = await this.options.client.application(name)
     if (!application) {
       await this.options.client.api('application.create', {
@@ -145,6 +159,14 @@ export class DokployPreviewManager {
     const details = await this.options.client.api<{ domains?: { host: string }[] } | undefined>('application.one', {
       query: { applicationId },
     })
+    const generated = !this.options.hostname
+    const existingGenerated = generated ? details?.domains?.find((domain) => domain.host.endsWith('.sslip.io')) : undefined
+    const host = previewHostname(
+      this.options.hostname
+        ? this.options.hostname(prNumber)
+        : (existingGenerated?.host ?? (await this.options.client.generateDomain(name, application.serverId ?? undefined))),
+    )
+    const url = `${generated ? 'http' : 'https'}://${host}`
     if (!details?.domains?.some((domain) => domain.host === host)) {
       await this.options.client.api('domain.create', {
         body: {
@@ -152,13 +174,14 @@ export class DokployPreviewManager {
           host,
           path: '/',
           port: this.options.port,
-          https: true,
-          certificateType: 'letsencrypt',
+          https: !generated,
+          certificateType: generated ? 'none' : 'letsencrypt',
           domainType: 'application',
         },
       })
     }
-    await options.configure?.({ applicationId, client: this.options.client, host })
+    await this.options.onResolved?.({ host, url })
+    await options.configure?.({ applicationId, client: this.options.client, host, url })
     await this.options.client.api('application.saveDockerProvider', {
       body: {
         applicationId,
@@ -169,11 +192,16 @@ export class DokployPreviewManager {
       },
     })
     await this.options.client.api('application.saveEnvironment', {
-      body: { applicationId, env: options.environment, buildArgs: null, buildSecrets: null, createEnvFile: false },
+      body: {
+        applicationId,
+        env: typeof options.environment === 'function' ? options.environment({ host, url }) : options.environment,
+        buildArgs: null,
+        buildSecrets: null,
+        createEnvFile: false,
+      },
     })
     await this.options.client.api('application.deploy', { body: { applicationId } })
     await this.waitForDeployment(applicationId)
-    const url = `https://${host}`
     await this.waitForHealth(new URL(this.options.healthPath ?? '/api/health', url).toString())
     this.log(`Preview ready at ${url}`)
     return { applicationId, host, url }

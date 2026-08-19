@@ -1,3 +1,6 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dokployPreviewFromEnvironment } from './dokploy.js'
 import { renderPreviewEnvironment, runDokployPreviewCli } from './dokploy-cli.js'
@@ -24,6 +27,18 @@ describe('Dokploy preview CLI configuration', () => {
     })
   })
 
+  it('selects Dokploy generated domains when PREVIEW_DOMAIN is omitted', () => {
+    expect(dokployPreviewFromEnvironment({ ...environment, PREVIEW_DOMAIN: '' }).config).toEqual({
+      url: 'https://dokploy.example',
+      apiKey: 'secret',
+      environmentId: 'environment',
+      applicationPrefix: 'example',
+      domain: undefined,
+      port: 3000,
+      healthPath: undefined,
+    })
+  })
+
   it('validates ports and private registry credentials', () => {
     expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_PORT: '0' })).toThrow('valid port')
     expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_REGISTRY_USERNAME: 'user' })).toThrow('configured together')
@@ -38,10 +53,16 @@ describe('Dokploy preview CLI configuration', () => {
     const [, first, second] = rendered.match(/SECRET=([^\n]+)\nSECRET_2=([^\n]+)/) ?? []
     expect(first).not.toBe(second)
   })
+
+  it('renders the resolved preview URL', () => {
+    expect(renderPreviewEnvironment('APP_URL={{PREVIEW_URL}}\n', '42', 'http://example.sslip.io')).toBe('APP_URL=http://example.sslip.io\n')
+    expect(() => renderPreviewEnvironment('APP_URL={{PREVIEW_URL}}\n', '42')).toThrow('preview URL')
+  })
 })
 
 describe('Dokploy preview CLI commands', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
@@ -56,6 +77,48 @@ describe('Dokploy preview CLI commands', () => {
 
     await expect(runDokployPreviewCli(['deploy'], environment)).rejects.toThrow('PR_NUMBER is required')
     expect(request).not.toHaveBeenCalled()
+  })
+
+  it('outputs a generated URL before a later deployment failure', async () => {
+    vi.useFakeTimers()
+    const directory = await mkdtemp(join(tmpdir(), 'ras-stack-preview-'))
+    const output = join(directory, 'github-output')
+    const applications: { applicationId: string; name: string; serverId?: string }[] = []
+    let deployed = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>(async (input, init) => {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
+        const procedure = url.pathname.slice('/api/'.length)
+        const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
+        if (procedure === 'environment.one') return Response.json({ applications })
+        if (procedure === 'application.create') {
+          applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
+          return new Response(null)
+        }
+        if (procedure === 'domain.generateDomain') return Response.json('example-pr-42-a1b2c3-203-0-113-10.sslip.io')
+        if (procedure === 'application.deploy') deployed = true
+        if (procedure === 'application.one') return Response.json(deployed ? { applicationStatus: 'error' } : { domains: [] })
+        return new Response(null)
+      }),
+    )
+
+    try {
+      const deployment = runDokployPreviewCli(['deploy'], {
+        ...environment,
+        PREVIEW_DOMAIN: '',
+        PREVIEW_IMAGE: 'ghcr.io/example/app:pr-42',
+        PREVIEW_ENVIRONMENT: 'APP_URL={{PREVIEW_URL}}\n',
+        PR_NUMBER: '42',
+        GITHUB_OUTPUT: output,
+      })
+      const failure = deployment.catch((error: unknown) => error)
+      await vi.runAllTimersAsync()
+      expect(await failure).toMatchObject({ message: 'Dokploy reported a failed deployment' })
+      await expect(readFile(output, 'utf8')).resolves.toBe('preview-url=http://example-pr-42-a1b2c3-203-0-113-10.sslip.io\n')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   })
 
   it('reports a delete for a pull request that has no preview', async () => {

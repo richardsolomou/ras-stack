@@ -44,6 +44,19 @@ describe('GitHub preview status', () => {
     expect(request.calls[3]?.body).toMatchObject({ body: expect.stringContaining('The preview of `bbbbbbb` stays up until it does.') })
   })
 
+  it('reports a generated preview before its URL is resolved', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'building',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+    })
+
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n🔄 Deploying `aaaaaaa`.\n\nDisposable test data.',
+    })
+  })
+
   it('deletes the comment state without requiring a commit SHA', async () => {
     const request = githubFetch({ checks: [], comments: [{ id: 8, body: '<!-- app-preview -->' }] })
     await reportPreviewStatus(previewOptions(request), { state: 'deleted', prNumber: '42' })

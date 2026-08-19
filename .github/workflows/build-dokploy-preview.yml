@@ -12,9 +12,9 @@ on:
         type: string
         required: true
       domain:
-        description: Preview domain.
+        description: Custom preview domain. Omit to use a Dokploy generated sslip.io domain.
         type: string
-        required: true
+        default: ''
       marker:
         description: Stable marker for the pull-request status comment.
         type: string
@@ -59,7 +59,7 @@ jobs:
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
-          PREVIEW_URL: https://pr-${{ github.event.pull_request.number }}.${{ inputs.domain }}
+          PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.pull_request.number, inputs.domain) || '' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview building
 

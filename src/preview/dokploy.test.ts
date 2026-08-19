@@ -18,6 +18,7 @@ describe('Dokploy preview lifecycle', () => {
       configured: configure.mock.calls.length,
       procedures: server.procedures,
       provider: server.bodies.get('application.saveDockerProvider'),
+      domain: server.bodies.get('domain.create'),
     }).toEqual({
       result: { applicationId: 'app-42', host: 'pr-42.example.com', url: 'https://pr-42.example.com' },
       configured: 1,
@@ -39,7 +40,78 @@ describe('Dokploy preview lifecycle', () => {
         password: 'registry-password',
         registryUrl: 'ghcr.io',
       },
+      domain: {
+        applicationId: 'app-42',
+        host: 'pr-42.example.com',
+        path: '/',
+        port: 3000,
+        https: true,
+        certificateType: 'letsencrypt',
+        domainType: 'application',
+      },
     })
+  })
+
+  it('uses Dokploy generated sslip.io domains over HTTP', async () => {
+    const server = fakeDokploy()
+    const manager = generatedPreviewManager(server.fetch)
+    const result = await manager.deploy({
+      prNumber: '42',
+      image: 'ghcr.io/example/app:pr-42',
+      environment: ({ url }) => `APP_URL=${url}\n`,
+    })
+
+    expect({
+      result,
+      generated: server.bodies.get('domain.generateDomain'),
+      domain: server.bodies.get('domain.create'),
+      environment: server.bodies.get('application.saveEnvironment'),
+      healthUrl: server.healthUrls[0],
+    }).toEqual({
+      result: {
+        applicationId: 'app-42',
+        host: 'example-pr-42-a1b2c3-203-0-113-10.sslip.io',
+        url: 'http://example-pr-42-a1b2c3-203-0-113-10.sslip.io',
+      },
+      generated: { appName: 'example-pr-42', serverId: 'server-1' },
+      domain: {
+        applicationId: 'app-42',
+        host: 'example-pr-42-a1b2c3-203-0-113-10.sslip.io',
+        path: '/',
+        port: 3000,
+        https: false,
+        certificateType: 'none',
+        domainType: 'application',
+      },
+      environment: {
+        applicationId: 'app-42',
+        env: 'APP_URL=http://example-pr-42-a1b2c3-203-0-113-10.sslip.io\n',
+        buildArgs: null,
+        buildSecrets: null,
+        createEnvFile: false,
+      },
+      healthUrl: 'http://example-pr-42-a1b2c3-203-0-113-10.sslip.io/api/health',
+    })
+  })
+
+  it('reuses an existing generated domain', async () => {
+    const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
+      { host: 'example-pr-42-existing-203-0-113-10.sslip.io' },
+    ])
+
+    await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
+
+    expect(server.procedures).not.toContain('domain.generateDomain')
+    expect(server.procedures).not.toContain('domain.create')
+  })
+
+  it('rejects a generated hostname outside sslip.io', async () => {
+    const server = fakeDokploy([], 'done', [], 'preview.example.com')
+
+    await expect(generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })).rejects.toThrow(
+      'did not return an sslip.io hostname',
+    )
+    expect(server.procedures).not.toContain('domain.create')
   })
 
   it('deletes an existing preview after application cleanup', async () => {
@@ -150,14 +222,41 @@ function previewManager(fetch: typeof globalThis.fetch) {
   })
 }
 
-function fakeDokploy(initial: { applicationId: string; name: string }[] = [], deploymentStatus: string = 'done') {
+function generatedPreviewManager(fetch: typeof globalThis.fetch) {
+  const client = new DokployClient({
+    url: 'https://dokploy.example',
+    apiKey: 'secret',
+    environmentId: 'environment',
+    fetch,
+    log: () => undefined,
+  })
+  return new DokployPreviewManager({
+    client,
+    applicationName: (prNumber) => `example-pr-${prNumber}`,
+    port: 3000,
+    fetch,
+    sleep: async () => undefined,
+    log: () => undefined,
+  })
+}
+
+function fakeDokploy(
+  initial: { applicationId: string; name: string; serverId?: string }[] = [],
+  deploymentStatus: string = 'done',
+  domains: { host: string }[] = [],
+  generatedDomain = 'example-pr-42-a1b2c3-203-0-113-10.sslip.io',
+) {
   const applications = [...initial]
   const procedures: string[] = []
   const bodies = new Map<string, unknown>()
+  const healthUrls: string[] = []
   let deployed = false
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-    if (url.hostname !== 'dokploy.example') return new Response('healthy')
+    if (url.hostname !== 'dokploy.example') {
+      healthUrls.push(url.toString())
+      return new Response('healthy')
+    }
     const procedure = url.pathname.slice('/api/'.length)
     procedures.push(procedure)
     if (init?.body !== undefined && typeof init.body !== 'string') throw new Error('test expected a JSON string body')
@@ -165,9 +264,10 @@ function fakeDokploy(initial: { applicationId: string; name: string }[] = [], de
     if (body !== undefined) bodies.set(procedure, body)
     if (procedure === 'environment.one') return Response.json({ applications })
     if (procedure === 'application.create') {
-      applications.push({ applicationId: 'app-42', name: String(body?.name) })
+      applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
       return new Response(null)
     }
+    if (procedure === 'domain.generateDomain') return Response.json(generatedDomain)
     if (procedure === 'application.deploy') deployed = true
     if (procedure === 'application.one') {
       if (deployed && deploymentStatus === 'hang') {
@@ -175,9 +275,9 @@ function fakeDokploy(initial: { applicationId: string; name: string }[] = [], de
           init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
         })
       }
-      return Response.json(deployed ? { applicationStatus: deploymentStatus } : { domains: [] })
+      return Response.json(deployed ? { applicationStatus: deploymentStatus } : { domains })
     }
     return new Response(null)
   })
-  return { bodies, fetch, procedures }
+  return { bodies, fetch, healthUrls, procedures }
 }

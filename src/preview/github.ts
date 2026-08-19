@@ -78,14 +78,13 @@ function previewComment(options: GitHubPreviewOptions, status: PreviewStatus, pr
     awaiting: `⏸️ The preview of \`${sha}\` is waiting for a maintainer to approve its build.${standing}`,
     building: `🔄 Deploying \`${sha}\`.${standing}`,
     ready: `✅ Preview is up to date with commit \`${sha}\`.`,
-    failed: `❌ Deploying commit \`${sha}\` failed${status.runUrl ? ` ([workflow run](${webUrl(status.runUrl, 'workflow run URL')}))` : ''}. The preview below may be stale or unavailable.`,
+    failed: `❌ Deploying commit \`${sha}\` failed${status.runUrl ? ` ([workflow run](${webUrl(status.runUrl, 'workflow run URL')}))` : ''}. The preview may be stale or unavailable.`,
   }[status.state]
-  if (!status.previewUrl) throw new Error('preview URL is required for active preview status')
+  if (status.state === 'ready' && !status.previewUrl) throw new Error('preview URL is required for ready preview status')
   return [
     options.marker,
     heading,
-    '',
-    `Preview: ${webUrl(status.previewUrl, 'preview URL')}`,
+    ...(status.previewUrl ? ['', `Preview: ${webUrl(status.previewUrl, 'preview URL')}`] : []),
     ...(options.note ? ['', options.note] : []),
   ].join('\n')
 }

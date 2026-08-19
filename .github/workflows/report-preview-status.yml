@@ -24,7 +24,7 @@ on:
         type: string
         default: ''
       preview-url:
-        description: Public preview URL, omitted when deleting.
+        description: Public preview URL. Required when ready and optional for unresolved or deleted previews.
         type: string
         default: ''
       run-url:

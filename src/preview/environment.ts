@@ -17,17 +17,18 @@ export function previewStatusFromEnvironment(stateValue: string | undefined, env
     ...(checkName ? { checkName } : {}),
   }
   const prNumber = requiredEnvironment(environment, 'PR_NUMBER')
+  if (state === 'deleted') return { options, status: { state, prNumber } }
   const runUrl = optionalEnvironment(environment, 'RUN_URL')
-  const status: PreviewStatus =
-    state === 'deleted'
-      ? { state, prNumber }
-      : {
-          state,
-          prNumber,
-          sha: requiredEnvironment(environment, 'COMMIT_SHA'),
-          previewUrl: requiredEnvironment(environment, 'PREVIEW_URL'),
-          ...(runUrl ? { runUrl } : {}),
-        }
+  const sha = requiredEnvironment(environment, 'COMMIT_SHA')
+  const previewUrl = optionalEnvironment(environment, 'PREVIEW_URL')
+  if (state === 'ready' && !previewUrl) throw new Error('PREVIEW_URL is required')
+  const status: PreviewStatus = {
+    state,
+    prNumber,
+    sha,
+    ...(previewUrl ? { previewUrl } : {}),
+    ...(runUrl ? { runUrl } : {}),
+  }
   return { options, status }
 }
 
