@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.40.0
+
+### Minor Changes
+
+- 7cd121e: Add the `ras create` full-stack starter and production reference, and align supported peer floors with the APIs the starter uses.
+
 ## 0.39.5
 
 ### Patch Changes
