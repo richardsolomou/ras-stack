@@ -69,6 +69,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./actions/setup-js
       - uses: ./actions/setup-playwright
+        with:
+          install-dependencies: 'false'
       - uses: docker/setup-buildx-action@v4
       - name: Build package and example
         run: pnpm build && pnpm --filter @ras-stack/example-full-stack check
