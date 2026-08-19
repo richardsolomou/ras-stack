@@ -96,7 +96,7 @@ describe('Dokploy preview lifecycle', () => {
 
   it('reuses an existing generated domain', async () => {
     const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
-      { host: 'example-pr-42-existing-203-0-113-10.sslip.io' },
+      { domainId: 'generated-domain', host: 'example-pr-42-existing-203-0-113-10.sslip.io' },
     ])
 
     await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
@@ -112,6 +112,27 @@ describe('Dokploy preview lifecycle', () => {
       'did not return an sslip.io hostname',
     )
     expect(server.procedures).not.toContain('domain.create')
+  })
+
+  it.each(['', '127.0.0.1', '10.0.0.1', '169.254.169.254'])('rejects a non-public Dokploy server IP (%s)', async (serverIp) => {
+    const server = fakeDokploy([], 'done', [], 'example-pr-42-a1b2c3-127-0-0-1.sslip.io', serverIp)
+
+    await expect(generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })).rejects.toThrow(
+      'requires a public server IP',
+    )
+    expect(server.procedures).not.toContain('domain.generateDomain')
+    expect(server.procedures).not.toContain('domain.create')
+  })
+
+  it('removes a generated HTTP route when switching to a custom domain', async () => {
+    const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
+      { domainId: 'generated-domain', host: 'example-pr-42-existing-203-0-113-10.sslip.io' },
+    ])
+
+    await previewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
+
+    expect(server.bodies.get('domain.delete')).toEqual({ domainId: 'generated-domain' })
+    expect(server.procedures.indexOf('domain.create')).toBeLessThan(server.procedures.indexOf('domain.delete'))
   })
 
   it('deletes an existing preview after application cleanup', async () => {
@@ -243,8 +264,9 @@ function generatedPreviewManager(fetch: typeof globalThis.fetch) {
 function fakeDokploy(
   initial: { applicationId: string; name: string; serverId?: string }[] = [],
   deploymentStatus: string = 'done',
-  domains: { host: string }[] = [],
+  domains: { domainId?: string; host: string }[] = [],
   generatedDomain = 'example-pr-42-a1b2c3-203-0-113-10.sslip.io',
+  serverIp = '203.0.113.10',
 ) {
   const applications = [...initial]
   const procedures: string[] = []
@@ -267,6 +289,7 @@ function fakeDokploy(
       applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
       return new Response(null)
     }
+    if (procedure === 'domain.canGenerateTraefikMeDomains') return Response.json(serverIp)
     if (procedure === 'domain.generateDomain') return Response.json(generatedDomain)
     if (procedure === 'application.deploy') deployed = true
     if (procedure === 'application.one') {

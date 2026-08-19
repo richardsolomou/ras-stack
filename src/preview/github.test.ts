@@ -57,6 +57,21 @@ describe('GitHub preview status', () => {
     })
   })
 
+  it('reports a failed generated preview without a resolved URL', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'failed',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+      runUrl: 'https://github.com/owner/app/actions/runs/1',
+    })
+
+    expect(request.calls[1]?.body).toMatchObject({ status: 'completed', conclusion: 'failure' })
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n❌ Deploying commit `aaaaaaa` failed ([workflow run](https://github.com/owner/app/actions/runs/1)). The preview may be stale or unavailable.\n\nDisposable test data.',
+    })
+  })
+
   it('deletes the comment state without requiring a commit SHA', async () => {
     const request = githubFetch({ checks: [], comments: [{ id: 8, body: '<!-- app-preview -->' }] })
     await reportPreviewStatus(previewOptions(request), { state: 'deleted', prNumber: '42' })

@@ -105,6 +105,9 @@ jobs:
 
   deploy:
     if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]
+    concurrency:
+      group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -193,6 +196,9 @@ jobs:
 
   cleanup:
     if: github.event_name == 'pull_request_target'
+    concurrency:
+      group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       contents: read

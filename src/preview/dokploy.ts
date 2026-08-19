@@ -1,4 +1,5 @@
 import { appendFileSync } from 'node:fs'
+import { BlockList, isIP } from 'node:net'
 
 export type DokployApplication = { applicationId: string; name: string; serverId?: string | null }
 
@@ -96,14 +97,17 @@ export class DokployClient {
     return (await this.applications()).find((application) => application.name === name)
   }
 
-  async generateDomain(appName: string, serverId?: string) {
+  async generatedDomain(appName: string, serverId?: string, existing?: string) {
+    const serverIp = await this.api('domain.canGenerateTraefikMeDomains', {
+      query: { serverId: serverId ?? '' },
+    })
+    const publicIp = previewServerIp(serverIp)
+    if (existing) return generatedPreviewHostname(existing, publicIp)
     const generated = await this.api('domain.generateDomain', {
       body: { appName, ...(serverId ? { serverId } : {}) },
     })
     if (typeof generated !== 'string') throw new Error('domain.generateDomain returned an invalid hostname')
-    const host = previewHostname(generated)
-    if (!host.endsWith('.sslip.io')) throw new Error('domain.generateDomain did not return an sslip.io hostname')
-    return host
+    return generatedPreviewHostname(generated, publicIp)
   }
 }
 
@@ -156,7 +160,7 @@ export class DokployPreviewManager {
       if (!application) throw new Error(`Dokploy did not report ${name} after creating it`)
     }
     const applicationId = application.applicationId
-    const details = await this.options.client.api<{ domains?: { host: string }[] } | undefined>('application.one', {
+    const details = await this.options.client.api<{ domains?: { domainId?: string; host: string }[] } | undefined>('application.one', {
       query: { applicationId },
     })
     const generated = !this.options.hostname
@@ -164,7 +168,7 @@ export class DokployPreviewManager {
     const host = previewHostname(
       this.options.hostname
         ? this.options.hostname(prNumber)
-        : (existingGenerated?.host ?? (await this.options.client.generateDomain(name, application.serverId ?? undefined))),
+        : await this.options.client.generatedDomain(name, application.serverId ?? undefined, existingGenerated?.host),
     )
     const url = `${generated ? 'http' : 'https'}://${host}`
     if (!details?.domains?.some((domain) => domain.host === host)) {
@@ -179,6 +183,13 @@ export class DokployPreviewManager {
           domainType: 'application',
         },
       })
+    }
+    if (!generated) {
+      for (const domain of details?.domains?.filter((candidate) => candidate.host.endsWith('.sslip.io')) ?? []) {
+        if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
+        // oxlint-disable-next-line no-await-in-loop
+        await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
+      }
     }
     await this.options.onResolved?.({ host, url })
     await options.configure?.({ applicationId, client: this.options.client, host, url })
@@ -290,6 +301,46 @@ export function previewHostname(value: string) {
     throw new Error('preview hostname must be a bare hostname')
   }
   return value
+}
+
+function generatedPreviewHostname(value: string, serverIp: string) {
+  const host = previewHostname(value)
+  const encodedIp = serverIp.replaceAll('.', '-').replaceAll(':', '-')
+  if (!host.endsWith(`-${encodedIp}.sslip.io`))
+    throw new Error('domain.generateDomain did not return an sslip.io hostname for the Dokploy server')
+  return host
+}
+
+const blockedPreviewAddresses = new BlockList()
+for (const [address, prefix, family] of [
+  ['0.0.0.0', 8, 'ipv4'],
+  ['10.0.0.0', 8, 'ipv4'],
+  ['100.64.0.0', 10, 'ipv4'],
+  ['127.0.0.0', 8, 'ipv4'],
+  ['169.254.0.0', 16, 'ipv4'],
+  ['172.16.0.0', 12, 'ipv4'],
+  ['192.168.0.0', 16, 'ipv4'],
+  ['198.18.0.0', 15, 'ipv4'],
+  ['224.0.0.0', 4, 'ipv4'],
+  ['240.0.0.0', 4, 'ipv4'],
+  ['::', 128, 'ipv6'],
+  ['::1', 128, 'ipv6'],
+  ['fc00::', 7, 'ipv6'],
+  ['fe80::', 10, 'ipv6'],
+  ['ff00::', 8, 'ipv6'],
+] as const) {
+  blockedPreviewAddresses.addSubnet(address, prefix, family)
+}
+
+function previewServerIp(value: unknown) {
+  if (typeof value !== 'string') throw new Error('Dokploy requires a public server IP before it can generate preview domains')
+  const address = value.trim().toLowerCase()
+  const version = isIP(address)
+  const family = version === 4 ? 'ipv4' : version === 6 ? 'ipv6' : undefined
+  if (!family || address.startsWith('::ffff:') || blockedPreviewAddresses.check(address, family)) {
+    throw new Error('Dokploy requires a public server IP before it can generate preview domains')
+  }
+  return address
 }
 
 function previewApplicationPrNumber(name: string, applicationName: (prNumber: string) => string) {
