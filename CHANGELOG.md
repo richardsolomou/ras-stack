@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.42.0
+
+### Minor Changes
+
+- 605c8f1: Support Dokploy-generated `sslip.io` preview domains and resolved preview URLs in environment templates.
+
 ## 0.41.1
 
 ### Patch Changes
