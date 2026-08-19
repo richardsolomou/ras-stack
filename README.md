@@ -90,10 +90,10 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 To start from the production reference instead of assembling entrypoints individually:
 
 ```sh
-pnpm dlx ras-stack create my-app
+pnpm create ras-app my-app
 ```
 
-The scaffold includes Better Auth, checked-in migrations, durable uploads, SMTP flows, a transactional realtime outbox, production health/lifecycle behavior, and its tests. It remains ordinary application code rather than a second framework API.
+The `create-ras-app` command delegates to the same scaffold implementation available through `pnpm dlx ras-stack create my-app`. The scaffold includes Better Auth, checked-in migrations, durable uploads, SMTP flows, a transactional realtime outbox, production health/lifecycle behavior, and its tests. It remains ordinary application code rather than a second framework API.
 
 ## Dokploy previews 🚀
 

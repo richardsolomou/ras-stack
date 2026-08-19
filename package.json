@@ -63,6 +63,10 @@
       "types": "./dist/conformance/index.d.ts",
       "default": "./dist/conformance/index.js"
     },
+    "./create": {
+      "types": "./dist/create/index.d.ts",
+      "default": "./dist/create/index.js"
+    },
     "./policy": {
       "types": "./dist/policy/index.d.ts",
       "default": "./dist/policy/index.js"

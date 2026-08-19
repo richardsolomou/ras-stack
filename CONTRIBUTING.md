@@ -21,6 +21,17 @@ Every exported behavior needs a contract test, including the `ras` commands. Vit
 
 ## Releases
 
-Add a Changeset for every package, action, or reusable-workflow change that needs a release. Merging it to `main` runs the shared release workflow, updates the version and changelog, creates the tag and GitHub release, and triggers `.github/workflows/release.yml` to publish npm with provenance.
+Add a Changeset for every package, action, or reusable-workflow change that needs a release. `ras-stack` and `create-ras-app` are fixed to the same version because the latter delegates directly to the former. Merging a Changeset to `main` runs the shared release workflow, updates both versions and changelogs, creates the tag and GitHub release, and triggers `.github/workflows/release.yml` at that tag to publish every missing npm package with provenance bound to the released commit.
 
-The first npm version must be published manually because npm only allows a trusted publisher to be configured for an existing package. After that bootstrap publish, configure `release.yml` as the package's trusted GitHub Actions publisher. The release workflow skips a version that already exists, so creating the matching first GitHub release remains safe.
+The first version of an npm package must be published manually because npm only allows a trusted publisher to be configured for an existing package. From the repository root, bootstrap `create-ras-app@0.40.0` before merging its release, while both source packages are still version `0.40.0`:
+
+```sh
+test "$(node -p "require('./package.json').version")" = "0.40.0"
+test "$(node -p "require('./packages/create-ras-app/package.json').version")" = "0.40.0"
+pnpm --dir packages/create-ras-app pack --out /tmp/create-ras-app-0.40.0.tgz
+node -e "const { execFileSync } = require('node:child_process'); const manifest = JSON.parse(execFileSync('tar', ['-xOf', '/tmp/create-ras-app-0.40.0.tgz', 'package/package.json'], { encoding: 'utf8' })); if (manifest.name !== 'create-ras-app' || manifest.version !== '0.40.0' || manifest.dependencies?.['ras-stack'] !== '^0.40.0' || manifest.bin?.['create-ras-app'] !== './cli.js') process.exit(1)"
+npm publish /tmp/create-ras-app-0.40.0.tgz --access public --dry-run
+npm publish /tmp/create-ras-app-0.40.0.tgz --access public
+```
+
+Always publish the pnpm-packed archive; publishing the workspace directory directly would retain `workspace:^` and can produce different executable metadata. After the bootstrap publish, configure `release.yml` as the package's trusted GitHub Actions publisher. The release workflow skips each version that already exists, so manually publishing a new package before rerunning the matching GitHub release remains safe.

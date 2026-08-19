@@ -23,7 +23,7 @@ pnpm build
 node dist/cli.js create ../my-app
 ```
 
-For an installed package, run `pnpm dlx ras-stack create my-app` or invoke `ras create my-app`. The destination must not exist or must be empty. `--dry-run` resolves and prints the destination without writing it.
+For an installed package, run `pnpm create ras-app my-app`. The thin `create-ras-app` package calls the public `ras-stack/create` implementation in-process; it does not carry a separate template. Its initial `0.40.0` bootstrap can also delegate to the matching `ras create` executable because that already-published version predates the direct export. The destination must not exist or must be empty. `--dry-run` resolves and prints the destination without writing it. A repository enforcing pnpm's `minimumReleaseAge` must include both `create-ras-app` and `ras-stack` in `minimumReleaseAgeExclude` to use newly published versions immediately; generated applications include both exclusions.
 
 The generated application is deliberately not hidden behind an application factory. Its schema, migrations, authorization, upload policy, email copy, outbox payloads, deployment, and UI belong to it.
 
