@@ -22,6 +22,7 @@ describe('Dokploy preview CLI configuration', () => {
       environmentId: 'environment',
       applicationPrefix: 'example',
       domain: 'example.com',
+      subdomainPrefix: 'pr',
       port: 3000,
       healthPath: undefined,
     })
@@ -34,6 +35,7 @@ describe('Dokploy preview CLI configuration', () => {
       environmentId: 'environment',
       applicationPrefix: 'example',
       domain: undefined,
+      subdomainPrefix: 'pr',
       port: 3000,
       healthPath: undefined,
     })
@@ -42,6 +44,16 @@ describe('Dokploy preview CLI configuration', () => {
   it('validates ports and private registry credentials', () => {
     expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_PORT: '0' })).toThrow('valid port')
     expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_REGISTRY_USERNAME: 'user' })).toThrow('configured together')
+  })
+
+  it('validates custom hostname and Cloudflare configuration', async () => {
+    expect(dokployPreviewFromEnvironment({ ...environment, PREVIEW_SUBDOMAIN_PREFIX: 'sealed-lists-pr' }).config.subdomainPrefix).toBe(
+      'sealed-lists-pr',
+    )
+    expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_SUBDOMAIN_PREFIX: 'not.valid' })).toThrow('must be a slug')
+    await expect(runDokployPreviewCli(['delete'], { ...environment, CLOUDFLARE_API_TOKEN: 'secret', PR_NUMBER: '42' })).rejects.toThrow(
+      'must be configured together',
+    )
   })
 
   it('renders per-pull-request environment values and fresh secrets', () => {
@@ -123,6 +135,50 @@ describe('Dokploy preview CLI commands', () => {
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
+  })
+
+  it('creates proxied DNS before verifying a prefixed custom hostname', async () => {
+    vi.useFakeTimers()
+    const calls: { procedure: string; body?: Record<string, unknown> }[] = []
+    const cloudflare = vi.fn<typeof globalThis.fetch>()
+    let deployed = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof globalThis.fetch>(async (input, init) => {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
+        if (url.hostname === 'api.cloudflare.com') {
+          await cloudflare(input, init)
+          return Response.json({ success: true, result: init?.method === 'POST' ? { id: 'dns-1' } : [] })
+        }
+        if (url.hostname === 'sealed-lists-pr-42.example.com') return new Response(null, { status: 200 })
+        const procedure = url.pathname.slice('/api/'.length)
+        const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
+        calls.push({ procedure, ...(body ? { body } : {}) })
+        if (procedure === 'environment.one') return Response.json({ applications: [{ applicationId: 'app-42', name: 'example-pr-42' }] })
+        if (procedure === 'application.one') return Response.json(deployed ? { applicationStatus: 'done' } : { domains: [] })
+        if (procedure === 'settings.getIp') return Response.json('145.239.74.127')
+        if (procedure === 'application.deploy') deployed = true
+        return new Response(null)
+      }),
+    )
+
+    const deployment = runDokployPreviewCli(['deploy'], {
+      ...environment,
+      PREVIEW_SUBDOMAIN_PREFIX: 'sealed-lists-pr',
+      PREVIEW_IMAGE: 'ghcr.io/example/app:pr-42',
+      PREVIEW_ENVIRONMENT: 'APP_URL={{PREVIEW_URL}}\n',
+      PR_NUMBER: '42',
+      CLOUDFLARE_API_TOKEN: 'cloudflare-secret',
+      CLOUDFLARE_ZONE_ID: '0123456789abcdef0123456789abcdef',
+    })
+    await vi.runAllTimersAsync()
+    await deployment
+
+    expect(calls.find((call) => call.procedure === 'domain.create')?.body).toMatchObject({
+      host: 'sealed-lists-pr-42.example.com',
+      https: true,
+    })
+    expect(cloudflare).toHaveBeenCalledTimes(2)
   })
 
   it('reports a delete for a pull request that has no preview', async () => {

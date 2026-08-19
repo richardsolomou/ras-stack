@@ -4,7 +4,7 @@ import { parse } from 'yaml'
 
 type Step = { name?: string; env?: Record<string, string>; if?: string; run?: string; uses?: string; with?: Record<string, string> }
 type Workflow = {
-  on: { workflow_call: { inputs: { domain: { default?: string } } } }
+  on: { workflow_call: { inputs: Record<string, { default?: string }> } }
   env?: Record<string, string>
   jobs: Record<
     string,
@@ -25,7 +25,8 @@ describe('Dokploy preview workflows', () => {
     const prune = await workflow('prune-dokploy-previews.yml')
 
     expect({
-      defaults: [build, deploy, prune].map((candidate) => candidate.on.workflow_call.inputs.domain.default),
+      defaults: [build, deploy, prune].map((candidate) => candidate.on.workflow_call.inputs.domain?.default),
+      prefixDefaults: [build, deploy, prune].map((candidate) => candidate.on.workflow_call.inputs['subdomain-prefix']?.default),
       customUrl: deploy.env?.CUSTOM_PREVIEW_URL,
       buildingUrl: step(build, 'mark-deploying', 'Mark preview as deploying').env?.PREVIEW_URL,
       forkUrl: step(deploy, 'mark-fork-status', 'Report fork preview status').env?.PREVIEW_URL,
@@ -42,13 +43,18 @@ describe('Dokploy preview workflows', () => {
       closedCleanup: step(deploy, 'deploy', 'Delete closed preview').if,
       closedStatus: step(deploy, 'deploy', 'Mark closed preview as deleted').if,
       closedImages: step(deploy, 'deploy', 'Delete closed preview images').if,
+      deployDns: step(deploy, 'deploy', 'Deploy preview').env,
+      deleteDns: step(deploy, 'deploy', 'Delete closed preview').env,
+      pruneDns: step(prune, 'prune', 'Prune previews without open pull requests').env,
     }).toEqual({
       defaults: ['', '', ''],
+      prefixDefaults: ['pr', 'pr', 'pr'],
       customUrl:
-        "${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}",
-      buildingUrl: "${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.pull_request.number, inputs.domain) || '' }}",
+        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}",
+      buildingUrl:
+        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.pull_request.number, inputs.domain) || '' }}",
       forkUrl:
-        "${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}",
+        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}",
       forkState: "${{ github.event.action == 'requested' && 'awaiting' || 'building' }}",
       forkStatusScript: expect.stringMatching(
         /pulls\/\$PR_NUMBER.*head\.sha[\s\S]*actions\/runs\/\$WORKFLOW_RUN_ID[\s\S]*pr_state.*open.*head_sha.*COMMIT_SHA.*run_status.*completed[\s\S]*ras preview.*STATE[\s\S]*pulls\/\$PR_NUMBER[\s\S]*closed[\s\S]*ras preview deleted/,
@@ -78,6 +84,21 @@ describe('Dokploy preview workflows', () => {
       closedCleanup: "steps.pr.outputs.action == 'delete'",
       closedStatus: "steps.pr.outputs.action == 'delete'",
       closedImages: "steps.pr.outputs.action == 'delete'",
+      deployDns: expect.objectContaining({
+        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
+        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
+        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
+      }),
+      deleteDns: expect.objectContaining({
+        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
+        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
+        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
+      }),
+      pruneDns: expect.objectContaining({
+        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
+        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
+        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
+      }),
     })
   })
 })
