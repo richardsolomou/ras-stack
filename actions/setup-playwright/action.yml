@@ -16,6 +16,8 @@ runs:
     - name: Cache Playwright browser
       id: cache
       uses: actions/cache@v6
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.version.outputs.version }}
