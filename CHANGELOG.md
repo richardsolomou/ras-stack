@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.42.1
+
+### Patch Changes
+
+- 89174a9: Generate Dokploy preview domains for applications running on the local server while preserving remote-server routing.
+
 ## 0.42.0
 
 ### Minor Changes
