@@ -57,6 +57,19 @@ describe('GitHub preview status', () => {
     })
   })
 
+  it('reports a fork awaiting approval before its URL is resolved', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'awaiting',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+    })
+
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n⏸️ The preview of `aaaaaaa` is waiting for a maintainer to approve its build.\n\nDisposable test data.',
+    })
+  })
+
   it('reports a failed generated preview without a resolved URL', async () => {
     const request = githubFetch({ checks: [], comments: [] })
     await reportPreviewStatus(previewOptions(request), {

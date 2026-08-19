@@ -102,12 +102,12 @@ export class DokployClient {
       query: { serverId: serverId ?? '' },
     })
     const publicIp = previewServerIp(serverIp)
-    if (existing) return generatedPreviewHostname(existing, publicIp)
+    if (existing && isGeneratedPreviewHostname(existing, appName) && existing.endsWith(`-${encodedIp(publicIp)}.sslip.io`)) return existing
     const generated = await this.api('domain.generateDomain', {
       body: { appName, ...(serverId ? { serverId } : {}) },
     })
     if (typeof generated !== 'string') throw new Error('domain.generateDomain returned an invalid hostname')
-    return generatedPreviewHostname(generated, publicIp)
+    return generatedPreviewHostname(generated, publicIp, appName)
   }
 }
 
@@ -164,7 +164,8 @@ export class DokployPreviewManager {
       query: { applicationId },
     })
     const generated = !this.options.hostname
-    const existingGenerated = generated ? details?.domains?.find((domain) => domain.host.endsWith('.sslip.io')) : undefined
+    const managedDomains = details?.domains?.filter((domain) => isGeneratedPreviewHostname(domain.host, name)) ?? []
+    const existingGenerated = generated ? managedDomains[0] : undefined
     const host = previewHostname(
       this.options.hostname
         ? this.options.hostname(prNumber)
@@ -184,12 +185,10 @@ export class DokployPreviewManager {
         },
       })
     }
-    if (!generated) {
-      for (const domain of details?.domains?.filter((candidate) => candidate.host.endsWith('.sslip.io')) ?? []) {
-        if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
-        // oxlint-disable-next-line no-await-in-loop
-        await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
-      }
+    for (const domain of managedDomains.filter((candidate) => candidate.host !== host)) {
+      if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
+      // oxlint-disable-next-line no-await-in-loop
+      await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
     }
     await this.options.onResolved?.({ host, url })
     await options.configure?.({ applicationId, client: this.options.client, host, url })
@@ -303,12 +302,20 @@ export function previewHostname(value: string) {
   return value
 }
 
-function generatedPreviewHostname(value: string, serverIp: string) {
+function generatedPreviewHostname(value: string, serverIp: string, appName: string) {
   const host = previewHostname(value)
-  const encodedIp = serverIp.replaceAll('.', '-').replaceAll(':', '-')
-  if (!host.endsWith(`-${encodedIp}.sslip.io`))
+  if (!isGeneratedPreviewHostname(host, appName) || !host.endsWith(`-${encodedIp(serverIp)}.sslip.io`))
     throw new Error('domain.generateDomain did not return an sslip.io hostname for the Dokploy server')
   return host
+}
+
+function isGeneratedPreviewHostname(host: string, appName: string) {
+  const projectName = appName.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${projectName}-[a-f\\d]{6}-.+\\.sslip\\.io$`).test(host)
+}
+
+function encodedIp(address: string) {
+  return address.replaceAll('.', '-').replaceAll(':', '-')
 }
 
 const blockedPreviewAddresses = new BlockList()
@@ -319,12 +326,25 @@ for (const [address, prefix, family] of [
   ['127.0.0.0', 8, 'ipv4'],
   ['169.254.0.0', 16, 'ipv4'],
   ['172.16.0.0', 12, 'ipv4'],
+  ['192.0.0.0', 24, 'ipv4'],
+  ['192.0.2.0', 24, 'ipv4'],
+  ['192.88.99.0', 24, 'ipv4'],
   ['192.168.0.0', 16, 'ipv4'],
   ['198.18.0.0', 15, 'ipv4'],
+  ['198.51.100.0', 24, 'ipv4'],
+  ['203.0.113.0', 24, 'ipv4'],
   ['224.0.0.0', 4, 'ipv4'],
   ['240.0.0.0', 4, 'ipv4'],
   ['::', 128, 'ipv6'],
   ['::1', 128, 'ipv6'],
+  ['64:ff9b:1::', 48, 'ipv6'],
+  ['100::', 64, 'ipv6'],
+  ['100:0:0:1::', 64, 'ipv6'],
+  ['2001::', 23, 'ipv6'],
+  ['2001:db8::', 32, 'ipv6'],
+  ['2002::', 16, 'ipv6'],
+  ['3fff::', 20, 'ipv6'],
+  ['5f00::', 16, 'ipv6'],
   ['fc00::', 7, 'ipv6'],
   ['fe80::', 10, 'ipv6'],
   ['ff00::', 8, 'ipv6'],

@@ -104,9 +104,9 @@ jobs:
       token: ${{ secrets.GITHUB_TOKEN }}
 
   deploy:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
     concurrency:
-      group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
@@ -119,8 +119,53 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
+      - name: Resolve pull request state
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+        run: |
+          state="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)"
+          if [[ "$state" != "open" && "$state" != "closed" ]]; then
+            echo "Unexpected pull request state: $state" >&2
+            exit 1
+          fi
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+      - name: Delete closed preview
+        if: steps.pr.outputs.state == 'closed'
+        env:
+          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
+          PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
+          PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
+          PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_PORT: ${{ inputs.port }}
+          PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
+          PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+        run: |
+          if [[ -n "$PREVIEW_SCRIPT" ]]; then
+            pnpm exec tsx "$PREVIEW_SCRIPT" delete
+          else
+            pnpm exec ras preview dokploy delete
+          fi
+      - name: Mark closed preview as deleted
+        if: steps.pr.outputs.state == 'closed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+        run: pnpm exec ras preview deleted
+      - name: Delete closed preview images
+        if: steps.pr.outputs.state == 'closed'
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
+        with:
+          token: ${{ github.token }}
+          package: ${{ inputs.package }}
+          pr-number: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       - name: Publish fork preview image
-        if: github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+        if: steps.pr.outputs.state == 'open' && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
         uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.38.2
         with:
           artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
@@ -130,6 +175,7 @@ jobs:
           token: ${{ github.token }}
       - name: Resolve immutable preview image
         id: image
+        if: steps.pr.outputs.state == 'open'
         uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.38.2
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
@@ -137,6 +183,7 @@ jobs:
           registry-password: ${{ secrets.PREVIEW_REGISTRY_PASSWORD }}
       - name: Deploy preview
         id: deploy
+        if: steps.pr.outputs.state == 'open'
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
@@ -164,15 +211,16 @@ jobs:
             pnpm exec ras preview dokploy deploy
           fi
       - name: Install preview browser
-        if: inputs.playwright-config != ''
+        if: steps.pr.outputs.state == 'open' && inputs.playwright-config != ''
         run: pnpm exec playwright install --with-deps chromium
       - name: Verify preview
-        if: inputs.playwright-config != ''
+        if: steps.pr.outputs.state == 'open' && inputs.playwright-config != ''
         env:
           PREVIEW_BASE_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           PLAYWRIGHT_CONFIG: ${{ inputs.playwright-config }}
         run: pnpm exec playwright test --config "$PLAYWRIGHT_CONFIG"
       - name: Mark preview as ready
+        if: steps.pr.outputs.state == 'open'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -183,7 +231,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview ready
       - name: Mark preview as failed
-        if: failure()
+        if: failure() && steps.pr.outputs.state == 'open'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -193,48 +241,3 @@ jobs:
           PREVIEW_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview failed
-
-  cleanup:
-    if: github.event_name == 'pull_request_target'
-    concurrency:
-      group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.pull_request.number }}
-      cancel-in-progress: false
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      packages: write
-      pull-requests: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
-      - name: Delete preview
-        env:
-          DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
-          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
-          DOKPLOY_ENVIRONMENT_ID: ${{ secrets.DOKPLOY_ENVIRONMENT_ID }}
-          PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
-          PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
-          PREVIEW_DOMAIN: ${{ inputs.domain }}
-          PREVIEW_PORT: ${{ inputs.port }}
-          PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
-          PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          if [[ -n "$PREVIEW_SCRIPT" ]]; then
-            pnpm exec tsx "$PREVIEW_SCRIPT" delete
-          else
-            pnpm exec ras preview dokploy delete
-          fi
-      - name: Mark preview as deleted
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PREVIEW_MARKER: ${{ inputs.marker }}
-        run: pnpm exec ras preview deleted
-      - name: Delete preview images
-        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
-        with:
-          token: ${{ github.token }}
-          package: ${{ inputs.package }}
-          pr-number: ${{ github.event.pull_request.number }}

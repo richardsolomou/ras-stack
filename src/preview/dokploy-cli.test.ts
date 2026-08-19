@@ -97,8 +97,8 @@ describe('Dokploy preview CLI commands', () => {
           applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
           return new Response(null)
         }
-        if (procedure === 'domain.canGenerateTraefikMeDomains') return Response.json('203.0.113.10')
-        if (procedure === 'domain.generateDomain') return Response.json('example-pr-42-a1b2c3-203-0-113-10.sslip.io')
+        if (procedure === 'domain.canGenerateTraefikMeDomains') return Response.json('1.1.1.1')
+        if (procedure === 'domain.generateDomain') return Response.json('example-pr-42-a1b2c3-1-1-1-1.sslip.io')
         if (procedure === 'application.saveEnvironment') savedEnvironment = body?.env
         if (procedure === 'application.deploy') deployed = true
         if (procedure === 'application.one') return Response.json(deployed ? { applicationStatus: 'error' } : { domains: [] })
@@ -118,8 +118,8 @@ describe('Dokploy preview CLI commands', () => {
       const failure = deployment.catch((error: unknown) => error)
       await vi.runAllTimersAsync()
       expect(await failure).toMatchObject({ message: 'Dokploy reported a failed deployment' })
-      expect(savedEnvironment).toBe('APP_URL=http://example-pr-42-a1b2c3-203-0-113-10.sslip.io')
-      await expect(readFile(output, 'utf8')).resolves.toBe('preview-url=http://example-pr-42-a1b2c3-203-0-113-10.sslip.io\n')
+      expect(savedEnvironment).toBe('APP_URL=http://example-pr-42-a1b2c3-1-1-1-1.sslip.io')
+      await expect(readFile(output, 'utf8')).resolves.toBe('preview-url=http://example-pr-42-a1b2c3-1-1-1-1.sslip.io\n')
     } finally {
       await rm(directory, { recursive: true, force: true })
     }
