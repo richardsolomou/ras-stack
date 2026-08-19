@@ -1,5 +1,5 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -50,12 +50,18 @@ try {
     throw new Error('create-ras-app does not target its matching ras-stack version')
   if (JSON.stringify(createPackage.bin) !== JSON.stringify({ 'create-ras-app': './cli.js' }))
     throw new Error('create-ras-app must install only its named executable')
-  const dlxDirectory = path.join(temporary, 'dlx-starter')
-  exec(
-    'pnpm',
-    ['--silent', 'dlx', '--package', archive, '--package', createArchive, 'create-ras-app', dlxDirectory, '--dry-run'],
-    temporary,
+  const dlxPackage = path.join(temporary, 'create-ras-app-dlx')
+  mkdirSync(dlxPackage)
+  copyFileSync(path.join(temporary, 'node_modules/create-ras-app/cli.js'), path.join(dlxPackage, 'cli.js'))
+  writeFileSync(
+    path.join(dlxPackage, 'package.json'),
+    JSON.stringify({
+      ...createPackage,
+      dependencies: { ...createPackage.dependencies, 'ras-stack': `file:${archive}` },
+    }),
   )
+  const dlxDirectory = path.join(temporary, 'dlx-starter')
+  exec('pnpm', ['--silent', 'dlx', '--package', dlxPackage, 'create-ras-app', dlxDirectory, '--dry-run'], temporary)
   if (existsSync(dlxDirectory)) throw new Error('pnpm dlx create-ras-app did not forward --dry-run')
   const cli = spawnSync('npx', ['ras'], { cwd: temporary, encoding: 'utf8' })
   if (cli.status !== 2 || !cli.stderr.includes('usage: ras <assets|create|init|policy|preview|realtime>'))
