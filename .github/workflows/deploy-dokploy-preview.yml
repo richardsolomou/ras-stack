@@ -72,6 +72,7 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       checks: write
       issues: write
@@ -91,9 +92,9 @@ jobs:
           STATE: ${{ github.event.action == 'requested' && 'awaiting' || 'building' }}
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          pr_state="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)"
+          read -r pr_state head_sha < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '[.state, .head.sha] | @tsv')
           run_status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$WORKFLOW_RUN_ID" --jq .status)"
-          if [[ "$pr_state" == "open" && "$run_status" != "completed" ]]; then
+          if [[ "$pr_state" == "open" && "$head_sha" == "$COMMIT_SHA" && "$run_status" != "completed" ]]; then
             pnpm exec ras preview "$STATE"
           fi
           if [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)" == "closed" ]]; then
@@ -122,8 +123,9 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          state="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)"
+          read -r state head_sha < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '[.state, .head.sha] | @tsv')
           if [[ "$state" != "open" && "$state" != "closed" ]]; then
             echo "Unexpected pull request state: $state" >&2
             exit 1
@@ -131,7 +133,7 @@ jobs:
           echo "state=$state" >> "$GITHUB_OUTPUT"
           if [[ "$state" == "closed" ]]; then
             echo "action=delete" >> "$GITHUB_OUTPUT"
-          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+          elif [[ "$EVENT_NAME" == "workflow_run" && "$head_sha" == "$WORKFLOW_SHA" ]]; then
             echo "action=deploy" >> "$GITHUB_OUTPUT"
           else
             echo "action=none" >> "$GITHUB_OUTPUT"

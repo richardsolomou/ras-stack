@@ -8,7 +8,13 @@ type Workflow = {
   env?: Record<string, string>
   jobs: Record<
     string,
-    { if?: string; concurrency?: { group?: string; 'cancel-in-progress'?: boolean }; steps?: Step[]; with?: Record<string, string> }
+    {
+      if?: string
+      concurrency?: { group?: string; 'cancel-in-progress'?: boolean }
+      permissions?: Record<string, string>
+      steps?: Step[]
+      with?: Record<string, string>
+    }
   >
 }
 
@@ -25,6 +31,7 @@ describe('Dokploy preview workflows', () => {
       forkUrl: step(deploy, 'mark-fork-status', 'Report fork preview status').env?.PREVIEW_URL,
       forkState: step(deploy, 'mark-fork-status', 'Report fork preview status').env?.STATE,
       forkStatusScript: step(deploy, 'mark-fork-status', 'Report fork preview status').run,
+      forkStatusPermissions: deploy.jobs['mark-fork-status']?.permissions,
       browserUrl: step(deploy, 'deploy', 'Verify preview').env?.PREVIEW_BASE_URL,
       readyUrl: step(deploy, 'deploy', 'Mark preview as ready').env?.PREVIEW_URL,
       failedUrl: step(deploy, 'deploy', 'Mark preview as failed').env?.PREVIEW_URL,
@@ -44,8 +51,9 @@ describe('Dokploy preview workflows', () => {
         "${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}",
       forkState: "${{ github.event.action == 'requested' && 'awaiting' || 'building' }}",
       forkStatusScript: expect.stringMatching(
-        /pulls\/\$PR_NUMBER[\s\S]*actions\/runs\/\$WORKFLOW_RUN_ID[\s\S]*pr_state.*open.*run_status.*completed[\s\S]*ras preview.*STATE[\s\S]*pulls\/\$PR_NUMBER[\s\S]*closed[\s\S]*ras preview deleted/,
+        /pulls\/\$PR_NUMBER.*head\.sha[\s\S]*actions\/runs\/\$WORKFLOW_RUN_ID[\s\S]*pr_state.*open.*head_sha.*COMMIT_SHA.*run_status.*completed[\s\S]*ras preview.*STATE[\s\S]*pulls\/\$PR_NUMBER[\s\S]*closed[\s\S]*ras preview deleted/,
       ),
+      forkStatusPermissions: { actions: 'read', checks: 'write', contents: 'read', issues: 'write', 'pull-requests': 'write' },
       browserUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       readyUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       failedUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
@@ -60,9 +68,10 @@ describe('Dokploy preview workflows', () => {
         env: expect.objectContaining({
           EVENT_NAME: '${{ github.event_name }}',
           PR_NUMBER: '${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
+          WORKFLOW_SHA: '${{ github.event.workflow_run.head_sha }}',
         }),
         run: expect.stringMatching(
-          /state.*closed[\s\S]*action=delete[\s\S]*EVENT_NAME.*workflow_run[\s\S]*action=deploy[\s\S]*action=none/,
+          /head\.sha[\s\S]*state.*closed[\s\S]*action=delete[\s\S]*EVENT_NAME.*workflow_run.*head_sha.*WORKFLOW_SHA[\s\S]*action=deploy[\s\S]*action=none/,
         ),
       }),
       openDeploy: "steps.pr.outputs.action == 'deploy'",
