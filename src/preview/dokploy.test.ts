@@ -64,6 +64,9 @@ describe('Dokploy preview lifecycle', () => {
     expect({
       result,
       generated: server.bodies.get('domain.generateDomain'),
+      ipProcedure: server.procedures.find(
+        (procedure) => procedure === 'settings.getIp' || procedure === 'domain.canGenerateTraefikMeDomains',
+      ),
       domain: server.bodies.get('domain.create'),
       environment: server.bodies.get('application.saveEnvironment'),
       healthUrl: server.healthUrls[0],
@@ -73,7 +76,8 @@ describe('Dokploy preview lifecycle', () => {
         host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
         url: 'http://ras-preview-a1b2c3-1-1-1-1.sslip.io',
       },
-      generated: { appName: 'ras-preview', serverId: 'server-1' },
+      generated: { appName: 'ras-preview' },
+      ipProcedure: 'settings.getIp',
       domain: {
         applicationId: 'app-42',
         host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
@@ -91,6 +95,22 @@ describe('Dokploy preview lifecycle', () => {
         createEnvFile: false,
       },
       healthUrl: 'http://ras-preview-a1b2c3-1-1-1-1.sslip.io/api/health',
+    })
+  })
+
+  it('uses the application details server for a remote generated domain', async () => {
+    const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }])
+
+    await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
+
+    expect({
+      generated: server.bodies.get('domain.generateDomain'),
+      ipProcedure: server.procedures.find(
+        (procedure) => procedure === 'settings.getIp' || procedure === 'domain.canGenerateTraefikMeDomains',
+      ),
+    }).toEqual({
+      generated: { appName: 'ras-preview', serverId: 'server-1' },
+      ipProcedure: 'domain.canGenerateTraefikMeDomains',
     })
   })
 
@@ -343,11 +363,14 @@ function fakeDokploy(
     if (init?.body !== undefined && typeof init.body !== 'string') throw new Error('test expected a JSON string body')
     const body = init?.body ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
     if (body !== undefined) bodies.set(procedure, body)
-    if (procedure === 'environment.one') return Response.json({ applications })
+    if (procedure === 'environment.one') {
+      return Response.json({ applications: applications.map(({ applicationId, name }) => ({ applicationId, name })) })
+    }
     if (procedure === 'application.create') {
-      applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
+      applications.push({ applicationId: 'app-42', name: String(body?.name) })
       return new Response(null)
     }
+    if (procedure === 'settings.getIp') return Response.json(serverIp)
     if (procedure === 'domain.canGenerateTraefikMeDomains') return Response.json(serverIp)
     if (procedure === 'domain.generateDomain') return Response.json(generatedDomain)
     if (procedure === 'domain.create') domains.push({ domainId: `domain-${domains.length + 1}`, host: String(body?.host) })
@@ -362,7 +385,9 @@ function fakeDokploy(
           init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
         })
       }
-      return Response.json(deployed ? { applicationStatus: deploymentStatus } : { domains })
+      const applicationId = url.searchParams.get('applicationId')
+      const application = applications.find((candidate) => candidate.applicationId === applicationId)
+      return Response.json(deployed ? { applicationStatus: deploymentStatus } : { domains, serverId: application?.serverId ?? null })
     }
     return new Response(null)
   })
