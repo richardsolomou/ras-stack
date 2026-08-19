@@ -22,7 +22,9 @@ describe('ras create', () => {
       name: 'my-app',
       dependency: expect.stringMatching(/^\^\d+\.\d+\.\d+$/),
     })
-    expect(await readFile(path.join(destination, 'pnpm-workspace.yaml'), 'utf8')).toContain('  - ras-stack')
+    const workspace = await readFile(path.join(destination, 'pnpm-workspace.yaml'), 'utf8')
+    expect(workspace).toContain('  - ras-stack')
+    expect(workspace).toContain('  - create-ras-app')
     await expect(readFile(path.join(destination, 'pnpm-workspace.template.yaml'))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 

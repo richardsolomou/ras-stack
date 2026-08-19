@@ -1,4 +1,5 @@
 {
+  "ignorePatterns": [".changeset/config.json"],
   "printWidth": 140,
   "singleQuote": true,
   "semi": false

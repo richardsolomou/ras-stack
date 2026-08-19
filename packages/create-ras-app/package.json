@@ -1,0 +1,36 @@
+{
+  "name": "create-ras-app",
+  "version": "0.40.0",
+  "description": "Create a production-ready ras-stack application.",
+  "keywords": [
+    "create",
+    "fullstack",
+    "ras-stack",
+    "tanstack"
+  ],
+  "homepage": "https://github.com/richardsolomou/ras-stack#readme",
+  "bugs": "https://github.com/richardsolomou/ras-stack/issues",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardsolomou/ras-stack.git",
+    "directory": "packages/create-ras-app"
+  },
+  "bin": {
+    "create-ras-app": "./cli.js"
+  },
+  "files": [
+    "cli.js"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "ras-stack": "workspace:^"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

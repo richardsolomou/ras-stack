@@ -5,6 +5,7 @@ import * as authClient from './auth/client.js'
 import * as authReact from './auth/react.js'
 import * as build from './build/index.js'
 import * as conformance from './conformance/index.js'
+import * as create from './create/index.js'
 import * as database from './database/index.js'
 import * as databasePostgres from './database/postgres.js'
 import * as databaseSqlite from './database/sqlite.js'
@@ -62,6 +63,7 @@ const surface = {
     'assertSmtpConfigConformance',
     'assertSqliteConformance',
   ],
+  './create': ['runCreateCli'],
   './database': ['bundledDirectory', 'databaseTarget'],
   './database/postgres': [
     'closeDrizzlePostgres',
@@ -166,6 +168,7 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './auth/react': authReact,
   './build': build,
   './conformance': conformance,
+  './create': create,
   './database': database,
   './database/postgres': databasePostgres,
   './database/sqlite': databaseSqlite,

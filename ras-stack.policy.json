@@ -1,5 +1,9 @@
 {
-  "changesets": true,
+  "changesets": {
+    "overrides": {
+      "fixed": [["ras-stack", "create-ras-app"]]
+    }
+  },
   "dependabot": true,
   "pnpm": {}
 }
