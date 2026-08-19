@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && esbuild scripts/containerRuntime.ts --bundle --platform=node --format=esm --target=node24 --outfile=.output/server/container-runtime.mjs --log-level=warning",
+    "build": "vite build && node ../../dist/cli.js assets sync && esbuild scripts/containerRuntime.ts scripts/database.ts --bundle --platform=node --format=esm --target=node24 --external:better-sqlite3 --outdir=.output/server --out-extension:.js=.mjs --log-level=warning && node ../../dist/cli.js assets check",
     "dev": "vite dev",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
@@ -12,9 +12,12 @@
     "e2e": "playwright test",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
+    "db:backup": "node .output/server/database.mjs backup",
+    "db:restore": "node .output/server/database.mjs restore",
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.1",
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
@@ -24,7 +27,8 @@
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-router-ssr-query": "^1.167.1",
     "@tanstack/react-start": "^1.168.32",
-    "better-sqlite3": "13.0.3",
+    "better-auth": "1.7.1",
+    "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.0",
     "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",

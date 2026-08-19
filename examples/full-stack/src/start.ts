@@ -6,7 +6,7 @@ import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
 // end-to-end run, which exercises a real Centrifugo against a real container.
 const canonicalHost = canonicalHostMiddleware(() => ({
   canonicalUrl: process.env.APP_URL,
-  pathsServedOnAnyHost: new Set(['/api/health']),
+  pathsServedOnAnyHost: new Set(['/api/live', '/api/ready', '/api/health']),
 }))
 
 export const startInstance = createStart(() => ({ requestMiddleware: [canonicalHost] }))

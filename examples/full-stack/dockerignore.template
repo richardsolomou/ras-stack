@@ -1,0 +1,8 @@
+.data
+.git
+.output
+node_modules
+test-results
+.env
+.env.*
+!.env.example

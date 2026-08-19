@@ -54,7 +54,7 @@ Applications still configure every upstream library directly. This table describ
 
 The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
 
-The [`examples/full-stack`](examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is an integration contract and reference, not a starter to copy.
+The [`examples/full-stack`](examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration contract and the canonical source for the generated starter; once generated, the application owns its copied code and normal semver dependency.
 
 ## Pick what you need 🧩
 
@@ -70,7 +70,7 @@ Nodemailer, Centrifuge, `better-sqlite3`, Drizzle, Postgres.js, and `tus-js-clie
 pnpm add nodemailer
 pnpm add centrifuge
 pnpm add tus-js-client
-pnpm add better-sqlite3 drizzle-orm
+pnpm add better-auth @better-auth/drizzle-adapter better-sqlite3 drizzle-orm
 pnpm add postgres drizzle-orm
 ```
 
@@ -87,6 +87,14 @@ Start with the narrowest public entrypoint that owns the repeated mechanic:
 | Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*`  | Triggers, permissions, services, deployment, and verification  |
 | Generated repository policy files                         | `ras policy`                                                                     | Which policies apply and every declared override               |
 
+To start from the production reference instead of assembling entrypoints individually:
+
+```sh
+pnpm dlx ras-stack create my-app
+```
+
+The scaffold includes Better Auth, checked-in migrations, durable uploads, SMTP flows, a transactional realtime outbox, production health/lifecycle behavior, and its tests. It remains ordinary application code rather than a second framework API.
+
 ## Dokploy previews 🚀
 
 Three reusable workflows provide the standard pull-request preview lifecycle:
@@ -99,12 +107,13 @@ Applications supply only their package, application prefix, domain, port, enviro
 
 ## Guides 📚
 
-| Guide                                                    | What it covers                                                                                                                          |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [Application primitives](docs/application-primitives.md) | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
-| [Repository tooling](docs/repository-tooling.md)         | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
-| [PostHog integration](docs/posthog.md)                   | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
-| [Full-stack example](docs/full-stack-example.md)         | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
+| Guide                                                            | What it covers                                                                                                                          |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [Application primitives](docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
+| [Repository tooling](docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
+| [PostHog integration](docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
+| [Full-stack example](docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
+| [Production operations](docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                        |
 
 ## Development 🛠️
 

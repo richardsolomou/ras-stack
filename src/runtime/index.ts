@@ -22,6 +22,10 @@ export type SupervisorOptions = {
 }
 
 export async function superviseProcesses(processes: readonly RuntimeProcess[], options: SupervisorOptions = {}) {
+  return runSupervisor(processes, options)
+}
+
+async function runSupervisor(processes: readonly RuntimeProcess[], options: SupervisorOptions, shutdownOrder?: readonly string[]) {
   if (processes.length === 0) throw new Error('at least one runtime process is required')
   const names = new Set<string>()
   for (const process of processes) {
@@ -45,13 +49,16 @@ export async function superviseProcesses(processes: readonly RuntimeProcess[], o
         stdio: 'inherit',
       }))
   const children = new Map<ChildProcess, string>()
+  const exits = new Map<ChildProcess, Promise<void>>()
   let settled = false
+  let phasedShutdown = false
+  let expectedExit: ChildProcess | undefined
   let resolveResult!: (value: number) => void
   const result = new Promise<number>((resolve) => {
     resolveResult = resolve
   })
 
-  const finish = async (status: number) => {
+  const finishImmediately = async (status: number) => {
     if (settled) return
     settled = true
     signalSource.off('SIGINT', onSignal)
@@ -59,7 +66,36 @@ export async function superviseProcesses(processes: readonly RuntimeProcess[], o
     await stopChildren([...children.keys()], shutdownTimeoutMs)
     resolveResult(status)
   }
-  const onSignal = () => void finish(0)
+  const finishInPhases = async () => {
+    if (settled || phasedShutdown) return
+    phasedShutdown = true
+    signalSource.off('SIGINT', onSignal)
+    signalSource.off('SIGTERM', onSignal)
+    const deadline = Date.now() + shutdownTimeoutMs
+    for (const name of shutdownOrder ?? []) {
+      if (settled) return
+      const child = [...children].find(([, childName]) => childName === name)?.[0]
+      if (!child || !running(child)) continue
+      expectedExit = child
+      child.kill('SIGTERM')
+      // oxlint-disable-next-line no-await-in-loop -- Shutdown phases must remain dependency-ordered.
+      const exited = await beforeDeadline(exits.get(child)!, Math.max(0, deadline - Date.now()))
+      expectedExit = undefined
+      if (settled) return
+      if (!exited) {
+        settled = true
+        for (const runningChild of children.keys()) if (running(runningChild)) runningChild.kill('SIGKILL')
+        resolveResult(0)
+        return
+      }
+    }
+    settled = true
+    resolveResult(0)
+  }
+  const onSignal = () => {
+    if (shutdownOrder) void finishInPhases()
+    else void finishImmediately(0)
+  }
   signalSource.once('SIGINT', onSignal)
   signalSource.once('SIGTERM', onSignal)
 
@@ -67,23 +103,47 @@ export async function superviseProcesses(processes: readonly RuntimeProcess[], o
     for (const specification of processes) {
       const child = spawnProcess(specification)
       children.set(child, specification.name)
-      child.once('error', () => void finish(1))
-      child.once('exit', (code) => void finish(code && code > 0 ? code : 1))
+      let resolveExit!: () => void
+      exits.set(
+        child,
+        new Promise<void>((resolve) => {
+          resolveExit = resolve
+        }),
+      )
+      child.once('error', () => void finishImmediately(1))
+      child.once('exit', (code) => {
+        resolveExit()
+        if (!phasedShutdown || child !== expectedExit) void finishImmediately(code && code > 0 ? code : 1)
+      })
     }
   } catch (error) {
-    await finish(1)
+    await finishImmediately(1)
     throw error
   }
   return result
 }
 
+async function beforeDeadline(exited: Promise<void>, timeoutMs: number) {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<false>((resolve) => {
+    timer = setTimeout(() => resolve(false), timeoutMs)
+  })
+  const result = await Promise.race([exited.then(() => true as const), timeout])
+  if (timer) clearTimeout(timer)
+  return result
+}
+
+function running(child: ChildProcess) {
+  return child.exitCode === null && child.signalCode === null
+}
+
 async function stopChildren(children: ChildProcess[], timeoutMs: number) {
-  const running = children.filter((child) => child.exitCode === null && child.signalCode === null)
-  if (running.length === 0) return
-  const exited = Promise.all(running.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve())))).then(
+  const active = children.filter(running)
+  if (active.length === 0) return
+  const exited = Promise.all(active.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve())))).then(
     () => 'exited' as const,
   )
-  for (const child of running) child.kill('SIGTERM')
+  for (const child of active) child.kill('SIGTERM')
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<'timeout'>((resolve) => {
     timer = setTimeout(() => resolve('timeout'), timeoutMs)
@@ -91,7 +151,7 @@ async function stopChildren(children: ChildProcess[], timeoutMs: number) {
   const outcome = await Promise.race([exited, timeout])
   if (timer) clearTimeout(timer)
   if (outcome === 'timeout') {
-    for (const child of running) if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    for (const child of active) if (running(child)) child.kill('SIGKILL')
   }
 }
 
@@ -128,7 +188,7 @@ export async function runRealtimeStack(options: RealtimeStackOptions) {
   const centrifugoConfigPath = absolutePath(options.centrifugo.configPath, 'centrifugo.configPath')
   await mkdir(path.dirname(configPath), { recursive: true })
   await writeFile(configPath, caddyRealtimeProxy(options.caddy.proxy), 'utf8')
-  return superviseProcesses(
+  return runSupervisor(
     [
       { name: 'app', ...options.app },
       {
@@ -146,7 +206,8 @@ export async function runRealtimeStack(options: RealtimeStackOptions) {
         env: { ...options.caddy.env, ...caddyRuntimeEnvironment(options.caddy.runtime) },
       },
     ],
-    options.supervisor,
+    options.supervisor ?? {},
+    ['proxy', 'app', 'realtime'],
   )
 }
 

@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,8 +44,33 @@ try {
   if (JSON.stringify(Object.keys(packageJson.bin)) !== JSON.stringify(['ras']))
     throw new Error('package must install only the ras executable')
   const cli = spawnSync('npx', ['ras'], { cwd: temporary, encoding: 'utf8' })
-  if (cli.status !== 2 || !cli.stderr.includes('usage: ras <assets|init|policy|preview|realtime>'))
+  if (cli.status !== 2 || !cli.stderr.includes('usage: ras <assets|create|init|policy|preview|realtime>'))
     throw new Error(`installed ras executable returned an unexpected result: ${cli.status}\n${cli.stderr}`)
+
+  exec('npx', ['ras', 'create', 'starter'], temporary)
+  const starterDirectory = path.join(temporary, 'starter')
+  const starterFile = path.join(starterDirectory, 'package.json')
+  const starter = JSON.parse(readFileSync(starterFile, 'utf8'))
+  if (starter.dependencies['ras-stack'] !== `^${packageJson.version}`)
+    throw new Error('installed starter does not target the packed version')
+  const gitignore = readFileSync(path.join(starterDirectory, '.gitignore'), 'utf8')
+  if (!gitignore.includes('.data/')) throw new Error('installed starter is missing generated-state ignores')
+  assertEnvironmentIgnores(gitignore, '.gitignore')
+  assertEnvironmentIgnores(readFileSync(path.join(starterDirectory, '.dockerignore'), 'utf8'), '.dockerignore')
+  if (!readFileSync(path.join(starterDirectory, 'pnpm-workspace.yaml'), 'utf8').includes('  - ras-stack'))
+    throw new Error('installed starter can age-gate its newly published ras-stack version')
+  const dockerfile = readFileSync(path.join(starterDirectory, 'Dockerfile'), 'utf8')
+  if (dockerfile.includes('../../') || dockerfile.includes('examples/full-stack') || dockerfile.includes('COPY dist '))
+    throw new Error('installed starter Dockerfile still depends on the ras-stack monorepo')
+  const starterArchive = path.join(starterDirectory, 'ras-stack.tgz')
+  copyFileSync(archive, starterArchive)
+  starter.dependencies['ras-stack'] = 'file:./ras-stack.tgz'
+  writeFileSync(starterFile, `${JSON.stringify(starter, null, 2)}\n`)
+  exec('npm', ['install', '--no-audit', '--no-fund'], starterDirectory)
+  exec('npm', ['run', 'build'], starterDirectory)
+  if (process.env.CI || process.env.RAS_STACK_PACKAGE_CHECK_DOCKER === '1') {
+    exec('docker', ['build', '--target', 'build', '-t', 'ras-stack-packed-starter:test', '.'], starterDirectory)
+  }
 
   const imports = Object.keys(packageJson.exports).filter((entrypoint) => !entrypoint.startsWith('./config/'))
   writeFileSync(
@@ -111,4 +136,9 @@ function exportedFiles(packageJson, condition) {
 
 function assertFile(consumer, relativePath) {
   readFileSync(path.join(consumer, 'node_modules', 'ras-stack', relativePath))
+}
+
+function assertEnvironmentIgnores(contents, filename) {
+  if (!contents.includes('.env\n.env.*\n!.env.example\n'))
+    throw new Error(`installed starter ${filename} does not safely exclude environment secrets`)
 }

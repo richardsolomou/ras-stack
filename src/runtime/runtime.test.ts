@@ -50,7 +50,7 @@ describe('self-hosted runtime configuration', () => {
     })
   })
 
-  it('runs the standard app, Centrifugo, and Caddy topology', async () => {
+  it('runs the standard topology and shuts it down in dependency order', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'ras-stack-runtime-'))
     const configPath = join(directory, 'Caddyfile')
     const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
@@ -103,8 +103,45 @@ describe('self-hosted runtime configuration', () => {
     expect(await readFile(configPath, 'utf8')).toContain('reverse_proxy 127.0.0.1:8000')
 
     signals.emit('SIGTERM')
-    for (const process of children) process.exit(0, 'SIGTERM')
+    await vi.waitFor(() => expect(children[2]!.kill).toHaveBeenCalledWith('SIGTERM'))
+    expect(children[0]!.kill).not.toHaveBeenCalled()
+    children[2]!.exit(0, 'SIGTERM')
+    await vi.waitFor(() => expect(children[0]!.kill).toHaveBeenCalledWith('SIGTERM'))
+    expect(children[1]!.kill).not.toHaveBeenCalled()
+    children[0]!.exit(0, 'SIGTERM')
+    await vi.waitFor(() => expect(children[1]!.kill).toHaveBeenCalledWith('SIGTERM'))
+    children[1]!.exit(0, 'SIGTERM')
     await expect(running).resolves.toBe(0)
+    await rm(directory, { recursive: true })
+  })
+
+  it('force kills the entire realtime stack when a shutdown phase exceeds the shared timeout', async () => {
+    vi.useFakeTimers()
+    const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
+    const children = { app: child(), realtime: child(), proxy: child() }
+    const { directory, running } = await startRealtimeStack(children, signals, 10)
+    signals.emit('SIGTERM')
+    expect(children.proxy.kill).toHaveBeenCalledWith('SIGTERM')
+    expect(children.app.kill).not.toHaveBeenCalledWith('SIGTERM')
+    await vi.advanceTimersByTimeAsync(10)
+    await expect(running).resolves.toBe(0)
+    expect(
+      [children.proxy, children.app, children.realtime].every((value) => value.kill.mock.calls.some(([signal]) => signal === 'SIGKILL')),
+    ).toBe(true)
+    vi.useRealTimers()
+    await rm(directory, { recursive: true })
+  })
+
+  it('tears down realtime siblings immediately when one stack process fails', async () => {
+    const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
+    const children = { app: child(), realtime: child(), proxy: child() }
+    const { directory, running } = await startRealtimeStack(children, signals)
+    children.app.exit(2)
+    await vi.waitFor(() => expect(children.realtime.kill).toHaveBeenCalledWith('SIGTERM'))
+    expect(children.proxy.kill).toHaveBeenCalledWith('SIGTERM')
+    children.realtime.exit(0, 'SIGTERM')
+    children.proxy.exit(0, 'SIGTERM')
+    await expect(running).resolves.toBe(2)
     await rm(directory, { recursive: true })
   })
 
@@ -166,7 +203,7 @@ function child() {
     exitCode: number | null
     signalCode: NodeJS.Signals | null
   }
-  const kill = vi.fn(() => true)
+  const kill = vi.fn((_signal?: NodeJS.Signals) => true)
   process.kill = kill
   process.exitCode = null
   process.signalCode = null
@@ -176,4 +213,28 @@ function child() {
     process.emit('exit', code, signal)
   }
   return { exit, kill, process }
+}
+
+async function startRealtimeStack(
+  children: Record<'app' | 'realtime' | 'proxy', ReturnType<typeof child>>,
+  signals: EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>,
+  shutdownTimeoutMs = 10_000,
+) {
+  const directory = await mkdtemp(join(tmpdir(), 'ras-stack-runtime-phases-'))
+  const spawned: string[] = []
+  const running = runRealtimeStack({
+    app: { command: 'app' },
+    centrifugo: { command: 'realtime', configPath: '/app/realtime.json', environment: { apiKey: 'api' } },
+    caddy: { command: 'proxy', configPath: join(directory, 'Caddyfile') },
+    supervisor: {
+      signalSource: signals,
+      shutdownTimeoutMs,
+      spawn: ({ name }) => {
+        spawned.push(name)
+        return children[name as keyof typeof children].process
+      },
+    },
+  })
+  await vi.waitFor(() => expect(spawned).toEqual(['app', 'realtime', 'proxy']))
+  return { directory, running }
 }

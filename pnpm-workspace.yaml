@@ -7,3 +7,7 @@ allowBuilds:
   esbuild: true
   protobufjs: true
 minimumReleaseAge: 10080
+# Better Auth 1.7 is the compatibility target exercised by the full-stack reference.
+minimumReleaseAgeExclude:
+  - better-auth
+  - '@better-auth/*'

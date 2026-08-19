@@ -11,7 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiLiveRouteImport } from './routes/api/live'
+import { Route as ApiReadyRouteImport } from './routes/api/ready'
 import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiCentrifugoConnectRouteImport } from './routes/api/centrifugo.connect'
 import { Route as ApiUploadsIdRouteImport } from './routes/api/uploads.$id'
 
@@ -25,9 +28,24 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiLiveRoute = ApiLiveRouteImport.update({
+  id: '/api/live',
+  path: '/api/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReadyRoute = ApiReadyRouteImport.update({
+  id: '/api/ready',
+  path: '/api/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUploadsRoute = ApiUploadsRouteImport.update({
   id: '/api/uploads',
   path: '/api/uploads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCentrifugoConnectRoute = ApiCentrifugoConnectRouteImport.update({
@@ -44,14 +62,20 @@ const ApiUploadsIdRoute = ApiUploadsIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/live': typeof ApiLiveRoute
+  '/api/ready': typeof ApiReadyRoute
   '/api/uploads': typeof ApiUploadsRouteWithChildren
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/centrifugo/connect': typeof ApiCentrifugoConnectRoute
   '/api/uploads/$id': typeof ApiUploadsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/live': typeof ApiLiveRoute
+  '/api/ready': typeof ApiReadyRoute
   '/api/uploads': typeof ApiUploadsRouteWithChildren
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/centrifugo/connect': typeof ApiCentrifugoConnectRoute
   '/api/uploads/$id': typeof ApiUploadsIdRoute
 }
@@ -59,7 +83,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/live': typeof ApiLiveRoute
+  '/api/ready': typeof ApiReadyRoute
   '/api/uploads': typeof ApiUploadsRouteWithChildren
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/centrifugo/connect': typeof ApiCentrifugoConnectRoute
   '/api/uploads/$id': typeof ApiUploadsIdRoute
 }
@@ -68,21 +95,30 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/health'
+    | '/api/live'
+    | '/api/ready'
     | '/api/uploads'
+    | '/api/auth/$'
     | '/api/centrifugo/connect'
     | '/api/uploads/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/health'
+    | '/api/live'
+    | '/api/ready'
     | '/api/uploads'
+    | '/api/auth/$'
     | '/api/centrifugo/connect'
     | '/api/uploads/$id'
   id:
     | '__root__'
     | '/'
     | '/api/health'
+    | '/api/live'
+    | '/api/ready'
     | '/api/uploads'
+    | '/api/auth/$'
     | '/api/centrifugo/connect'
     | '/api/uploads/$id'
   fileRoutesById: FileRoutesById
@@ -90,7 +126,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiLiveRoute: typeof ApiLiveRoute
+  ApiReadyRoute: typeof ApiReadyRoute
   ApiUploadsRoute: typeof ApiUploadsRouteWithChildren
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCentrifugoConnectRoute: typeof ApiCentrifugoConnectRoute
 }
 
@@ -110,11 +149,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/live': {
+      id: '/api/live'
+      path: '/api/live'
+      fullPath: '/api/live'
+      preLoaderRoute: typeof ApiLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ready': {
+      id: '/api/ready'
+      path: '/api/ready'
+      fullPath: '/api/ready'
+      preLoaderRoute: typeof ApiReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/uploads': {
       id: '/api/uploads'
       path: '/api/uploads'
       fullPath: '/api/uploads'
       preLoaderRoute: typeof ApiUploadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/centrifugo/connect': {
@@ -149,7 +209,10 @@ const ApiUploadsRouteWithChildren = ApiUploadsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiLiveRoute: ApiLiveRoute,
+  ApiReadyRoute: ApiReadyRoute,
   ApiUploadsRoute: ApiUploadsRouteWithChildren,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCentrifugoConnectRoute: ApiCentrifugoConnectRoute,
 }
 export const routeTree = rootRouteImport

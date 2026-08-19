@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseRasCommand, runRasCli } from './cli.js'
 
 describe('parseRasCommand', () => {
-  it.each(['assets', 'init', 'policy', 'preview', 'realtime'] as const)('routes the %s command', (command) => {
+  it.each(['assets', 'create', 'init', 'policy', 'preview', 'realtime'] as const)('routes the %s command', (command) => {
     expect(parseRasCommand([command, 'argument'])).toEqual({ command, arguments: ['argument'] })
   })
 
@@ -22,7 +22,7 @@ describe('runRasCli', () => {
 
     await runRasCli(['deploy'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras <assets|init|policy|preview|realtime> [arguments]')
+    expect(error).toHaveBeenCalledWith('usage: ras <assets|create|init|policy|preview|realtime> [arguments]')
     expect(process.exitCode).toBe(2)
   })
 

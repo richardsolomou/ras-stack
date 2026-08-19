@@ -21,7 +21,8 @@
   },
   "files": [
     "dist",
-    "config"
+    "config",
+    "examples/full-stack"
   ],
   "type": "module",
   "sideEffects": false,
@@ -152,6 +153,7 @@
     "format:check": "oxfmt --check .",
     "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkPackedPackage.mjs",
+    "peer:floor": "node scripts/checkPeerFloor.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check && pnpm --filter @ras-stack/example-full-stack check && node dist/cli.js policy check",
     "version-packages": "changeset version"
   },
@@ -176,7 +178,7 @@
     "@types/react": "19.2.18",
     "@types/react-test-renderer": "19.1.0",
     "@vitest/coverage-v8": "^4.1.10",
-    "better-sqlite3": "13.0.3",
+    "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.0",
     "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",
@@ -198,9 +200,9 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-logs": "^0.221.0",
-    "@posthog/react": ">=1 <2",
-    "@tanstack/react-query": ">=5 <6",
-    "@tanstack/react-start": ">=1 <2",
+    "@posthog/react": ">=1.1 <2",
+    "@tanstack/react-query": ">=5.62.8 <6",
+    "@tanstack/react-start": ">=1.168.10 <2",
     "better-sqlite3": ">=12 <14",
     "centrifuge": ">=5 <6",
     "drizzle-orm": ">=0.45 <1",

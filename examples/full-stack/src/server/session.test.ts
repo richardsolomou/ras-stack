@@ -1,41 +1,56 @@
 import { mkdtemp, rm } from 'node:fs/promises'
-import path from 'node:path'
 import os from 'node:os'
+import path from 'node:path'
 import { clearGlobalSingleton } from 'ras-stack/server'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { currentUser, sessionCookie } from './session'
+import { app, closeApp } from './app'
+import { currentUser } from './session'
 
 let directory: string
 
 beforeEach(async () => {
-  directory = await mkdtemp(path.join(os.tmpdir(), 'ras-stack-example-'))
+  directory = await mkdtemp(path.join(os.tmpdir(), 'ras-stack-example-auth-'))
   process.env.DATA_DIR = directory
+  process.env.APP_URL = 'http://localhost:3100'
 })
 
 afterEach(async () => {
-  await clearGlobalSingleton<{ database: { $client: { close(): void } } }>('ras-stack.example.full-stack', ({ database }) =>
-    database.$client.close(),
-  )
+  await clearGlobalSingleton('ras-stack.example.full-stack', closeApp)
   await rm(directory, { recursive: true, force: true })
   delete process.env.DATA_DIR
+  delete process.env.APP_URL
 })
 
-describe('example session', () => {
-  it('round-trips a signed session cookie', () => {
-    const session = sessionCookie('Ada')
-    const request = new Request('http://localhost', { headers: { cookie: `${session.name}=${session.value}` } })
-    expect(currentUser(request)?.name).toBe('Ada')
+describe('Better Auth integration', () => {
+  it('creates a database-backed user and session', async () => {
+    const response = await authRequest('/sign-up/email', {
+      name: 'Ada',
+      email: 'ada@example.test',
+      password: 'correct horse battery staple',
+    })
+    expect(response.status).toBe(200)
+    const cookie = response.headers.get('set-cookie')
+    expect(cookie).toContain('ras_stack_example.session_token=')
+    const request = new Request('http://localhost:3100', { headers: { cookie: cookie! } })
+    expect((await currentUser(request))?.email).toBe('ada@example.test')
   })
 
-  it('rejects a modified session cookie', () => {
-    const session = sessionCookie('Ada')
-    const request = new Request('http://localhost', { headers: { cookie: `${session.name}=${session.value}x` } })
-    expect(currentUser(request)).toBeUndefined()
-  })
-
-  it('rejects a session older than one hour', () => {
-    const session = sessionCookie('Ada', 0)
-    const request = new Request('http://localhost', { headers: { cookie: `${session.name}=${session.value}` } })
-    expect(currentUser(request, 60 * 60 * 1000 + 1)).toBeUndefined()
+  it('rejects a cross-origin sign-up', async () => {
+    const response = await authRequest(
+      '/sign-up/email',
+      { name: 'Mallory', email: 'mallory@example.test', password: 'correct horse battery staple' },
+      'https://attacker.example',
+    )
+    expect(response.status).toBe(403)
   })
 })
+
+function authRequest(endpoint: string, body: object, origin = 'http://localhost:3100') {
+  return app().auth.handler(
+    new Request(`http://localhost:3100/api/auth${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify(body),
+    }),
+  )
+}

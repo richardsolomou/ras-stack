@@ -61,6 +61,8 @@ runs:
         file: ${{ inputs.dockerfile }}
         platforms: ${{ inputs.platforms }}
         push: true
+        provenance: mode=max
+        sbom: true
         tags: |
           ${{ inputs.image }}:latest
           ${{ inputs.image }}:${{ inputs.release-tag }}

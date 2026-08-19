@@ -1,0 +1,9 @@
+dist/
+node_modules/
+.data/
+.output/
+test-results/
+*.tgz
+.env
+.env.*
+!.env.example

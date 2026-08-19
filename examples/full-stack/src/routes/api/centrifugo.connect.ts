@@ -13,7 +13,7 @@ export const Route = createFileRoute('/api/centrifugo/connect')({
         } catch {
           return Response.json({ disconnect: { code: 4501, reason: 'unauthorized' } })
         }
-        const user = currentUser(request)
+        const user = await currentUser(request)
         return user
           ? Response.json({ result: { user: user.id, info: { name: user.name } } })
           : Response.json({ disconnect: { code: 4501, reason: 'unauthorized' } })

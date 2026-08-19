@@ -5,11 +5,12 @@ import { currentUser } from './session'
 
 const reportRpcError = createPostHogRpcLogger(app().telemetry, {
   logError: (error, context) => console.error({ event: 'example_server_function_failed', ...context, error }),
-  resolveAuthenticatedDistinctId: (request) => currentUser(request)?.id,
+  resolveAuthenticatedDistinctId: async (request) => (await currentUser(request))?.id,
   allowAnonymousDistinctId: true,
 })
 
 export const { rpc, mutationRpc } = createTanStackRpc({
-  requireMutation: (request) => requireTanStackMutationOrigin({ configured: [process.env.APP_URL], trustForwardedHeaders: true }, request),
+  requireMutation: (request) =>
+    requireTanStackMutationOrigin({ configured: [app().environment.appUrl], trustForwardedHeaders: app().environment.trustProxy }, request),
   logError: reportRpcError,
 })

@@ -20,14 +20,18 @@ FROM ${RUNTIME_BINARIES_IMAGE} AS runtime-binaries
 
 FROM node:24-alpine
 WORKDIR /app
-RUN apk add --no-cache tini && mkdir -p /data && chown -R node:node /app /data
+RUN apk add --no-cache tini \
+    && rm -rf /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/npm /opt/yarn-v1.22.22 \
+    && rm -f /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+    && mkdir -p /data \
+    && chown -R node:node /app /data
 COPY --from=build --chown=node:node /app/examples/full-stack/.output ./.output
 COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --chown=node:node examples/full-stack/centrifugo.json ./centrifugo.json
 COPY --chown=node:node LICENSE ./
-ENV NODE_ENV=production DATA_DIR=/data CENTRIFUGO_CONFIG=/app/centrifugo.json CENTRIFUGO_API_URL=http://127.0.0.1:8100/api CENTRIFUGO_HTTP_SERVER_PORT=8100
+ENV NODE_ENV=production DATA_DIR=/data TRUST_PROXY=false CENTRIFUGO_CONFIG=/app/centrifugo.json CENTRIFUGO_API_URL=http://127.0.0.1:8100/api CENTRIFUGO_HTTP_SERVER_PORT=8100
 EXPOSE 3100
-HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD wget -q --spider http://127.0.0.1:3100/api/health || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD wget -q --spider http://127.0.0.1:3100/api/ready || exit 1
 USER node
-ENTRYPOINT ["/sbin/tini", "-g", "--", "node", ".output/server/container-runtime.mjs"]
+ENTRYPOINT ["/sbin/tini", "-g", "--", "node", ".output/server/containerRuntime.mjs"]

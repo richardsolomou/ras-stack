@@ -1,30 +1,32 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
+import { app } from '../../server/app'
+import { limitAuthenticatedRequest } from '../../server/rate-limit'
 import { requireCurrentUser } from '../../server/session'
-import { uploads } from '../../server/uploads'
 
 export const Route = createFileRoute('/api/uploads/$id')({
   server: {
     handlers: {
-      HEAD: ({ request, params }) => {
-        requireCurrentUser(request)
-        const upload = uploads().get(params.id)
-        return upload ? new Response(null, { headers: headers(upload.bytes.length, upload.length) }) : new Response(null, { status: 404 })
+      HEAD: async ({ request, params }) => {
+        const user = await requireCurrentUser(request)
+        const upload = app().uploadStore.getOwned(params.id, user.id)
+        return upload ? new Response(null, { headers: headers(upload.offset, upload.length) }) : new Response(null, { status: 404 })
       },
       PATCH: async ({ request, params }) => {
-        requireTanStackMutationOrigin({ configured: [process.env.APP_URL], trustForwardedHeaders: true }, request)
-        requireCurrentUser(request)
-        const upload = uploads().get(params.id)
-        if (!upload) return new Response(null, { status: 404 })
-        if (Number(request.headers.get('upload-offset')) !== upload.bytes.length) return new Response(null, { status: 409 })
+        requireTanStackMutationOrigin(
+          { configured: [app().environment.appUrl], trustForwardedHeaders: app().environment.trustProxy },
+          request,
+        )
+        const user = await requireCurrentUser(request)
+        await limitAuthenticatedRequest(request, 'upload-chunk', user.id, { window: 60, max: 120 })
+        const declaredLength = Number(request.headers.get('content-length'))
+        if (!Number.isSafeInteger(declaredLength) || declaredLength < 1 || declaredLength > app().environment.uploadMaxBytes) {
+          return new Response('Invalid content length', { status: 400 })
+        }
         const chunk = new Uint8Array(await request.arrayBuffer())
-        if (upload.bytes.length + chunk.length > upload.length) return new Response(null, { status: 413 })
-        const bytes = new Uint8Array(upload.bytes.length + chunk.length)
-        bytes.set(upload.bytes)
-        bytes.set(chunk, upload.bytes.length)
-        upload.bytes = bytes
-        if (upload.bytes.length === upload.length) uploads().delete(params.id)
-        return new Response(null, { status: 204, headers: headers(upload.bytes.length, upload.length) })
+        if (chunk.length !== declaredLength) return new Response('Content length mismatch', { status: 400 })
+        const upload = await app().uploadStore.append(params.id, user.id, Number(request.headers.get('upload-offset')), chunk)
+        return new Response(null, { status: 204, headers: headers(upload.offset, upload.length) })
       },
     },
   },

@@ -52,10 +52,19 @@ jobs:
           RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
         run: pnpm exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
 
+  peer-floor:
+    name: Peer dependency floor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - run: pnpm build && pnpm peer:floor
+
   example:
     name: Full-stack example
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./actions/setup-js
@@ -79,30 +88,121 @@ jobs:
           docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F 'Centrifugo v6.9.1 '
       - name: Build production image
         run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
+      - name: Scan production image
+        uses: anchore/scan-action@v7
+        with:
+          image: ras-stack-example:e2e
+          fail-build: true
+          severity-cutoff: high
+      - name: Start SMTP sink
+        run: docker run -d --name ras-stack-example-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27
       - name: Start production image
         run: |
+          mkdir -p "$RUNNER_TEMP/ras-stack-example-backup"
+          chmod 0777 "$RUNNER_TEMP/ras-stack-example-backup"
+          docker volume create ras-stack-example-data
           docker run -d --name ras-stack-example-e2e \
             --read-only \
             --tmpfs /tmp:rw \
-            --tmpfs /data:rw,uid=1000,gid=1000 \
+            --mount source=ras-stack-example-data,target=/data \
+            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup \
+            --add-host=host.docker.internal:host-gateway \
             -p 3110:3100 \
             -e APP_URL=http://127.0.0.1:3110 \
             -e CENTRIFUGO_API_KEY=example-api-key \
             -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
+            -e SMTP_HOST=host.docker.internal \
+            -e SMTP_PORT=1025 \
+            -e EMAIL_FROM=ras-stack@example.test \
+            -e EMAIL_REQUIRE_VERIFICATION=false \
             ras-stack-example:e2e
           for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3110/api/health >/dev/null; then
-              exit 0
+            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
+              break
             fi
             sleep 1
           done
-          docker logs ras-stack-example-e2e
-          exit 1
+          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
       - name: Exercise full stack
         run: pnpm --filter @ras-stack/example-full-stack e2e
+      - name: Verify persistence and drill backup restore
+        run: |
+          test "$(curl --fail --silent http://127.0.0.1:8025/api/v1/messages | jq '.messages_count')" -ge 2
+          upload_path="$(docker exec ras-stack-example-e2e find /data/uploads -type f -name '*.bin' -print -quit)"
+          test -n "$upload_path"
+          test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
+          docker restart ras-stack-example-e2e
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
+          test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
+          curl --fail --silent --cookie-jar /tmp/example-cookies \
+            -H 'Content-Type: application/json' \
+            -H 'Origin: http://127.0.0.1:3110' \
+            --data '{"email":"alice@example.test","password":"correct horse battery staple"}' \
+            http://127.0.0.1:3110/api/auth/sign-in/email | jq -e '.user.email == "alice@example.test"'
+          curl --fail --silent --cookie /tmp/example-cookies http://127.0.0.1:3110/ | grep -F 'first message'
+          docker exec ras-stack-example-e2e node .output/server/database.mjs backup /backup/example.sqlite
+          test -s "$RUNNER_TEMP/ras-stack-example-backup/example.sqlite"
+          upload_filename="$(basename "$upload_path")"
+          docker stop --time 15 ras-stack-example-e2e
+          docker cp "ras-stack-example-e2e:$upload_path" "$RUNNER_TEMP/ras-stack-example-backup/$upload_filename"
+          test "$(cat "$RUNNER_TEMP/ras-stack-example-backup/$upload_filename")" = 'workspace proof'
+          docker volume create ras-stack-example-restored-data
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw \
+            --mount source=ras-stack-example-restored-data,target=/data \
+            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup,readonly \
+            --entrypoint node \
+            ras-stack-example:e2e \
+            .output/server/database.mjs restore /backup/example.sqlite
+          docker run --rm \
+            --read-only \
+            --tmpfs /tmp:rw \
+            --mount source=ras-stack-example-restored-data,target=/data \
+            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup,readonly \
+            --env UPLOAD_FILENAME="$upload_filename" \
+            --entrypoint /bin/sh \
+            ras-stack-example:e2e \
+            -c 'mkdir -p /data/uploads && cp "/backup/$UPLOAD_FILENAME" "/data/uploads/$UPLOAD_FILENAME"'
+          docker run -d --name ras-stack-example-restored \
+            --read-only \
+            --tmpfs /tmp:rw \
+            --mount source=ras-stack-example-restored-data,target=/data \
+            --add-host=host.docker.internal:host-gateway \
+            -p 3110:3100 \
+            -e APP_URL=http://127.0.0.1:3110 \
+            -e CENTRIFUGO_API_KEY=example-api-key \
+            -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
+            -e SMTP_HOST=host.docker.internal \
+            -e SMTP_PORT=1025 \
+            -e EMAIL_FROM=ras-stack@example.test \
+            -e EMAIL_REQUIRE_VERIFICATION=false \
+            ras-stack-example:e2e
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
+          curl --fail --silent --cookie-jar /tmp/restored-example-cookies \
+            -H 'Content-Type: application/json' \
+            -H 'Origin: http://127.0.0.1:3110' \
+            --data '{"email":"alice@example.test","password":"correct horse battery staple"}' \
+            http://127.0.0.1:3110/api/auth/sign-in/email | jq -e '.user.email == "alice@example.test"'
+          curl --fail --silent --cookie /tmp/restored-example-cookies http://127.0.0.1:3110/ | grep -F 'first message'
+          test "$(docker exec ras-stack-example-restored cat "/data/uploads/$upload_filename")" = 'workspace proof'
       - name: Capture container logs
         if: always()
-        run: docker logs ras-stack-example-e2e > example-container.log 2>&1 || true
+        run: |
+          docker logs ras-stack-example-e2e > example-container.log 2>&1 || true
+          docker logs ras-stack-example-restored > example-restored-container.log 2>&1 || true
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v7
@@ -110,13 +210,20 @@ jobs:
           name: full-stack-example-failure
           path: |
             example-container.log
+            example-restored-container.log
             examples/full-stack/test-results
           if-no-files-found: ignore
           retention-days: 7
+      - name: Remove example resources
+        if: always()
+        run: |
+          docker rm -f ras-stack-example-e2e ras-stack-example-restored ras-stack-example-mailpit 2>/dev/null || true
+          docker volume rm ras-stack-example-data ras-stack-example-restored-data 2>/dev/null || true
+          rm -rf "${RUNNER_TEMP:?}/ras-stack-example-backup"
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [actions, check, example, postgres]
+    needs: [actions, check, example, peer-floor, postgres]
     permissions:
       contents: write
     uses: ./.github/workflows/release-changesets.yml
