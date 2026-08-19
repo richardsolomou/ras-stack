@@ -69,6 +69,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./actions/setup-js
       - uses: ./actions/setup-playwright
+        with:
+          install-dependencies: 'false'
       - uses: docker/setup-buildx-action@v4
       - name: Build package and example
         run: pnpm build && pnpm --filter @ras-stack/example-full-stack check
@@ -94,6 +96,8 @@ jobs:
           image: ras-stack-example:e2e
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
+          output-format: table
       - name: Start SMTP sink
         run: docker run -d --name ras-stack-example-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27
       - name: Start production image

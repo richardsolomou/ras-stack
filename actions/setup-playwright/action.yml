@@ -5,6 +5,9 @@ inputs:
   browser:
     description: Playwright browser to install.
     default: chromium
+  install-dependencies:
+    description: Install browser system dependencies with the host package manager.
+    default: 'true'
 
 runs:
   using: composite
@@ -16,10 +19,13 @@ runs:
     - name: Cache Playwright browser
       id: cache
       uses: actions/cache@v6
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ inputs.browser }}-${{ steps.version.outputs.version }}
     - name: Install browser system dependencies
+      if: inputs.install-dependencies == 'true'
       shell: bash
       env:
         PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
