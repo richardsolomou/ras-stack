@@ -68,6 +68,15 @@ describe('GitHub preview status', () => {
     expect(request.calls[1]?.body).toEqual({ body: '<!-- app-preview -->\n🗑️ Preview deleted because this pull request was closed.' })
   })
 
+  it('rejects a ready status without a URL before changing GitHub state', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+
+    await expect(reportPreviewStatus(previewOptions(request), { state: 'ready', prNumber: '42', sha: 'a'.repeat(40) })).rejects.toThrow(
+      'preview URL is required',
+    )
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('rejects untrusted repository, pull request, and commit values', async () => {
     const request = githubFetch({ checks: [], comments: [] })
     await expect(

@@ -33,7 +33,11 @@ export async function reportPreviewStatus(options: GitHubPreviewOptions, status:
   const api = <T>(path: string, init?: RequestInit) => github<T>(request, options.token, `/repos/${repository}${path}`, init)
 
   if (status.state !== 'deleted') {
-    await updateCheck(api, options.checkName ?? 'PR preview deploy', commitSha(status.sha), status)
+    const sha = commitSha(status.sha)
+    if (status.state === 'ready' && !status.previewUrl) throw new Error('preview URL is required for ready preview status')
+    if (status.previewUrl) webUrl(status.previewUrl, 'preview URL')
+    if (status.runUrl) webUrl(status.runUrl, 'workflow run URL')
+    await updateCheck(api, options.checkName ?? 'PR preview deploy', sha, status)
   }
   const comments = await issueComments(api, prNumber)
   const existing = comments.find((comment) => comment.body?.includes(marker))
@@ -80,7 +84,6 @@ function previewComment(options: GitHubPreviewOptions, status: PreviewStatus, pr
     ready: `✅ Preview is up to date with commit \`${sha}\`.`,
     failed: `❌ Deploying commit \`${sha}\` failed${status.runUrl ? ` ([workflow run](${webUrl(status.runUrl, 'workflow run URL')}))` : ''}. The preview may be stale or unavailable.`,
   }[status.state]
-  if (status.state === 'ready' && !status.previewUrl) throw new Error('preview URL is required for ready preview status')
   return [
     options.marker,
     heading,
