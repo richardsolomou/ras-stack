@@ -97,12 +97,13 @@ export class DokployClient {
     return (await this.applications()).find((application) => application.name === name)
   }
 
-  async generatedDomain(appName: string, serverId?: string, existing?: string) {
+  async generatedDomain(appName: string, serverId?: string, existing: string[] = []) {
     const serverIp = await this.api('domain.canGenerateTraefikMeDomains', {
       query: { serverId: serverId ?? '' },
     })
     const publicIp = previewServerIp(serverIp)
-    if (existing && isGeneratedPreviewHostname(existing, appName) && existing.endsWith(`-${encodedIp(publicIp)}.sslip.io`)) return existing
+    const current = existing.find((host) => isCurrentGeneratedPreviewHostname(host, appName, publicIp))
+    if (current) return current
     const generated = await this.api('domain.generateDomain', {
       body: { appName, ...(serverId ? { serverId } : {}) },
     })
@@ -164,12 +165,15 @@ export class DokployPreviewManager {
       query: { applicationId },
     })
     const generated = !this.options.hostname
-    const managedDomains = details?.domains?.filter((domain) => isGeneratedPreviewHostname(domain.host, name)) ?? []
-    const existingGenerated = generated ? managedDomains[0] : undefined
+    const managedDomains = details?.domains?.filter((domain) => isGeneratedPreviewHostname(domain.host, generatedPreviewName)) ?? []
     const host = previewHostname(
       this.options.hostname
         ? this.options.hostname(prNumber)
-        : await this.options.client.generatedDomain(name, application.serverId ?? undefined, existingGenerated?.host),
+        : await this.options.client.generatedDomain(
+            generatedPreviewName,
+            application.serverId ?? undefined,
+            managedDomains.map((domain) => domain.host),
+          ),
     )
     const url = `${generated ? 'http' : 'https'}://${host}`
     if (!details?.domains?.some((domain) => domain.host === host)) {
@@ -184,11 +188,6 @@ export class DokployPreviewManager {
           domainType: 'application',
         },
       })
-    }
-    for (const domain of managedDomains.filter((candidate) => candidate.host !== host)) {
-      if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
-      // oxlint-disable-next-line no-await-in-loop
-      await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
     }
     await this.options.onResolved?.({ host, url })
     await options.configure?.({ applicationId, client: this.options.client, host, url })
@@ -213,6 +212,11 @@ export class DokployPreviewManager {
     await this.options.client.api('application.deploy', { body: { applicationId } })
     await this.waitForDeployment(applicationId)
     await this.waitForHealth(new URL(this.options.healthPath ?? '/api/health', url).toString())
+    for (const domain of managedDomains.filter((candidate) => candidate.host !== host)) {
+      if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
+      // oxlint-disable-next-line no-await-in-loop
+      await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
+    }
     this.log(`Preview ready at ${url}`)
     return { applicationId, host, url }
   }
@@ -304,19 +308,30 @@ export function previewHostname(value: string) {
 
 function generatedPreviewHostname(value: string, serverIp: string, appName: string) {
   const host = previewHostname(value)
-  if (!isGeneratedPreviewHostname(host, appName) || !host.endsWith(`-${encodedIp(serverIp)}.sslip.io`))
+  if (!isCurrentGeneratedPreviewHostname(host, appName, serverIp))
     throw new Error('domain.generateDomain did not return an sslip.io hostname for the Dokploy server')
   return host
 }
 
 function isGeneratedPreviewHostname(host: string, appName: string) {
-  const projectName = appName.slice(0, 40).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`^${projectName}-[a-f\\d]{6}-.+\\.sslip\\.io$`).test(host)
+  return new RegExp(`^${regularExpressionLiteral(appName.slice(0, 40))}-[a-f\\d]{6}-[a-f\\d-]+\\.sslip\\.io$`).test(host)
+}
+
+function isCurrentGeneratedPreviewHostname(host: string, appName: string, serverIp: string) {
+  return new RegExp(
+    `^${regularExpressionLiteral(appName.slice(0, 40))}-[a-f\\d]{6}-${regularExpressionLiteral(encodedIp(serverIp))}\\.sslip\\.io$`,
+  ).test(host)
+}
+
+function regularExpressionLiteral(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function encodedIp(address: string) {
   return address.replaceAll('.', '-').replaceAll(':', '-')
 }
+
+const generatedPreviewName = 'ras-preview'
 
 const blockedPreviewAddresses = new BlockList()
 for (const [address, prefix, family] of [

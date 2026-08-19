@@ -65,43 +65,40 @@ env:
   CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
 
 jobs:
-  mark-fork-awaiting-approval:
-    if: github.event_name == 'workflow_run' && github.event.action == 'requested' && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+  mark-fork-status:
+    if: github.event_name == 'workflow_run' && (github.event.action == 'requested' || github.event.action == 'in_progress') && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+    concurrency:
+      group: dokploy-status-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
       issues: write
       pull-requests: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.38.2
-    with:
-      state: awaiting
-      pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
-      sha: ${{ github.event.workflow_run.head_sha }}
-      preview-url: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
-      run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      marker: ${{ inputs.marker }}
-      note: ${{ inputs.note }}
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
-
-  mark-fork-deploying:
-    if: github.event_name == 'workflow_run' && github.event.action == 'in_progress' && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
-    permissions:
-      contents: read
-      checks: write
-      issues: write
-      pull-requests: write
-    uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.38.2
-    with:
-      state: building
-      pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
-      sha: ${{ github.event.workflow_run.head_sha }}
-      preview-url: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
-      run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      marker: ${{ inputs.marker }}
-      note: ${{ inputs.note }}
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
+      - name: Report fork preview status
+        env:
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_MARKER: ${{ inputs.marker }}
+          PREVIEW_NOTE: ${{ inputs.note }}
+          PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STATE: ${{ github.event.action == 'requested' && 'awaiting' || 'building' }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          pr_state="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)"
+          run_status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$WORKFLOW_RUN_ID" --jq .status)"
+          if [[ "$pr_state" == "open" && "$run_status" != "completed" ]]; then
+            pnpm exec ras preview "$STATE"
+          fi
+          if [[ "$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .state)" == "closed" ]]; then
+            pnpm exec ras preview deleted
+          fi
 
   deploy:
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
@@ -122,6 +119,7 @@ jobs:
       - name: Resolve pull request state
         id: pr
         env:
+          EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
         run: |
@@ -131,8 +129,15 @@ jobs:
             exit 1
           fi
           echo "state=$state" >> "$GITHUB_OUTPUT"
+          if [[ "$state" == "closed" ]]; then
+            echo "action=delete" >> "$GITHUB_OUTPUT"
+          elif [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            echo "action=deploy" >> "$GITHUB_OUTPUT"
+          else
+            echo "action=none" >> "$GITHUB_OUTPUT"
+          fi
       - name: Delete closed preview
-        if: steps.pr.outputs.state == 'closed'
+        if: steps.pr.outputs.action == 'delete'
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
@@ -151,21 +156,21 @@ jobs:
             pnpm exec ras preview dokploy delete
           fi
       - name: Mark closed preview as deleted
-        if: steps.pr.outputs.state == 'closed'
+        if: steps.pr.outputs.action == 'delete'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
           PREVIEW_MARKER: ${{ inputs.marker }}
         run: pnpm exec ras preview deleted
       - name: Delete closed preview images
-        if: steps.pr.outputs.state == 'closed'
+        if: steps.pr.outputs.action == 'delete'
         uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
         with:
           token: ${{ github.token }}
           package: ${{ inputs.package }}
           pr-number: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       - name: Publish fork preview image
-        if: steps.pr.outputs.state == 'open' && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
+        if: steps.pr.outputs.action == 'deploy' && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
         uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.38.2
         with:
           artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
@@ -175,7 +180,7 @@ jobs:
           token: ${{ github.token }}
       - name: Resolve immutable preview image
         id: image
-        if: steps.pr.outputs.state == 'open'
+        if: steps.pr.outputs.action == 'deploy'
         uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.38.2
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
@@ -183,7 +188,7 @@ jobs:
           registry-password: ${{ secrets.PREVIEW_REGISTRY_PASSWORD }}
       - name: Deploy preview
         id: deploy
-        if: steps.pr.outputs.state == 'open'
+        if: steps.pr.outputs.action == 'deploy'
         env:
           DOKPLOY_URL: ${{ secrets.DOKPLOY_URL }}
           DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
@@ -211,16 +216,16 @@ jobs:
             pnpm exec ras preview dokploy deploy
           fi
       - name: Install preview browser
-        if: steps.pr.outputs.state == 'open' && inputs.playwright-config != ''
+        if: steps.pr.outputs.action == 'deploy' && inputs.playwright-config != ''
         run: pnpm exec playwright install --with-deps chromium
       - name: Verify preview
-        if: steps.pr.outputs.state == 'open' && inputs.playwright-config != ''
+        if: steps.pr.outputs.action == 'deploy' && inputs.playwright-config != ''
         env:
           PREVIEW_BASE_URL: ${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}
           PLAYWRIGHT_CONFIG: ${{ inputs.playwright-config }}
         run: pnpm exec playwright test --config "$PLAYWRIGHT_CONFIG"
       - name: Mark preview as ready
-        if: steps.pr.outputs.state == 'open'
+        if: steps.pr.outputs.action == 'deploy'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -231,7 +236,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec ras preview ready
       - name: Mark preview as failed
-        if: failure() && steps.pr.outputs.state == 'open'
+        if: failure() && steps.pr.outputs.action == 'deploy'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}

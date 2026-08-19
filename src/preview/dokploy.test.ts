@@ -70,13 +70,13 @@ describe('Dokploy preview lifecycle', () => {
     }).toEqual({
       result: {
         applicationId: 'app-42',
-        host: 'example-pr-42-a1b2c3-1-1-1-1.sslip.io',
-        url: 'http://example-pr-42-a1b2c3-1-1-1-1.sslip.io',
+        host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
+        url: 'http://ras-preview-a1b2c3-1-1-1-1.sslip.io',
       },
-      generated: { appName: 'example-pr-42', serverId: 'server-1' },
+      generated: { appName: 'ras-preview', serverId: 'server-1' },
       domain: {
         applicationId: 'app-42',
-        host: 'example-pr-42-a1b2c3-1-1-1-1.sslip.io',
+        host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
         path: '/',
         port: 3000,
         https: false,
@@ -85,18 +85,18 @@ describe('Dokploy preview lifecycle', () => {
       },
       environment: {
         applicationId: 'app-42',
-        env: 'APP_URL=http://example-pr-42-a1b2c3-1-1-1-1.sslip.io\n',
+        env: 'APP_URL=http://ras-preview-a1b2c3-1-1-1-1.sslip.io\n',
         buildArgs: null,
         buildSecrets: null,
         createEnvFile: false,
       },
-      healthUrl: 'http://example-pr-42-a1b2c3-1-1-1-1.sslip.io/api/health',
+      healthUrl: 'http://ras-preview-a1b2c3-1-1-1-1.sslip.io/api/health',
     })
   })
 
   it('reuses an existing generated domain', async () => {
     const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
-      { domainId: 'generated-domain', host: 'example-pr-42-a1b2c3-1-1-1-1.sslip.io' },
+      { domainId: 'generated-domain', host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io' },
     ])
 
     await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
@@ -114,10 +114,19 @@ describe('Dokploy preview lifecycle', () => {
     expect(server.procedures).not.toContain('domain.create')
   })
 
+  it('rejects a generated hostname with an earlier IP-shaped sequence', async () => {
+    const server = fakeDokploy([], 'done', [], 'ras-preview-a1b2c3-127-0-0-1-1-1-1-1.sslip.io')
+
+    await expect(generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })).rejects.toThrow(
+      'did not return an sslip.io hostname',
+    )
+    expect(server.procedures).not.toContain('domain.create')
+  })
+
   it.each(['', '127.0.0.1', '10.0.0.1', '169.254.169.254', '203.0.113.10', '2001:db8::1'])(
     'rejects a non-public Dokploy server IP (%s)',
     async (serverIp) => {
-      const server = fakeDokploy([], 'done', [], 'example-pr-42-a1b2c3-127-0-0-1.sslip.io', serverIp)
+      const server = fakeDokploy([], 'done', [], 'ras-preview-a1b2c3-127-0-0-1.sslip.io', serverIp)
 
       await expect(generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })).rejects.toThrow(
         'requires a public server IP',
@@ -129,26 +138,47 @@ describe('Dokploy preview lifecycle', () => {
 
   it('rotates a generated route after the Dokploy server IP changes', async () => {
     const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
-      { domainId: 'old-generated-domain', host: 'example-pr-42-a1b2c3-8-8-8-8.sslip.io' },
+      { domainId: 'old-generated-domain', host: 'ras-preview-a1b2c3-8-8-8-8.sslip.io' },
     ])
 
     const result = await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
 
     expect({ host: result.host, deleted: server.bodies.get('domain.delete') }).toEqual({
-      host: 'example-pr-42-a1b2c3-1-1-1-1.sslip.io',
+      host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
+      deleted: { domainId: 'old-generated-domain' },
+    })
+    expect(server.events.indexOf('health')).toBeLessThan(server.events.indexOf('domain.delete'))
+  })
+
+  it('reuses the current generated route while cleaning up an older route', async () => {
+    const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
+      { domainId: 'old-generated-domain', host: 'ras-preview-a1b2c3-8-8-8-8.sslip.io' },
+      { domainId: 'current-generated-domain', host: 'ras-preview-b2c3d4-1-1-1-1.sslip.io' },
+    ])
+
+    const result = await generatedPreviewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
+
+    expect({
+      host: result.host,
+      generated: server.procedures.includes('domain.generateDomain'),
+      deleted: server.bodies.get('domain.delete'),
+    }).toEqual({
+      host: 'ras-preview-b2c3d4-1-1-1-1.sslip.io',
+      generated: false,
       deleted: { domainId: 'old-generated-domain' },
     })
   })
 
   it('removes a generated HTTP route when switching to a custom domain', async () => {
     const server = fakeDokploy([{ applicationId: 'app-42', name: 'example-pr-42', serverId: 'server-1' }], 'done', [
-      { domainId: 'generated-domain', host: 'example-pr-42-a1b2c3-1-1-1-1.sslip.io' },
+      { domainId: 'generated-domain', host: 'ras-preview-a1b2c3-1-1-1-1.sslip.io' },
     ])
 
     await previewManager(server.fetch).deploy({ prNumber: '42', image: 'example', environment: '' })
 
     expect(server.bodies.get('domain.delete')).toEqual({ domainId: 'generated-domain' })
     expect(server.procedures.indexOf('domain.create')).toBeLessThan(server.procedures.indexOf('domain.delete'))
+    expect(server.events.indexOf('health')).toBeLessThan(server.events.indexOf('domain.delete'))
   })
 
   it('preserves an explicitly configured sslip.io custom route across deployments', async () => {
@@ -291,21 +321,24 @@ function fakeDokploy(
   initial: { applicationId: string; name: string; serverId?: string }[] = [],
   deploymentStatus: string = 'done',
   domains: { domainId?: string; host: string }[] = [],
-  generatedDomain = 'example-pr-42-a1b2c3-1-1-1-1.sslip.io',
+  generatedDomain = 'ras-preview-a1b2c3-1-1-1-1.sslip.io',
   serverIp = '1.1.1.1',
 ) {
   const applications = [...initial]
   const procedures: string[] = []
   const bodies = new Map<string, unknown>()
+  const events: string[] = []
   const healthUrls: string[] = []
   let deployed = false
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
     if (url.hostname !== 'dokploy.example') {
+      events.push('health')
       healthUrls.push(url.toString())
       return new Response('healthy')
     }
     const procedure = url.pathname.slice('/api/'.length)
+    events.push(procedure)
     procedures.push(procedure)
     if (init?.body !== undefined && typeof init.body !== 'string') throw new Error('test expected a JSON string body')
     const body = init?.body ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
@@ -333,5 +366,5 @@ function fakeDokploy(
     }
     return new Response(null)
   })
-  return { bodies, fetch, healthUrls, procedures }
+  return { bodies, events, fetch, healthUrls, procedures }
 }
