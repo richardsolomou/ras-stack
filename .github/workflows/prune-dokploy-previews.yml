@@ -12,9 +12,9 @@ on:
         type: string
         required: true
       domain:
-        description: Preview domain.
+        description: Custom preview domain. Omit when previews use Dokploy generated domains.
         type: string
-        required: true
+        default: ''
       port:
         description: Application HTTP port.
         type: number

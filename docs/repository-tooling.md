@@ -193,7 +193,7 @@ Dokploy applications share the complete preview lifecycle through three reusable
 - `deploy-dokploy-preview.yml` publishes fork artifacts, resolves immutable image digests, deploys or deletes the Dokploy application, verifies health, reports status, and removes closed-PR images.
 - `prune-dokploy-previews.yml` removes orphaned applications and images on a schedule.
 
-Callers provide only their package, application prefix, domain, port, environment template, status marker, and note. The environment template supports `{{PR_NUMBER}}` and `{{RANDOM_HEX_32}}`, so per-preview URLs and secrets do not require repository scripts. All callers use the standard `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and `DOKPLOY_ENVIRONMENT_ID` secrets; the environment ID must identify a staging environment rather than production.
+Callers provide only their package, application prefix, port, environment template, status marker, and note. Supplying `domain` creates `https://pr-<number>.<domain>` with Let's Encrypt. Omitting it asks Dokploy for an HTTP `sslip.io` domain, which avoids caller-owned DNS and certificates but must only be used with disposable preview credentials and data. The environment template supports `{{PR_NUMBER}}`, `{{PREVIEW_URL}}`, and `{{RANDOM_HEX_32}}`, so resolved URLs and secrets do not require repository scripts. All callers use the standard `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and `DOKPLOY_ENVIRONMENT_ID` secrets; the environment ID must identify a staging environment rather than production.
 
 Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
 
@@ -206,14 +206,16 @@ const { manager } = dokployPreviewFromEnvironment()
 await manager.deploy({
   prNumber: process.env.PR_NUMBER!,
   image: process.env.PREVIEW_IMAGE!,
-  environment: process.env.PREVIEW_ENVIRONMENT!,
-  configure: async ({ applicationId }) => provisionTenantFor(applicationId),
+  environment: ({ url }) => `APP_URL=${url}\n`,
+  configure: async ({ applicationId, url }) => provisionTenantFor(applicationId, url),
 })
 ```
 
 `DokployClient` underneath it exposes the raw Dokploy API for anything the manager does not model.
 
-All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMENT_ID`, `PREVIEW_APPLICATION_PREFIX`, `PREVIEW_DOMAIN`, and `PREVIEW_PORT`. `PREVIEW_HEALTH_PATH` optionally overrides the default `/api/health`; private images set `PREVIEW_REGISTRY_USERNAME` and `PREVIEW_REGISTRY_PASSWORD` together.
+Managers created by `dokployPreviewFromEnvironment` write the resolved URL to the current GitHub Actions step output before application configuration and deployment. Custom lifecycle scripts therefore retain ready and failed status links when they use generated domains.
+
+All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMENT_ID`, `PREVIEW_APPLICATION_PREFIX`, and `PREVIEW_PORT`. `PREVIEW_DOMAIN` selects a custom HTTPS hostname; omitting it selects a Dokploy-generated HTTP hostname. `PREVIEW_HEALTH_PATH` optionally overrides the default `/api/health`; private images set `PREVIEW_REGISTRY_USERNAME` and `PREVIEW_REGISTRY_PASSWORD` together.
 
 | Command  | Additional environment                                                       |
 | -------- | ---------------------------------------------------------------------------- |
@@ -232,7 +234,7 @@ await reportPreviewStatus(
 )
 ```
 
-The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Applications retain their preview hostname, access note, seed credentials, and product cleanup hooks.
+The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Building and failed states may omit the URL while Dokploy resolves a generated domain; ready states always require it. Applications retain their preview access note, seed credentials, and product cleanup hooks.
 
 The lower-level status workflow remains available when an application needs to report a transition outside the standard lifecycle:
 

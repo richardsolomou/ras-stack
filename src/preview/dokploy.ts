@@ -1,6 +1,10 @@
-export type DokployApplication = { applicationId: string; name: string }
+import { appendFileSync } from 'node:fs'
+import { BlockList, isIP } from 'node:net'
+
+export type DokployApplication = { applicationId: string; name: string; serverId?: string | null }
 
 export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = process.env) {
+  const githubOutput = optionalEnvironment(environment, 'GITHUB_OUTPUT')
   const username = optionalEnvironment(environment, 'PREVIEW_REGISTRY_USERNAME')
   const password = optionalEnvironment(environment, 'PREVIEW_REGISTRY_PASSWORD')
   if (Boolean(username) !== Boolean(password)) throw new Error('preview registry username and password must be configured together')
@@ -8,8 +12,8 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PREVIEW_PORT must be a valid port')
   const applicationPrefix = requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX')
   if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(applicationPrefix)) throw new Error('PREVIEW_APPLICATION_PREFIX must be a slug')
-  const domain = requiredEnvironment(environment, 'PREVIEW_DOMAIN')
-  previewHostname(`pr-1.${domain}`)
+  const domain = optionalEnvironment(environment, 'PREVIEW_DOMAIN')
+  if (domain) previewHostname(`pr-1.${domain}`)
   const config = {
     url: requiredEnvironment(environment, 'DOKPLOY_URL'),
     apiKey: requiredEnvironment(environment, 'DOKPLOY_API_KEY'),
@@ -26,9 +30,10 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
     manager: new DokployPreviewManager({
       client,
       applicationName: (prNumber) => `${applicationPrefix}-pr-${prNumber}`,
-      hostname: (prNumber) => `pr-${prNumber}.${domain}`,
+      ...(domain ? { hostname: (prNumber: string) => `pr-${prNumber}.${domain}` } : {}),
       port,
       ...(config.healthPath ? { healthPath: config.healthPath } : {}),
+      ...(githubOutput ? { onResolved: ({ url }: { url: string }) => appendFileSync(githubOutput, `preview-url=${url}\n`) } : {}),
     }),
   }
 }
@@ -91,12 +96,26 @@ export class DokployClient {
   async application(name: string) {
     return (await this.applications()).find((application) => application.name === name)
   }
+
+  async generatedDomain(appName: string, serverId?: string, existing: string[] = []) {
+    const serverIp = await this.api('domain.canGenerateTraefikMeDomains', {
+      query: { serverId: serverId ?? '' },
+    })
+    const publicIp = previewServerIp(serverIp)
+    const current = existing.find((host) => isCurrentGeneratedPreviewHostname(host, appName, publicIp))
+    if (current) return current
+    const generated = await this.api('domain.generateDomain', {
+      body: { appName, ...(serverId ? { serverId } : {}) },
+    })
+    if (typeof generated !== 'string') throw new Error('domain.generateDomain returned an invalid hostname')
+    return generatedPreviewHostname(generated, publicIp, appName)
+  }
 }
 
 export type DokployPreviewOptions = {
   client: DokployClient
   applicationName: (prNumber: string) => string
-  hostname: (prNumber: string) => string
+  hostname?: (prNumber: string) => string
   port: number
   healthPath?: string
   deploymentTimeoutMs?: number
@@ -106,14 +125,15 @@ export type DokployPreviewOptions = {
   sleep?: (milliseconds: number) => Promise<void>
   now?: () => number
   log?: (message: string) => void
+  onResolved?: (context: { host: string; url: string }) => void | Promise<void>
 }
 
 export type DeployPreviewOptions = {
   prNumber: string
   image: string
-  environment: string
+  environment: string | ((context: { host: string; url: string }) => string)
   registry?: { username: string; password: string }
-  configure?: (context: { applicationId: string; client: DokployClient; host: string }) => void | Promise<void>
+  configure?: (context: { applicationId: string; client: DokployClient; host: string; url: string }) => void | Promise<void>
 }
 
 export class DokployPreviewManager {
@@ -132,7 +152,6 @@ export class DokployPreviewManager {
   async deploy(options: DeployPreviewOptions) {
     const prNumber = pullRequestNumber(options.prNumber)
     const name = this.options.applicationName(prNumber)
-    const host = previewHostname(this.options.hostname(prNumber))
     let application = await this.options.client.application(name)
     if (!application) {
       await this.options.client.api('application.create', {
@@ -142,9 +161,21 @@ export class DokployPreviewManager {
       if (!application) throw new Error(`Dokploy did not report ${name} after creating it`)
     }
     const applicationId = application.applicationId
-    const details = await this.options.client.api<{ domains?: { host: string }[] } | undefined>('application.one', {
+    const details = await this.options.client.api<{ domains?: { domainId?: string; host: string }[] } | undefined>('application.one', {
       query: { applicationId },
     })
+    const generated = !this.options.hostname
+    const managedDomains = details?.domains?.filter((domain) => isGeneratedPreviewHostname(domain.host, generatedPreviewName)) ?? []
+    const host = previewHostname(
+      this.options.hostname
+        ? this.options.hostname(prNumber)
+        : await this.options.client.generatedDomain(
+            generatedPreviewName,
+            application.serverId ?? undefined,
+            managedDomains.map((domain) => domain.host),
+          ),
+    )
+    const url = `${generated ? 'http' : 'https'}://${host}`
     if (!details?.domains?.some((domain) => domain.host === host)) {
       await this.options.client.api('domain.create', {
         body: {
@@ -152,13 +183,14 @@ export class DokployPreviewManager {
           host,
           path: '/',
           port: this.options.port,
-          https: true,
-          certificateType: 'letsencrypt',
+          https: !generated,
+          certificateType: generated ? 'none' : 'letsencrypt',
           domainType: 'application',
         },
       })
     }
-    await options.configure?.({ applicationId, client: this.options.client, host })
+    await this.options.onResolved?.({ host, url })
+    await options.configure?.({ applicationId, client: this.options.client, host, url })
     await this.options.client.api('application.saveDockerProvider', {
       body: {
         applicationId,
@@ -169,12 +201,22 @@ export class DokployPreviewManager {
       },
     })
     await this.options.client.api('application.saveEnvironment', {
-      body: { applicationId, env: options.environment, buildArgs: null, buildSecrets: null, createEnvFile: false },
+      body: {
+        applicationId,
+        env: typeof options.environment === 'function' ? options.environment({ host, url }) : options.environment,
+        buildArgs: null,
+        buildSecrets: null,
+        createEnvFile: false,
+      },
     })
     await this.options.client.api('application.deploy', { body: { applicationId } })
     await this.waitForDeployment(applicationId)
-    const url = `https://${host}`
     await this.waitForHealth(new URL(this.options.healthPath ?? '/api/health', url).toString())
+    for (const domain of managedDomains.filter((candidate) => candidate.host !== host)) {
+      if (!domain.domainId) throw new Error(`Dokploy did not report an ID for generated domain ${domain.host}`)
+      // oxlint-disable-next-line no-await-in-loop
+      await this.options.client.api('domain.delete', { body: { domainId: domain.domainId } })
+    }
     this.log(`Preview ready at ${url}`)
     return { applicationId, host, url }
   }
@@ -262,6 +304,78 @@ export function previewHostname(value: string) {
     throw new Error('preview hostname must be a bare hostname')
   }
   return value
+}
+
+function generatedPreviewHostname(value: string, serverIp: string, appName: string) {
+  const host = previewHostname(value)
+  if (!isCurrentGeneratedPreviewHostname(host, appName, serverIp))
+    throw new Error('domain.generateDomain did not return an sslip.io hostname for the Dokploy server')
+  return host
+}
+
+function isGeneratedPreviewHostname(host: string, appName: string) {
+  return new RegExp(`^${regularExpressionLiteral(appName.slice(0, 40))}-[a-f\\d]{6}-[a-f\\d-]+\\.sslip\\.io$`).test(host)
+}
+
+function isCurrentGeneratedPreviewHostname(host: string, appName: string, serverIp: string) {
+  return new RegExp(
+    `^${regularExpressionLiteral(appName.slice(0, 40))}-[a-f\\d]{6}-${regularExpressionLiteral(encodedIp(serverIp))}\\.sslip\\.io$`,
+  ).test(host)
+}
+
+function regularExpressionLiteral(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function encodedIp(address: string) {
+  return address.replaceAll('.', '-').replaceAll(':', '-')
+}
+
+const generatedPreviewName = 'ras-preview'
+
+const blockedPreviewAddresses = new BlockList()
+for (const [address, prefix, family] of [
+  ['0.0.0.0', 8, 'ipv4'],
+  ['10.0.0.0', 8, 'ipv4'],
+  ['100.64.0.0', 10, 'ipv4'],
+  ['127.0.0.0', 8, 'ipv4'],
+  ['169.254.0.0', 16, 'ipv4'],
+  ['172.16.0.0', 12, 'ipv4'],
+  ['192.0.0.0', 24, 'ipv4'],
+  ['192.0.2.0', 24, 'ipv4'],
+  ['192.88.99.0', 24, 'ipv4'],
+  ['192.168.0.0', 16, 'ipv4'],
+  ['198.18.0.0', 15, 'ipv4'],
+  ['198.51.100.0', 24, 'ipv4'],
+  ['203.0.113.0', 24, 'ipv4'],
+  ['224.0.0.0', 4, 'ipv4'],
+  ['240.0.0.0', 4, 'ipv4'],
+  ['::', 128, 'ipv6'],
+  ['::1', 128, 'ipv6'],
+  ['64:ff9b:1::', 48, 'ipv6'],
+  ['100::', 64, 'ipv6'],
+  ['100:0:0:1::', 64, 'ipv6'],
+  ['2001::', 23, 'ipv6'],
+  ['2001:db8::', 32, 'ipv6'],
+  ['2002::', 16, 'ipv6'],
+  ['3fff::', 20, 'ipv6'],
+  ['5f00::', 16, 'ipv6'],
+  ['fc00::', 7, 'ipv6'],
+  ['fe80::', 10, 'ipv6'],
+  ['ff00::', 8, 'ipv6'],
+] as const) {
+  blockedPreviewAddresses.addSubnet(address, prefix, family)
+}
+
+function previewServerIp(value: unknown) {
+  if (typeof value !== 'string') throw new Error('Dokploy requires a public server IP before it can generate preview domains')
+  const address = value.trim().toLowerCase()
+  const version = isIP(address)
+  const family = version === 4 ? 'ipv4' : version === 6 ? 'ipv6' : undefined
+  if (!family || address.startsWith('::ffff:') || blockedPreviewAddresses.check(address, family)) {
+    throw new Error('Dokploy requires a public server IP before it can generate preview domains')
+  }
+  return address
 }
 
 function previewApplicationPrNumber(name: string, applicationName: (prNumber: string) => string) {

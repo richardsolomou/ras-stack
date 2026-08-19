@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto'
-import { appendFileSync } from 'node:fs'
 import { dokployPreviewFromEnvironment, pullRequestNumber } from './dokploy.js'
 
 export async function runDokployPreviewCli(arguments_: string[], environment: NodeJS.ProcessEnv = process.env) {
@@ -8,13 +7,12 @@ export async function runDokployPreviewCli(arguments_: string[], environment: No
 
   if (command === 'deploy') {
     const prNumber = pullRequestNumber(required(environment, 'PR_NUMBER'))
-    const preview = await manager.deploy({
+    await manager.deploy({
       prNumber,
       image: required(environment, 'PREVIEW_IMAGE'),
-      environment: renderPreviewEnvironment(required(environment, 'PREVIEW_ENVIRONMENT'), prNumber),
+      environment: ({ url }) => renderPreviewEnvironment(required(environment, 'PREVIEW_ENVIRONMENT'), prNumber, url),
       ...(config.registry ? { registry: config.registry } : {}),
     })
-    if (environment.GITHUB_OUTPUT) appendFileSync(environment.GITHUB_OUTPUT, `preview-url=${preview.url}\n`)
     return
   }
   if (command === 'delete') {
@@ -30,9 +28,11 @@ export async function runDokployPreviewCli(arguments_: string[], environment: No
   throw new Error('usage: ras preview dokploy <deploy|delete|prune>')
 }
 
-export function renderPreviewEnvironment(template: string, prNumber: string) {
+export function renderPreviewEnvironment(template: string, prNumber: string, previewUrl?: string) {
+  if (template.includes('{{PREVIEW_URL}}') && !previewUrl) throw new Error('preview URL is required to render PREVIEW_ENVIRONMENT')
   return template
     .replaceAll('{{PR_NUMBER}}', pullRequestNumber(prNumber))
+    .replaceAll('{{PREVIEW_URL}}', previewUrl ?? '')
     .replaceAll('{{RANDOM_HEX_32}}', () => randomBytes(32).toString('hex'))
 }
 

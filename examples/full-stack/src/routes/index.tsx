@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAuthAction } from 'ras-stack/auth/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { authClient } from '../client/auth'
 import { snapshotQuery } from '../client/queries'
 import { queryErrorMessage } from '../client/queryClient'
@@ -38,10 +38,12 @@ function Home() {
 }
 
 function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
+  const [hydrated, setHydrated] = useState(false)
   const [mode, setMode] = useState<'sign-up' | 'sign-in'>('sign-up')
   const [notice, setNotice] = useState('')
   const queryClient = useQueryClient()
   const action = useAuthAction()
+  useEffect(() => setHydrated(true), [])
   return (
     <form
       onSubmit={async (event) => {
@@ -84,7 +86,7 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
           type="password"
         />
       </label>
-      <button disabled={action.busy}>{mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
+      <button disabled={!hydrated || action.busy}>{mode === 'sign-up' ? 'Create account' : 'Sign in'}</button>
       <button type="button" onClick={() => setMode(mode === 'sign-up' ? 'sign-in' : 'sign-up')}>
         {mode === 'sign-up' ? 'Use an existing account' : 'Create a new account'}
       </button>

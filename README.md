@@ -103,7 +103,7 @@ Three reusable workflows provide the standard pull-request preview lifecycle:
 - `deploy-dokploy-preview.yml` publishes, resolves, deploys, reports, and removes previews.
 - `prune-dokploy-previews.yml` cleans up applications and images left behind by interrupted runs.
 
-Applications supply only their package, application prefix, domain, port, environment template, and optional product hook. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
+Applications supply only their package, application prefix, port, environment template, and optional product hook. They can provide a custom HTTPS domain or let Dokploy generate an HTTP `sslip.io` address. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
 
 ## Guides 📚
 

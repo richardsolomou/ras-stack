@@ -42,8 +42,39 @@ describe('preview status environment', () => {
     })
   })
 
+  it('allows an in-progress generated preview without a resolved URL', () => {
+    expect(
+      previewStatusFromEnvironment('building', {
+        ...common,
+        COMMIT_SHA: 'a'.repeat(40),
+      }),
+    ).toEqual({
+      options: { repository: 'owner/app', token: 'token', marker: '<!-- app-preview -->' },
+      status: { state: 'building', prNumber: '42', sha: 'a'.repeat(40) },
+    })
+  })
+
+  it('allows a failed generated preview without a resolved URL', () => {
+    expect(
+      previewStatusFromEnvironment('failed', {
+        ...common,
+        COMMIT_SHA: 'a'.repeat(40),
+        RUN_URL: 'https://github.com/owner/app/actions/runs/1',
+      }),
+    ).toEqual({
+      options: { repository: 'owner/app', token: 'token', marker: '<!-- app-preview -->' },
+      status: {
+        state: 'failed',
+        prNumber: '42',
+        sha: 'a'.repeat(40),
+        runUrl: 'https://github.com/owner/app/actions/runs/1',
+      },
+    })
+  })
+
   it('rejects missing and invalid inputs before calling GitHub', () => {
     expect(() => previewStatusFromEnvironment('ready', common)).toThrow('COMMIT_SHA is required')
+    expect(() => previewStatusFromEnvironment('ready', { ...common, COMMIT_SHA: 'a'.repeat(40) })).toThrow('PREVIEW_URL is required')
     expect(() => previewStatusFromEnvironment('unknown', common)).toThrow('preview state')
   })
 })

@@ -44,6 +44,47 @@ describe('GitHub preview status', () => {
     expect(request.calls[3]?.body).toMatchObject({ body: expect.stringContaining('The preview of `bbbbbbb` stays up until it does.') })
   })
 
+  it('reports a generated preview before its URL is resolved', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'building',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+    })
+
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n🔄 Deploying `aaaaaaa`.\n\nDisposable test data.',
+    })
+  })
+
+  it('reports a fork awaiting approval before its URL is resolved', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'awaiting',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+    })
+
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n⏸️ The preview of `aaaaaaa` is waiting for a maintainer to approve its build.\n\nDisposable test data.',
+    })
+  })
+
+  it('reports a failed generated preview without a resolved URL', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+    await reportPreviewStatus(previewOptions(request), {
+      state: 'failed',
+      prNumber: '42',
+      sha: 'a'.repeat(40),
+      runUrl: 'https://github.com/owner/app/actions/runs/1',
+    })
+
+    expect(request.calls[1]?.body).toMatchObject({ status: 'completed', conclusion: 'failure' })
+    expect(request.calls[3]?.body).toEqual({
+      body: '<!-- app-preview -->\n❌ Deploying commit `aaaaaaa` failed ([workflow run](https://github.com/owner/app/actions/runs/1)). The preview may be stale or unavailable.\n\nDisposable test data.',
+    })
+  })
+
   it('deletes the comment state without requiring a commit SHA', async () => {
     const request = githubFetch({ checks: [], comments: [{ id: 8, body: '<!-- app-preview -->' }] })
     await reportPreviewStatus(previewOptions(request), { state: 'deleted', prNumber: '42' })
@@ -53,6 +94,15 @@ describe('GitHub preview status', () => {
       'PATCH /repos/owner/app/issues/comments/8',
     ])
     expect(request.calls[1]?.body).toEqual({ body: '<!-- app-preview -->\n🗑️ Preview deleted because this pull request was closed.' })
+  })
+
+  it('rejects a ready status without a URL before changing GitHub state', async () => {
+    const request = githubFetch({ checks: [], comments: [] })
+
+    await expect(reportPreviewStatus(previewOptions(request), { state: 'ready', prNumber: '42', sha: 'a'.repeat(40) })).rejects.toThrow(
+      'preview URL is required',
+    )
+    expect(request).not.toHaveBeenCalled()
   })
 
   it('rejects untrusted repository, pull request, and commit values', async () => {
