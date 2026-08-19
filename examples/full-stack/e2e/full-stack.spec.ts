@@ -1,5 +1,14 @@
 import { expect, test } from '@playwright/test'
 
+test('keeps authentication submission disabled before hydration', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false })
+  const page = await context.newPage()
+  await page.goto('/')
+
+  await expect(page.getByRole('button', { name: 'Create account', exact: true })).toBeDisabled()
+  await context.close()
+})
+
 test('signs up, authorizes resources, persists an upload, and receives an outbox publication', async ({ browser, request }, testInfo) => {
   const run = Date.now()
   const firstMessage = `first message ${run}`
