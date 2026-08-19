@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.41.1
+
+### Patch Changes
+
+- 1e9cc8a: Fix pre-publication validation for the packed create command.
+
 ## 0.41.0
 
 ### Minor Changes

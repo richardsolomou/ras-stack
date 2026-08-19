@@ -1,5 +1,13 @@
 # create-ras-app
 
+## 0.41.1
+
+### Patch Changes
+
+- 1e9cc8a: Fix pre-publication validation for the packed create command.
+- Updated dependencies [1e9cc8a]
+  - ras-stack@0.41.1
+
 ## 0.41.0
 
 ### Minor Changes
