@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.43.0
+
+### Minor Changes
+
+- 9f118e6: Add prefixed Dokploy preview hostnames with optional Cloudflare-proxied DNS lifecycle.
+
 ## 0.42.1
 
 ### Patch Changes
