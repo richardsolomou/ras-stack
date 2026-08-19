@@ -13,13 +13,16 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
   const applicationPrefix = requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX')
   if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(applicationPrefix)) throw new Error('PREVIEW_APPLICATION_PREFIX must be a slug')
   const domain = optionalEnvironment(environment, 'PREVIEW_DOMAIN')
-  if (domain) previewHostname(`pr-1.${domain}`)
+  const subdomainPrefix = optionalEnvironment(environment, 'PREVIEW_SUBDOMAIN_PREFIX') ?? 'pr'
+  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(subdomainPrefix)) throw new Error('PREVIEW_SUBDOMAIN_PREFIX must be a slug')
+  if (domain) previewHostname(`${subdomainPrefix}-1.${domain}`)
   const config = {
     url: requiredEnvironment(environment, 'DOKPLOY_URL'),
     apiKey: requiredEnvironment(environment, 'DOKPLOY_API_KEY'),
     environmentId: requiredEnvironment(environment, 'DOKPLOY_ENVIRONMENT_ID'),
     applicationPrefix,
     domain,
+    subdomainPrefix,
     port,
     healthPath: optionalEnvironment(environment, 'PREVIEW_HEALTH_PATH'),
     ...(username && password ? { registry: { username, password } } : {}),
@@ -30,7 +33,7 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
     manager: new DokployPreviewManager({
       client,
       applicationName: (prNumber) => `${applicationPrefix}-pr-${prNumber}`,
-      ...(domain ? { hostname: (prNumber: string) => `pr-${prNumber}.${domain}` } : {}),
+      ...(domain ? { hostname: (prNumber: string) => `${subdomainPrefix}-${prNumber}.${domain}` } : {}),
       port,
       ...(config.healthPath ? { healthPath: config.healthPath } : {}),
       ...(githubOutput ? { onResolved: ({ url }: { url: string }) => appendFileSync(githubOutput, `preview-url=${url}\n`) } : {}),
@@ -98,10 +101,7 @@ export class DokployClient {
   }
 
   async generatedDomain(appName: string, serverId?: string, existing: string[] = []) {
-    const serverIp = serverId
-      ? await this.api('domain.canGenerateTraefikMeDomains', { query: { serverId } })
-      : await this.api('settings.getIp')
-    const publicIp = previewServerIp(serverIp)
+    const publicIp = await this.publicIp(serverId)
     const current = existing.find((host) => isCurrentGeneratedPreviewHostname(host, appName, publicIp))
     if (current) return current
     const generated = await this.api('domain.generateDomain', {
@@ -109,6 +109,13 @@ export class DokployClient {
     })
     if (typeof generated !== 'string') throw new Error('domain.generateDomain returned an invalid hostname')
     return generatedPreviewHostname(generated, publicIp, appName)
+  }
+
+  async publicIp(serverId?: string) {
+    const serverIp = serverId
+      ? await this.api('domain.canGenerateTraefikMeDomains', { query: { serverId } })
+      : await this.api('settings.getIp')
+    return previewServerIp(serverIp)
   }
 }
 
@@ -133,7 +140,13 @@ export type DeployPreviewOptions = {
   image: string
   environment: string | ((context: { host: string; url: string }) => string)
   registry?: { username: string; password: string }
-  configure?: (context: { applicationId: string; client: DokployClient; host: string; url: string }) => void | Promise<void>
+  configure?: (context: {
+    applicationId: string
+    client: DokployClient
+    host: string
+    url: string
+    serverId?: string
+  }) => void | Promise<void>
 }
 
 export class DokployPreviewManager {
@@ -190,7 +203,14 @@ export class DokployPreviewManager {
       })
     }
     await this.options.onResolved?.({ host, url })
-    await options.configure?.({ applicationId, client: this.options.client, host, url })
+    const serverId = details?.serverId || application.serverId || undefined
+    await options.configure?.({
+      applicationId,
+      client: this.options.client,
+      host,
+      url,
+      ...(serverId ? { serverId } : {}),
+    })
     await this.options.client.api('application.saveDockerProvider', {
       body: {
         applicationId,

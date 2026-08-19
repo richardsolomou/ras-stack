@@ -15,6 +15,14 @@ on:
         description: Custom preview domain. Omit when previews use Dokploy generated domains.
         type: string
         default: ''
+      subdomain-prefix:
+        description: Prefix placed before the pull request number for custom domains.
+        type: string
+        default: pr
+      cloudflare-zone-id:
+        description: Cloudflare zone whose proxied preview records are managed by ras-stack.
+        type: string
+        default: ''
       port:
         description: Application HTTP port.
         type: number
@@ -31,6 +39,8 @@ on:
       DOKPLOY_ENVIRONMENT_ID:
         required: true
       PREVIEW_APP_SECRETS:
+        required: false
+      CLOUDFLARE_API_TOKEN:
         required: false
 
 jobs:
@@ -56,9 +66,12 @@ jobs:
           PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
           PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
           PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_SUBDOMAIN_PREFIX: ${{ inputs.subdomain-prefix }}
           PREVIEW_PORT: ${{ inputs.port }}
           PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
           OPEN_PR_NUMBERS: ${{ steps.open.outputs.numbers }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ inputs.cloudflare-zone-id }}
         run: |
           if [[ -n "$PREVIEW_SCRIPT" ]]; then
             pnpm exec tsx "$PREVIEW_SCRIPT" prune

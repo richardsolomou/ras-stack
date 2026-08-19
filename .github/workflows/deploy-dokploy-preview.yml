@@ -19,6 +19,14 @@ on:
         description: Custom preview domain. Omit to use a Dokploy generated sslip.io domain.
         type: string
         default: ''
+      subdomain-prefix:
+        description: Prefix placed before the pull request number for custom domains.
+        type: string
+        default: pr
+      cloudflare-zone-id:
+        description: Cloudflare zone whose proxied preview records are managed by ras-stack.
+        type: string
+        default: ''
       port:
         description: Application HTTP port.
         type: number
@@ -60,9 +68,11 @@ on:
         required: false
       PREVIEW_APP_SECRETS:
         required: false
+      CLOUDFLARE_API_TOKEN:
+        required: false
 
 env:
-  CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
+  CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
 
 jobs:
   mark-fork-status:
@@ -86,7 +96,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
-          PREVIEW_URL: ${{ inputs.domain != '' && format('https://pr-{0}.{1}', github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
+          PREVIEW_URL: ${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           STATE: ${{ github.event.action == 'requested' && 'awaiting' || 'building' }}
@@ -147,10 +157,13 @@ jobs:
           PREVIEW_APP_SECRETS: ${{ secrets.PREVIEW_APP_SECRETS }}
           PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
           PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_SUBDOMAIN_PREFIX: ${{ inputs.subdomain-prefix }}
           PREVIEW_PORT: ${{ inputs.port }}
           PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
           PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ inputs.cloudflare-zone-id }}
         run: |
           if [[ -n "$PREVIEW_SCRIPT" ]]; then
             pnpm exec tsx "$PREVIEW_SCRIPT" delete
@@ -201,11 +214,14 @@ jobs:
           PREVIEW_IMAGE: ${{ steps.image.outputs.reference }}
           PREVIEW_APPLICATION_PREFIX: ${{ inputs.application-prefix }}
           PREVIEW_DOMAIN: ${{ inputs.domain }}
+          PREVIEW_SUBDOMAIN_PREFIX: ${{ inputs.subdomain-prefix }}
           PREVIEW_PORT: ${{ inputs.port }}
           PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
           PREVIEW_ENVIRONMENT: ${{ inputs.environment }}
           PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ZONE_ID: ${{ inputs.cloudflare-zone-id }}
         run: |
           if [[ -n "$PREVIEW_SCRIPT" ]]; then
             pnpm exec tsx "$PREVIEW_SCRIPT" deploy
