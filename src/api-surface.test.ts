@@ -90,7 +90,7 @@ const surface = {
     'postHogBrowserHeaders',
     'postHogBrowserOptions',
   ],
-  './posthog/proxy': ['postHogIngestProxy'],
+  './posthog/proxy': ['POSTHOG_DEFAULT_INGEST_PATH', 'postHogIngestProxy'],
   './posthog/react': ['PostHogBetterAuthIdentity', 'PostHogIntegration'],
   './posthog/server': [
     'createManagedPostHogServerTelemetry',

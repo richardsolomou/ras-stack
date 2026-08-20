@@ -176,6 +176,20 @@ export default defineConfig({
 
 Keep `/ingest/static` and `/ingest/array` ahead of `/ingest` when composing these objects with local routes.
 
+Some ad-blocker lists block requests by the literal `/ingest` path segment regardless of the host serving it. Pass a custom `path` to move the proxy elsewhere, and pass the same value as `ingestPath` to `PostHogIntegration` so the browser client requests it:
+
+```ts
+const proxy = postHogIngestProxy(posthog, { path: '/relay' })
+```
+
+```tsx
+<PostHogIntegration environment={posthog} ingestPath="/relay">
+  {children}
+</PostHogIntegration>
+```
+
+Both default to `/ingest` (exported as `POSTHOG_DEFAULT_INGEST_PATH`) when omitted.
+
 ## Coverage declaration
 
 Make every major product surface enabled or intentionally absent:

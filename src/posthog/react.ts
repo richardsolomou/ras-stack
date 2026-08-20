@@ -3,16 +3,19 @@ import { createElement, type ReactNode, useEffect, useRef } from 'react'
 import type { PostHogConfig, Properties } from 'posthog-js'
 import { postHogBrowserOptions } from './client.js'
 import type { PostHogEnvironment } from './config.js'
+import { POSTHOG_DEFAULT_INGEST_PATH } from './proxy.js'
 
 export function PostHogIntegration({
   children,
   environment,
   fallback = createElement('main', null, 'Something went wrong. Refresh the page to try again.'),
+  ingestPath = POSTHOG_DEFAULT_INGEST_PATH,
   options,
 }: {
   children?: ReactNode
   environment: PostHogEnvironment | undefined
   fallback?: ReactNode
+  ingestPath?: string
   options?: Partial<PostHogConfig>
 }) {
   if (!environment) return children
@@ -22,7 +25,7 @@ export function PostHogIntegration({
     {
       apiKey: environment.projectToken,
       options: postHogBrowserOptions({
-        apiHost: '/ingest',
+        apiHost: ingestPath,
         uiHost: environment.uiHost,
         ...(tracingHostnames ? { tracingHostnames } : {}),
         ...(options ? { options } : {}),

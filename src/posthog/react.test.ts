@@ -65,6 +65,29 @@ describe('PostHog React integration', () => {
     )
     expect(boundary).toHaveBeenCalledOnce()
   })
+
+  it('routes through a custom ingest path when configured', async () => {
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      create(
+        createElement(
+          PostHogIntegration,
+          {
+            environment: {
+              projectToken: 'phc_test',
+              host: 'https://us.i.posthog.com',
+              uiHost: 'https://us.posthog.com',
+              assetsHost: 'https://us-assets.i.posthog.com',
+            },
+            ingestPath: '/relay',
+          },
+          'application',
+        ),
+      )
+    })
+    warning.mockRestore()
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ api_host: '/relay' }) }))
+  })
 })
 
 describe('PostHog Better Auth identity', () => {
