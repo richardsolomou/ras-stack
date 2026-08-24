@@ -318,6 +318,12 @@ export function assertPostHogBrowserConformance(options: Record<string, unknown>
   if (options.person_profiles !== 'identified_only') {
     throw new ConformanceError('PostHog browser initialization', 'person profiles must be limited to identified users')
   }
+  if (options.mask_personal_data_properties !== true) {
+    throw new ConformanceError('PostHog browser initialization', 'personal-data URL properties must be masked')
+  }
+  if (!Array.isArray(options.custom_personal_data_properties) || !options.custom_personal_data_properties.includes('token')) {
+    throw new ConformanceError('PostHog browser initialization', 'token query parameters must be masked')
+  }
   const recording = options.session_recording
   if (!recording || typeof recording !== 'object' || !('maskAllInputs' in recording) || recording.maskAllInputs !== true) {
     throw new ConformanceError('PostHog browser initialization', 'session replay must mask all inputs by default')

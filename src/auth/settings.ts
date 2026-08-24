@@ -2,6 +2,7 @@ export type RateLimitRule = { window: number; max: number }
 
 export type SessionOptions = { expiresIn?: number | undefined; updateAge?: number | undefined }
 export type StandardAccountOptions = { encryptOAuthTokens?: boolean }
+export type StandardEmailAndPasswordOptions = { enabled?: boolean; revokeSessionsOnPasswordReset?: boolean }
 
 export function standardSessionOptions<const Options extends object>(overrides: Options & SessionOptions = {} as Options & SessionOptions) {
   return {
@@ -20,6 +21,16 @@ export function standardAccountOptions<Options extends object>(
   }
 }
 
+export function standardEmailAndPasswordOptions<Options extends object>(
+  overrides: Options & StandardEmailAndPasswordOptions = {} as Options & StandardEmailAndPasswordOptions,
+) {
+  return {
+    ...overrides,
+    enabled: overrides.enabled ?? true,
+    revokeSessionsOnPasswordReset: overrides.revokeSessionsOnPasswordReset ?? true,
+  }
+}
+
 export function standardRateLimitOptions(customRules: Record<string, RateLimitRule> = {}) {
   return {
     enabled: true,
@@ -30,6 +41,7 @@ export function standardRateLimitOptions(customRules: Record<string, RateLimitRu
       '/sign-in/email': { window: 60, max: 20 },
       '/sign-up/email': { window: 60, max: 15 },
       '/request-password-reset': { window: 60, max: 5 },
+      '/send-verification-email': { window: 60, max: 5 },
       '/admin/set-user-password': { window: 60, max: 10 },
       ...customRules,
     },

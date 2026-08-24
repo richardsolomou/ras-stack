@@ -6,7 +6,7 @@ import { PostHogBetterAuthIdentity, PostHogIntegration, type BetterAuthSessionSt
 const { provider, boundary, posthog } = vi.hoisted(() => ({
   provider: vi.fn(),
   boundary: vi.fn(),
-  posthog: { identify: vi.fn(), reset: vi.fn() },
+  posthog: { get_property: vi.fn(), identify: vi.fn(), reset: vi.fn() },
 }))
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -23,7 +23,10 @@ vi.mock('@posthog/react', () => ({
   usePostHog: () => posthog,
 }))
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  posthog.get_property.mockReturnValue(undefined)
+})
 
 describe('PostHog React integration', () => {
   it('renders without loading PostHog when deployment configuration is absent', async () => {
@@ -122,6 +125,13 @@ describe('PostHog Better Auth identity', () => {
     await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
     state = { data: null, isPending: false }
     await act(async () => renderer.update(createElement(PostHogBetterAuthIdentity, { authClient })))
+    expect(posthog.reset).toHaveBeenCalledOnce()
+  })
+
+  it('resets a persisted identified user when the application mounts signed out', async () => {
+    posthog.get_property.mockReturnValue('person-123')
+    const state: BetterAuthSessionState = { data: null, isPending: false }
+    await act(async () => void create(createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } })))
     expect(posthog.reset).toHaveBeenCalledOnce()
   })
 

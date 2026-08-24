@@ -65,7 +65,7 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
     if (user) {
       posthog.identify(user.id, propertiesRef.current?.(user))
       identified.current = user.id
-    } else if (identified.current) {
+    } else if (identified.current || posthog.get_property('$user_id')) {
       posthog.reset()
       identified.current = undefined
     }

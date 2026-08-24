@@ -99,6 +99,22 @@ describe('consumer conformance assertions', () => {
     ).toThrow('spoofed PostHog request: unverified distinct id was trusted')
   })
 
+  it.each([
+    {
+      name: 'personal-data URL masking',
+      options: { mask_personal_data_properties: false },
+      message: 'personal-data URL properties must be masked',
+    },
+    {
+      name: 'reset token URL masking',
+      options: { custom_personal_data_properties: [] },
+      message: 'token query parameters must be masked',
+    },
+  ])('identifies PostHog setup without $name', ({ options, message }) => {
+    const configured = postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com' })
+    expect(() => assertPostHogBrowserConformance({ ...configured, ...options })).toThrow(message)
+  })
+
   it('accepts the shared realtime token signer', async () => {
     await expect(
       assertRealtimeTokenConformance((subject, claims) => signRealtimeToken(subject, claims, { secret }), { secret }),

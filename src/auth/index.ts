@@ -5,5 +5,5 @@ export type { ProviderCredentials, ProviderEnvironmentOptions } from './provider
 export { randomId, randomToken } from './random.js'
 export { persistedSecret } from './secret.js'
 export type { PersistedSecretOptions } from './secret.js'
-export { standardAccountOptions, standardRateLimitOptions, standardSessionOptions } from './settings.js'
-export type { RateLimitRule, SessionOptions, StandardAccountOptions } from './settings.js'
+export { standardAccountOptions, standardEmailAndPasswordOptions, standardRateLimitOptions, standardSessionOptions } from './settings.js'
+export type { RateLimitRule, SessionOptions, StandardAccountOptions, StandardEmailAndPasswordOptions } from './settings.js'

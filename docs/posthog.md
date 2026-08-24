@@ -40,7 +40,7 @@ import { PostHogIntegration } from 'ras-stack/posthog/react'
 ;<PostHogIntegration environment={posthog}>{children}</PostHogIntegration>
 ```
 
-This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, privacy-safe replay masking, and same-origin request correlation. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
+This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
 
 Use `usePostHog()` or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, and manual exception context.
 
@@ -58,7 +58,7 @@ import { authClient } from './authClient'
 </PostHogIntegration>
 ```
 
-The adapter identifies the verified Better Auth user ID and resets PostHog after sign-out. It does not reset during initial anonymous loading or a failed session refresh. No name or email is sent by default. Add only product-safe properties explicitly:
+The adapter identifies the verified Better Auth user ID and resets PostHog after sign-out, including when a password-reset navigation remounts the application with a persisted PostHog identity and no Better Auth session. It does not reset during initial anonymous loading or a failed session refresh. No name or email is sent by default. Add only product-safe properties explicitly:
 
 ```tsx
 <PostHogBetterAuthIdentity authClient={authClient} properties={(user) => ({ role: user.role })} />
@@ -214,7 +214,7 @@ export const postHogCoverage = definePostHogCoverage({
 })
 ```
 
-`assertPostHogBrowserConformance()` checks pinned browser defaults and exception capture. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both alongside their coverage declaration.
+`assertPostHogBrowserConformance()` checks pinned browser defaults, exception capture, and personal-data URL masking. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both alongside their coverage declaration.
 
 Build browser assets with source maps, then process the final directory before packaging or deployment:
 

@@ -6,7 +6,7 @@ import { acceptedOrigins, forwardedOrigin, requireSameOrigin, trustedOrigins, va
 import { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
 import { randomId, randomToken } from './random.js'
 import { persistedSecret } from './secret.js'
-import { standardAccountOptions, standardRateLimitOptions, standardSessionOptions } from './settings.js'
+import { standardAccountOptions, standardEmailAndPasswordOptions, standardRateLimitOptions, standardSessionOptions } from './settings.js'
 
 const temporaryDirectories: string[] = []
 
@@ -36,6 +36,30 @@ describe('auth settings', () => {
 
   it('protects administrator password changes', () => {
     expect(standardRateLimitOptions().customRules['/admin/set-user-password']).toEqual({ window: 60, max: 10 })
+  })
+
+  it('protects verification email requests', () => {
+    expect(standardRateLimitOptions().customRules['/send-verification-email']).toEqual({ window: 60, max: 5 })
+  })
+
+  it('enables password auth and revokes existing sessions after a reset', () => {
+    expect(standardEmailAndPasswordOptions()).toEqual({ enabled: true, revokeSessionsOnPasswordReset: true })
+  })
+
+  it('preserves password policy and explicit default overrides', () => {
+    expect(
+      standardEmailAndPasswordOptions({
+        enabled: false,
+        minPasswordLength: 12,
+        requireEmailVerification: true,
+        revokeSessionsOnPasswordReset: false,
+      }),
+    ).toEqual({
+      enabled: false,
+      minPasswordLength: 12,
+      requireEmailVerification: true,
+      revokeSessionsOnPasswordReset: false,
+    })
   })
 
   it('encrypts OAuth tokens by default', () => {

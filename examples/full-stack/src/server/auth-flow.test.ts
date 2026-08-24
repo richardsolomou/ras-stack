@@ -52,6 +52,8 @@ describe('production auth flows', () => {
     const resetLink = new URL(messageUrl(smtp.messages[1]!))
     const token = resetLink.pathname.split('/').at(-1)
     expect((await authRequest('/reset-password', { newPassword: 'new correct horse battery staple', token })).status).toBe(200)
+    expect(await currentUser(new Request('http://localhost:3100', { headers: { cookie: cookie! } }))).toBeUndefined()
+    expect((await authRequest('/reset-password', { newPassword: 'replayed password', token })).status).toBe(400)
     expect((await authRequest('/sign-in/email', { email: 'ada@example.test', password: 'correct horse battery staple' })).status).toBe(401)
     expect((await authRequest('/sign-in/email', { email: 'ada@example.test', password: 'new correct horse battery staple' })).status).toBe(
       200,
