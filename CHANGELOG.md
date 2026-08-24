@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.45.0
+
+### Minor Changes
+
+- c12b415: Add secure, overrideable Better Auth account, provider, session, and rate-limit defaults.
+
 ## 0.44.0
 
 ### Minor Changes
