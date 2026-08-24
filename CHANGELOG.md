@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.45.1
+
+### Patch Changes
+
+- 9b495a9: Preserve mutable nested account option types for Better Auth overrides.
+
 ## 0.45.0
 
 ### Minor Changes
