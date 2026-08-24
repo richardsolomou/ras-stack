@@ -10,11 +10,19 @@ The auth entrypoint provides options and utilities rather than an auth factory. 
 
 ```ts
 import { betterAuth } from 'better-auth'
-import { configuredProviderOptions, standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
+import {
+  configuredProviderOptions,
+  providerCredentials,
+  standardAccountOptions,
+  standardRateLimitOptions,
+  standardSessionOptions,
+  trustedOrigins,
+} from 'ras-stack/auth'
 
 const auth = betterAuth({
   database,
   plugins,
+  account: standardAccountOptions(),
   socialProviders: configuredProviderOptions(['google', 'discord']),
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
@@ -23,6 +31,32 @@ const auth = betterAuth({
     trustForwardedHeaders: true,
   }),
 })
+```
+
+`standardAccountOptions` encrypts stored OAuth access and refresh tokens. Better Auth does not encrypt stored ID tokens with this option. Better Auth retains ownership of its verified-email linking safeguards, while applications can pass an explicit linking policy when their product requires one:
+
+```ts
+account: standardAccountOptions({
+  accountLinking: {
+    disableImplicitLinking: true,
+    allowDifferentEmails: true,
+    updateUserInfoOnLink: true,
+  },
+})
+```
+
+`standardSessionOptions` accepts partial overrides when an application needs a different lifetime without restating the update interval:
+
+```ts
+session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
+```
+
+For an existing rolling deployment, drain replicas that do not enable token encryption before the new version accepts traffic. Those replicas cannot read encrypted tokens, and rolling back after an encrypted write has the same limitation.
+
+Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications with a namespace can supply a prefix, and deployments can reject partial credential pairs instead of silently disabling the provider:
+
+```ts
+const google = providerCredentials('google', process.env, { prefix: 'AUTH_', rejectPartial: true })
 ```
 
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:

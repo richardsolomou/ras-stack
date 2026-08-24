@@ -1,7 +1,7 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
-import { standardRateLimitOptions, standardSessionOptions } from 'ras-stack/auth'
+import { standardAccountOptions, standardRateLimitOptions, standardSessionOptions } from 'ras-stack/auth'
 import type { EmailDelivery } from 'ras-stack/email'
 import type { AppEnvironment } from './environment'
 import * as schema from './schema'
@@ -31,6 +31,7 @@ export function createAuth(options: { database: Database; email?: EmailDelivery;
     secret: options.secret,
     trustedOrigins: [options.environment.appUrl],
     database: drizzleAdapter(options.database, { provider: 'sqlite', schema }),
+    account: standardAccountOptions(),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: Boolean(email) && options.environment.requireEmailVerification,

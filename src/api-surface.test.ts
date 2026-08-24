@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import * as auth from './auth/index.js'
+import type { ProviderEnvironmentOptions, SessionOptions, StandardAccountOptions } from './auth/index.js'
 import * as authClient from './auth/client.js'
 import * as authReact from './auth/react.js'
 import * as build from './build/index.js'
@@ -28,6 +29,15 @@ import * as tanstackMiddleware from './tanstack/middleware.js'
 import * as tanstackServer from './tanstack/server.js'
 import * as uploads from './uploads/index.js'
 
+type AuthConfiguration = {
+  account: StandardAccountOptions
+  providerEnvironment: ProviderEnvironmentOptions
+  session: SessionOptions
+}
+
+const authConfiguration: AuthConfiguration = { account: {}, providerEnvironment: {}, session: {} }
+void authConfiguration
+
 // Widening the published surface is a semantic-version commitment, so it has to arrive as a reviewed diff here.
 const surface = {
   './auth': [
@@ -41,6 +51,7 @@ const surface = {
     'randomId',
     'randomToken',
     'requireSameOrigin',
+    'standardAccountOptions',
     'standardRateLimitOptions',
     'standardSessionOptions',
     'trustedOrigins',
