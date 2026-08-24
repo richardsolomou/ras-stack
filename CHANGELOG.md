@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.46.0
+
+### Minor Changes
+
+- da02d61: Add overrideable password-recovery defaults, auth email adapters, callback classification, safe redirects, and PostHog identity protections.
+
 ## 0.45.1
 
 ### Patch Changes
