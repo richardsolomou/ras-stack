@@ -89,7 +89,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.45.1
       - name: Report fork preview status
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -126,7 +126,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.39.3
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.45.1
       - name: Resolve pull request state
         id: pr
         env:
@@ -179,14 +179,14 @@ jobs:
         run: pnpm exec ras preview deleted
       - name: Delete closed preview images
         if: steps.pr.outputs.action == 'delete'
-        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.38.2
+        uses: richardsolomou/ras-stack/actions/prune-preview-images@v0.45.1
         with:
           token: ${{ github.token }}
           package: ${{ inputs.package }}
           pr-number: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       - name: Publish fork preview image
         if: steps.pr.outputs.action == 'deploy' && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
-        uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.38.2
+        uses: richardsolomou/ras-stack/actions/publish-preview-image@v0.45.1
         with:
           artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
           run-id: ${{ github.event.workflow_run.id }}
@@ -196,7 +196,7 @@ jobs:
       - name: Resolve immutable preview image
         id: image
         if: steps.pr.outputs.action == 'deploy'
-        uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.38.2
+        uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.45.1
         with:
           image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
           registry-username: ${{ secrets.PREVIEW_REGISTRY_USERNAME }}

@@ -22,13 +22,30 @@ const dependabotPolicy = {
       directory: '/',
       schedule: { interval: 'weekly' },
       cooldown: { 'default-days': 7 },
-      groups: { 'javascript-dependencies': { patterns: ['*'] } },
+      allow: [
+        {
+          'dependency-name': '*',
+          'update-types': ['version-update:semver-minor', 'version-update:semver-patch'],
+        },
+      ],
+      groups: {
+        'patch-updates': {
+          'applies-to': 'version-updates',
+          patterns: ['*'],
+          'update-types': ['patch'],
+        },
+        'minor-updates': {
+          'applies-to': 'version-updates',
+          patterns: ['*'],
+          'update-types': ['minor'],
+        },
+      },
     },
     {
       'package-ecosystem': 'github-actions',
       directory: '/',
       schedule: { interval: 'weekly' },
-      cooldown: { 'default-days': 7 },
+      cooldown: { 'default-days': 7, exclude: ['richardsolomou/ras-stack*'] },
     },
   ],
 }
