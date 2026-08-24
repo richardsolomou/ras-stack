@@ -86,7 +86,7 @@ pnpm exec ras policy sync
 pnpm exec ras policy check
 ```
 
-`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown except to ras-stack's own actions and reusable workflows. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
 The package does not police which ras-stack version a repository is on. Pick the version you want to ship; if it lacks something you use, the type checker and the failing import say so more precisely than a declared floor ever could.
 
@@ -311,7 +311,7 @@ The workflow consumes pending changesets, commits the resulting versions and cha
 
 Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
 
-Reusable workflows cannot refer to an action at their own dynamic release tag. Their implementations therefore pin ras-stack actions to an older independently published bootstrap tag and advance that pin only when the action contract changes. Consumer examples and direct action calls should use the current release.
+Reusable workflows cannot refer to an action at their own dynamic release tag. Their implementations therefore pin ras-stack actions to one older independently published bootstrap tag. Keep every ras-stack action in the shared workflows on that same tag and advance them together. Consumer examples and direct action calls should use the current release.
 
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 

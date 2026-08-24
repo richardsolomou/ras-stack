@@ -2,6 +2,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 import { syncRepositoryPolicy } from './index.js'
 
 describe('repository policy synchronization', () => {
@@ -21,6 +22,45 @@ describe('repository policy synchronization', () => {
     const root = await repository({ dependabot: true })
     expect(await syncRepositoryPolicy(root, 'check')).toEqual(['.github/dependabot.yml'])
     await expect(readFile(join(root, '.github/dependabot.yml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('automates routine updates without cooling down owned actions', async () => {
+    const root = await repository({ dependabot: true })
+    await syncRepositoryPolicy(root, 'write')
+    const config = parse(await readFile(join(root, '.github/dependabot.yml'), 'utf8')) as { updates: unknown[] }
+
+    expect(config.updates).toEqual([
+      {
+        'package-ecosystem': 'npm',
+        directory: '/',
+        schedule: { interval: 'weekly' },
+        cooldown: { 'default-days': 7 },
+        allow: [
+          {
+            'dependency-name': '*',
+            'update-types': ['version-update:semver-minor', 'version-update:semver-patch'],
+          },
+        ],
+        groups: {
+          'patch-updates': {
+            'applies-to': 'version-updates',
+            patterns: ['*'],
+            'update-types': ['patch'],
+          },
+          'minor-updates': {
+            'applies-to': 'version-updates',
+            patterns: ['*'],
+            'update-types': ['minor'],
+          },
+        },
+      },
+      {
+        'package-ecosystem': 'github-actions',
+        directory: '/',
+        schedule: { interval: 'weekly' },
+        cooldown: { 'default-days': 7, exclude: ['richardsolomou/ras-stack*'] },
+      },
+    ])
   })
 
   it('preserves local pnpm settings and comments', async () => {
