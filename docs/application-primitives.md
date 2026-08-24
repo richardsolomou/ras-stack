@@ -10,11 +10,18 @@ The auth entrypoint provides options and utilities rather than an auth factory. 
 
 ```ts
 import { betterAuth } from 'better-auth'
-import { configuredProviderOptions, standardRateLimitOptions, standardSessionOptions, trustedOrigins } from 'ras-stack/auth'
+import {
+  configuredProviderOptions,
+  standardAccountOptions,
+  standardRateLimitOptions,
+  standardSessionOptions,
+  trustedOrigins,
+} from 'ras-stack/auth'
 
 const auth = betterAuth({
   database,
   plugins,
+  account: standardAccountOptions(),
   socialProviders: configuredProviderOptions(['google', 'discord']),
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
@@ -23,6 +30,24 @@ const auth = betterAuth({
     trustForwardedHeaders: true,
   }),
 })
+```
+
+`standardAccountOptions` encrypts stored OAuth tokens. Better Auth retains ownership of its verified-email linking safeguards, while applications can pass an explicit linking policy when their product requires one:
+
+```ts
+account: standardAccountOptions({
+  accountLinking: {
+    disableImplicitLinking: true,
+    allowDifferentEmails: true,
+    updateUserInfoOnLink: true,
+  },
+})
+```
+
+`standardSessionOptions` accepts partial overrides when an application needs a different lifetime without restating the update interval:
+
+```ts
+session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
 ```
 
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:

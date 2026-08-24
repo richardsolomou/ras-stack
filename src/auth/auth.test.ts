@@ -6,7 +6,7 @@ import { acceptedOrigins, forwardedOrigin, requireSameOrigin, trustedOrigins, va
 import { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
 import { randomId, randomToken } from './random.js'
 import { persistedSecret } from './secret.js'
-import { standardRateLimitOptions, standardSessionOptions } from './settings.js'
+import { standardAccountOptions, standardRateLimitOptions, standardSessionOptions } from './settings.js'
 
 const temporaryDirectories: string[] = []
 
@@ -19,11 +19,38 @@ describe('auth settings', () => {
     expect(standardSessionOptions()).toEqual({ expiresIn: 7_776_000, updateAge: 86_400 })
   })
 
+  it('allows an application to replace one session setting', () => {
+    expect(standardSessionOptions({ expiresIn: 2_592_000 })).toEqual({ expiresIn: 2_592_000, updateAge: 86_400 })
+  })
+
   it('allows an application to replace individual rate limits', () => {
     expect(standardRateLimitOptions({ '/sign-up/email': { window: 10, max: 2 } }).customRules['/sign-up/email']).toEqual({
       window: 10,
       max: 2,
     })
+  })
+
+  it('encrypts OAuth tokens by default', () => {
+    expect(standardAccountOptions()).toEqual({ encryptOAuthTokens: true })
+  })
+
+  it('preserves an application account-linking policy', () => {
+    expect(
+      standardAccountOptions({
+        accountLinking: { allowDifferentEmails: true, disableImplicitLinking: true, updateUserInfoOnLink: true },
+      }),
+    ).toEqual({
+      encryptOAuthTokens: true,
+      accountLinking: {
+        allowDifferentEmails: true,
+        disableImplicitLinking: true,
+        updateUserInfoOnLink: true,
+      },
+    })
+  })
+
+  it('allows an application to override an account default explicitly', () => {
+    expect(standardAccountOptions({ encryptOAuthTokens: false })).toEqual({ encryptOAuthTokens: false })
   })
 })
 

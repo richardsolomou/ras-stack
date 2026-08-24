@@ -41,6 +41,7 @@ const surface = {
     'randomId',
     'randomToken',
     'requireSameOrigin',
+    'standardAccountOptions',
     'standardRateLimitOptions',
     'standardSessionOptions',
     'trustedOrigins',
