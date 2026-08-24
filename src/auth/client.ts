@@ -52,7 +52,9 @@ export function localRedirectPath(value: unknown) {
   try {
     const resolved = new URL(value, REDIRECT_ORIGIN)
     if (resolved.origin !== REDIRECT_ORIGIN) return undefined
-    return `${resolved.pathname}${resolved.search}${resolved.hash}`
+    const destination = `${resolved.pathname}${resolved.search}${resolved.hash}`
+    if (new URL(destination, REDIRECT_ORIGIN).origin !== REDIRECT_ORIGIN) return undefined
+    return destination
   } catch {
     return undefined
   }

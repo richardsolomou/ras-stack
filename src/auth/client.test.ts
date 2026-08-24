@@ -53,10 +53,16 @@ describe('local auth redirects', () => {
     expect(localRedirectPath(destination)).toBe(destination)
   })
 
-  it.each(['https://evil.example', '//evil.example', '/\\evil.example', '\\evil.example', '', undefined])(
-    'rejects the unsafe destination %s',
-    (destination) => {
-      expect(localRedirectPath(destination)).toBeUndefined()
-    },
-  )
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil.example',
+    '\\evil.example',
+    '/a/..//evil.example',
+    '/a/%2e%2e//evil.example',
+    '',
+    undefined,
+  ])('rejects the unsafe destination %s', (destination) => {
+    expect(localRedirectPath(destination)).toBeUndefined()
+  })
 })

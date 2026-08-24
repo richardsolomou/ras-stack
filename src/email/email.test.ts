@@ -90,4 +90,16 @@ describe('auth email handlers', () => {
 
     expect(send).toHaveBeenCalledWith({ to: 'person@example.com', subject: 'Verify', text: 'https://app.test/verify verify-token en' })
   })
+
+  it('propagates delivery failures to Better Auth', async () => {
+    const failure = new Error('SMTP unavailable')
+    const handler = createAuthEmailHandler({ send: vi.fn().mockRejectedValue(failure), verify: vi.fn() }, ({ user, url }) => ({
+      to: user.email,
+      subject: 'Reset',
+      text: url,
+    }))
+    await expect(handler({ user: { email: 'person@example.com' }, url: 'https://app.test/reset', token: 'reset-token' })).rejects.toBe(
+      failure,
+    )
+  })
 })

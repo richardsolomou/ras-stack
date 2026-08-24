@@ -58,7 +58,7 @@ import { authClient } from './authClient'
 </PostHogIntegration>
 ```
 
-The adapter identifies the verified Better Auth user ID and resets PostHog after sign-out, including when a password-reset navigation remounts the application with a persisted PostHog identity and no Better Auth session. It does not reset during initial anonymous loading or a failed session refresh. No name or email is sent by default. Add only product-safe properties explicitly:
+The adapter identifies the verified Better Auth user ID and resets PostHog after sign-out, including when a password-reset navigation remounts the application with a persisted PostHog identity and no Better Auth session. It also resets before identifying a different authenticated user, so impersonation cannot reuse the administrator's analytics session. It does not reset during initial anonymous loading or a failed session refresh. No name or email is sent by default. Add only product-safe properties explicitly:
 
 ```tsx
 <PostHogBetterAuthIdentity authClient={authClient} properties={(user) => ({ role: user.role })} />

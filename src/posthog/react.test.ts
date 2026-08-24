@@ -91,6 +91,34 @@ describe('PostHog React integration', () => {
     warning.mockRestore()
     expect(provider).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ api_host: '/relay' }) }))
   })
+
+  it('reconciles identity after the provider loads', async () => {
+    const loaded = vi.fn()
+    const state: BetterAuthSessionState = { data: { user: { id: 'person-123' } }, isPending: false }
+    await act(async () => {
+      create(
+        createElement(
+          PostHogIntegration,
+          {
+            environment: {
+              projectToken: 'phc_test',
+              host: 'https://us.i.posthog.com',
+              uiHost: 'https://us.posthog.com',
+              assetsHost: 'https://us-assets.i.posthog.com',
+            },
+            options: { loaded },
+          },
+          createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } }),
+        ),
+      )
+    })
+    expect(posthog.identify).not.toHaveBeenCalled()
+
+    const onLoaded = provider.mock.lastCall?.[0].options.loaded
+    await act(async () => onLoaded(posthog))
+    expect(loaded).toHaveBeenCalledWith(posthog)
+    expect(posthog.identify).toHaveBeenCalledWith('person-123', undefined)
+  })
 })
 
 describe('PostHog Better Auth identity', () => {
@@ -129,10 +157,20 @@ describe('PostHog Better Auth identity', () => {
   })
 
   it('resets a persisted identified user when the application mounts signed out', async () => {
-    posthog.get_property.mockReturnValue('person-123')
+    posthog.get_property.mockImplementation((property) => (property === '$user_id' ? 'person-123' : undefined))
     const state: BetterAuthSessionState = { data: null, isPending: false }
     await act(async () => void create(createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } })))
+    expect(posthog.get_property).toHaveBeenCalledWith('$user_id')
     expect(posthog.reset).toHaveBeenCalledOnce()
+  })
+
+  it('resets before identifying when the authenticated user changes across a reload', async () => {
+    posthog.get_property.mockReturnValue('administrator-123')
+    const state: BetterAuthSessionState = { data: { user: { id: 'impersonated-456' } }, isPending: false }
+    await act(async () => void create(createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } })))
+    expect(posthog.reset).toHaveBeenCalledOnce()
+    expect(posthog.identify).toHaveBeenCalledWith('impersonated-456', undefined)
+    expect(posthog.reset.mock.invocationCallOrder[0]).toBeLessThan(posthog.identify.mock.invocationCallOrder[0]!)
   })
 
   it('preserves identity when a session refresh fails', async () => {
