@@ -1,30 +1,42 @@
 export type ProviderCredentials = { clientId: string; clientSecret: string }
+export type ProviderEnvironmentOptions = { prefix?: string; requireComplete?: boolean }
+
+function providerEnvironmentKeys(provider: string, prefix = '') {
+  const name = provider.toUpperCase().replaceAll('-', '_')
+  return { clientId: `${prefix}${name}_CLIENT_ID`, clientSecret: `${prefix}${name}_CLIENT_SECRET` }
+}
 
 export function configuredProviders<const Provider extends string>(
   providers: readonly Provider[],
   environment: NodeJS.ProcessEnv = process.env,
+  options: ProviderEnvironmentOptions = {},
 ) {
-  return providers.filter((provider) => {
-    const prefix = provider.toUpperCase().replaceAll('-', '_')
-    return Boolean(environment[`${prefix}_CLIENT_ID`]?.trim() && environment[`${prefix}_CLIENT_SECRET`]?.trim())
-  })
+  return providers.filter((provider) => Boolean(providerCredentials(provider, environment, options)))
 }
 
-export function providerCredentials(provider: string, environment: NodeJS.ProcessEnv = process.env): ProviderCredentials | undefined {
-  const prefix = provider.toUpperCase().replaceAll('-', '_')
-  const clientId = environment[`${prefix}_CLIENT_ID`]?.trim()
-  const clientSecret = environment[`${prefix}_CLIENT_SECRET`]?.trim()
+export function providerCredentials(
+  provider: string,
+  environment: NodeJS.ProcessEnv = process.env,
+  options: ProviderEnvironmentOptions = {},
+): ProviderCredentials | undefined {
+  const keys = providerEnvironmentKeys(provider, options.prefix)
+  const clientId = environment[keys.clientId]?.trim()
+  const clientSecret = environment[keys.clientSecret]?.trim()
+  if (options.requireComplete && Boolean(clientId) !== Boolean(clientSecret)) {
+    throw new Error(`${keys.clientId} and ${keys.clientSecret} must be configured together`)
+  }
   return clientId && clientSecret ? { clientId, clientSecret } : undefined
 }
 
 export function configuredProviderOptions<const Provider extends string>(
   providers: readonly Provider[],
   environment: NodeJS.ProcessEnv = process.env,
+  environmentOptions: ProviderEnvironmentOptions = {},
 ): Partial<Record<Provider, ProviderCredentials>> {
-  const options: Partial<Record<Provider, ProviderCredentials>> = {}
+  const providerOptions: Partial<Record<Provider, ProviderCredentials>> = {}
   for (const provider of providers) {
-    const credentials = providerCredentials(provider, environment)
-    if (credentials) options[provider] = credentials
+    const credentials = providerCredentials(provider, environment, environmentOptions)
+    if (credentials) providerOptions[provider] = credentials
   }
-  return options
+  return providerOptions
 }

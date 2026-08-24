@@ -12,6 +12,7 @@ The auth entrypoint provides options and utilities rather than an auth factory. 
 import { betterAuth } from 'better-auth'
 import {
   configuredProviderOptions,
+  providerCredentials,
   standardAccountOptions,
   standardRateLimitOptions,
   standardSessionOptions,
@@ -48,6 +49,12 @@ account: standardAccountOptions({
 
 ```ts
 session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
+```
+
+Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications with a namespace can supply a prefix, and deployments can reject partial credential pairs instead of silently disabling the provider:
+
+```ts
+const google = providerCredentials('google', process.env, { prefix: 'AUTH_', requireComplete: true })
 ```
 
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:

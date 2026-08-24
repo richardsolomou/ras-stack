@@ -1,7 +1,7 @@
 export { acceptedOrigins, forwardedOrigin, parseOrigin, requireSameOrigin, trustedOrigins, validSameOriginRequest } from './origins.js'
 export type { OriginOptions } from './origins.js'
 export { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
-export type { ProviderCredentials } from './providers.js'
+export type { ProviderCredentials, ProviderEnvironmentOptions } from './providers.js'
 export { randomId, randomToken } from './random.js'
 export { persistedSecret } from './secret.js'
 export type { PersistedSecretOptions } from './secret.js'

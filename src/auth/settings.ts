@@ -38,6 +38,7 @@ export function standardRateLimitOptions(customRules: Record<string, RateLimitRu
       '/sign-in/email': { window: 60, max: 20 },
       '/sign-up/email': { window: 60, max: 15 },
       '/request-password-reset': { window: 60, max: 5 },
+      '/admin/set-user-password': { window: 60, max: 10 },
       ...customRules,
     },
   }

@@ -30,6 +30,10 @@ describe('auth settings', () => {
     })
   })
 
+  it('protects administrator password changes', () => {
+    expect(standardRateLimitOptions().customRules['/admin/set-user-password']).toEqual({ window: 60, max: 10 })
+  })
+
   it('encrypts OAuth tokens by default', () => {
     expect(standardAccountOptions()).toEqual({ encryptOAuthTokens: true })
   })
@@ -69,6 +73,25 @@ describe('provider credentials', () => {
     expect(configuredProviderOptions(['google', 'github'] as const, environment)).toEqual({
       google: { clientId: 'id', clientSecret: 'secret' },
     })
+  })
+
+  it('reads a strict credential pair from custom-prefixed variables', () => {
+    expect(
+      providerCredentials(
+        'google',
+        { AUTH_GOOGLE_CLIENT_ID: ' id ', AUTH_GOOGLE_CLIENT_SECRET: ' secret ' },
+        {
+          prefix: 'AUTH_',
+          requireComplete: true,
+        },
+      ),
+    ).toEqual({ clientId: 'id', clientSecret: 'secret' })
+  })
+
+  it('rejects an incomplete credential pair when requested', () => {
+    expect(() => providerCredentials('google', { AUTH_GOOGLE_CLIENT_ID: 'id' }, { prefix: 'AUTH_', requireComplete: true })).toThrow(
+      'AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together',
+    )
   })
 })
 
