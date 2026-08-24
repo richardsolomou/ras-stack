@@ -1,9 +1,11 @@
 import { PostHogErrorBoundary, PostHogProvider, usePostHog } from '@posthog/react'
-import { createElement, type ReactNode, useEffect, useRef } from 'react'
+import { createContext, createElement, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import type { PostHogConfig, Properties } from 'posthog-js'
 import { postHogBrowserOptions } from './client.js'
 import type { PostHogEnvironment } from './config.js'
 import { POSTHOG_DEFAULT_INGEST_PATH } from './proxy.js'
+
+const PostHogLoadedContext = createContext(true)
 
 export function PostHogIntegration({
   children,
@@ -18,6 +20,9 @@ export function PostHogIntegration({
   ingestPath?: string
   options?: Partial<PostHogConfig>
 }) {
+  const [isLoaded, setIsLoaded] = useState(false)
+  const loadedRef = useRef(options?.loaded)
+  loadedRef.current = options?.loaded
   if (!environment) return children
   const tracingHostnames = typeof window === 'undefined' ? undefined : [window.location.hostname]
   return createElement(
@@ -28,10 +33,16 @@ export function PostHogIntegration({
         apiHost: ingestPath,
         uiHost: environment.uiHost,
         ...(tracingHostnames ? { tracingHostnames } : {}),
-        ...(options ? { options } : {}),
+        options: {
+          ...options,
+          loaded: (posthog) => {
+            setIsLoaded(true)
+            loadedRef.current?.(posthog)
+          },
+        },
       }),
     },
-    createElement(PostHogErrorBoundary, { fallback }, children),
+    createElement(PostHogLoadedContext.Provider, { value: isLoaded }, createElement(PostHogErrorBoundary, { fallback }, children)),
   )
 }
 
@@ -55,21 +66,25 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
 }) {
   const session = authClient.useSession()
   const posthog = usePostHog()
+  const isLoaded = useContext(PostHogLoadedContext)
+  const isReady = isLoaded || posthog['__loaded']
   const identified = useRef<string | undefined>(undefined)
   const propertiesRef = useRef(properties)
   propertiesRef.current = properties
 
   useEffect(() => {
-    if (session.isPending || session.error) return
+    if (!isReady || session.isPending || session.error) return
     const user = session.data?.user
+    const persistedUserId = posthog.get_property('$user_id')
     if (user) {
+      if (persistedUserId && persistedUserId !== user.id) posthog.reset()
       posthog.identify(user.id, propertiesRef.current?.(user))
       identified.current = user.id
-    } else if (identified.current) {
+    } else if (identified.current || persistedUserId) {
       posthog.reset()
       identified.current = undefined
     }
-  }, [posthog, session.data?.user, session.error, session.isPending])
+  }, [isReady, posthog, session.data?.user, session.error, session.isPending])
 
   return null
 }

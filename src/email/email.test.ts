@@ -6,7 +6,7 @@ vi.mock('nodemailer', () => ({
   default: { createTransport: mocks.createTransport },
 }))
 
-import { createSmtpDelivery, smtpConfigFromEnvironment } from './index.js'
+import { createAuthEmailHandler, createSmtpDelivery, smtpConfigFromEnvironment } from './index.js'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -70,5 +70,36 @@ describe('SMTP delivery', () => {
     const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })
     await delivery.verify()
     expect(mocks.verify).toHaveBeenCalledOnce()
+  })
+})
+
+describe('auth email handlers', () => {
+  it('turns an application-owned message into a Better Auth handler', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    const verify = vi.fn().mockResolvedValue(undefined)
+    const handler = createAuthEmailHandler({ send, verify }, async ({ user, url, token }, request) => ({
+      to: user.email,
+      subject: 'Verify',
+      text: `${url} ${token} ${request?.headers.get('accept-language')}`,
+    }))
+
+    await handler(
+      { user: { email: 'person@example.com' }, url: 'https://app.test/verify', token: 'verify-token' },
+      new Request('https://app.test', { headers: { 'accept-language': 'en' } }),
+    )
+
+    expect(send).toHaveBeenCalledWith({ to: 'person@example.com', subject: 'Verify', text: 'https://app.test/verify verify-token en' })
+  })
+
+  it('propagates delivery failures to Better Auth', async () => {
+    const failure = new Error('SMTP unavailable')
+    const handler = createAuthEmailHandler({ send: vi.fn().mockRejectedValue(failure), verify: vi.fn() }, ({ user, url }) => ({
+      to: user.email,
+      subject: 'Reset',
+      text: url,
+    }))
+    await expect(handler({ user: { email: 'person@example.com' }, url: 'https://app.test/reset', token: 'reset-token' })).rejects.toBe(
+      failure,
+    )
   })
 })

@@ -16,6 +16,8 @@ export function postHogBrowserOptions(input: {
     defaults: POSTHOG_BROWSER_DEFAULTS,
     capture_exceptions: true,
     capture_pageview: 'history_change',
+    custom_personal_data_properties: ['token'],
+    mask_personal_data_properties: true,
     person_profiles: 'identified_only',
     session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture' },
     ...(input.tracingHostnames ? { tracing_headers: input.tracingHostnames } : {}),

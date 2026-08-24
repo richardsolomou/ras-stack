@@ -9,6 +9,8 @@ describe('PostHog browser integration', () => {
       defaults: '2026-05-30',
       capture_exceptions: true,
       capture_pageview: 'history_change',
+      custom_personal_data_properties: ['token'],
+      mask_personal_data_properties: true,
       person_profiles: 'identified_only',
       session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture' },
     })
@@ -16,9 +18,9 @@ describe('PostHog browser integration', () => {
       postHogBrowserOptions({
         apiHost: 'https://us.i.posthog.com',
         uiHost: 'https://us.posthog.com',
-        options: { autocapture: false, capture_exceptions: false },
+        options: { autocapture: false, capture_exceptions: false, mask_personal_data_properties: false },
       }),
-    ).toMatchObject({ autocapture: false, capture_exceptions: false })
+    ).toMatchObject({ autocapture: false, capture_exceptions: false, mask_personal_data_properties: false })
   })
 
   it('adds request correlation for the current application host', () => {

@@ -14,6 +14,7 @@ import {
   configuredProviderOptions,
   providerCredentials,
   standardAccountOptions,
+  standardEmailAndPasswordOptions,
   standardRateLimitOptions,
   standardSessionOptions,
   trustedOrigins,
@@ -23,6 +24,7 @@ const auth = betterAuth({
   database,
   plugins,
   account: standardAccountOptions(),
+  emailAndPassword: standardEmailAndPasswordOptions({ requireEmailVerification: true }),
   socialProviders: configuredProviderOptions(['google', 'discord']),
   session: standardSessionOptions(),
   rateLimit: standardRateLimitOptions({ '/sign-up/email': { window: 60, max: 10 } }),
@@ -50,6 +52,8 @@ account: standardAccountOptions({
 ```ts
 session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
 ```
+
+`standardEmailAndPasswordOptions` enables password authentication and revokes all existing sessions after a successful password reset. It does not choose password length, email-verification requirements, automatic sign-in, or reset-token lifetime. Applications can override either default explicitly.
 
 For an existing rolling deployment, drain replicas that do not enable token encryption before the new version accepts traffic. Those replicas cannot read encrypted tokens, and rolling back after an encrypted write has the same limitation.
 
@@ -149,16 +153,20 @@ logger.error(infrastructureDiagnostic(error), 'infrastructure request failed')
 
 Only `InfrastructureError.publicMessage` is treated as approved for clients. Unknown failures use the caller's fallback; diagnostics are for application-owned logging and telemetry, never response serialization.
 
-Browser auth flows can share failure classification and pending/error state without sharing forms or navigation:
+Browser auth flows can share failure classification, safe local return destinations, and pending/error state without sharing forms or navigation:
 
 ```tsx
-import { classifySignInFailure } from 'ras-stack/auth/client'
+import { classifyAuthCallbackFailure, classifySignInFailure, localRedirectPath } from 'ras-stack/auth/client'
 import { useAuthAction } from 'ras-stack/auth/react'
 
 const signIn = useAuthAction({ failureMessage: (failure) => messageFor(classifySignInFailure(failure)) })
 const result = await signIn.run(() => authClient.signIn.email({ email, password }))
-if (!result.error) await navigateAfterSignIn()
+if (!result.error) await navigateAfterSignIn(localRedirectPath(search.next) ?? '/')
+
+const callbackMessage = messageFor(classifyAuthCallbackFailure(search.error))
 ```
+
+The callback classifier normalizes the redirect codes emitted by Better Auth 1.6 and 1.7, including their two spellings of an OAuth email mismatch. Applications still choose the user-facing message.
 
 Applications retain field models, validation, password-reset disclosure policy, two-factor transitions, telemetry, copy, and success navigation.
 
@@ -304,11 +312,15 @@ It verifies the token is HS256, binds the subject it was asked for, carries its 
 The optional integrations return the underlying library objects when an application needs more control:
 
 ```ts
-import { createSmtpDelivery, createSmtpTransport, smtpConfigFromEnvironment } from 'ras-stack/email'
+import { createAuthEmailHandler, createSmtpDelivery, createSmtpTransport, smtpConfigFromEnvironment } from 'ras-stack/email'
 import { createTusUpload, startTusUpload } from 'ras-stack/uploads'
 
 const smtp = smtpConfigFromEnvironment()
 const email = smtp ? createSmtpDelivery(smtp) : undefined
+
+const sendVerificationEmail = email
+  ? createAuthEmailHandler(email, ({ user, url }) => ({ to: user.email, subject: 'Verify your email', text: url }))
+  : undefined
 
 const upload = createTusUpload({
   endpoint: '/api/upload',
@@ -321,6 +333,8 @@ const upload = createTusUpload({
 await startTusUpload(upload)
 ```
 
+`createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured.
+
 Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to:
 
 ```ts
@@ -331,7 +345,7 @@ expect(() => assertSmtpConfigConformance(smtpConfigFromEnvironment)).not.toThrow
 
 It checks that an unset environment yields no configuration, that a host and sender produce the default port, and that a host without a sender, a sender without a host, an out-of-range port, and a user without a password are each rejected.
 
-Applications retain ownership of email templates, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
+Applications retain ownership of email templates, whether email is required, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 
 Production server assets can be declared in `ras-stack.assets.json` instead of appended shell copy chains:
 

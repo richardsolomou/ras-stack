@@ -25,6 +25,24 @@ export type EmailDelivery = {
   verify(): Promise<void>
 }
 
+export type AuthEmailInput<User extends { email: string } = { email: string }> = {
+  user: User
+  url: string
+  token: string
+}
+
+export type AuthEmailMessageFactory<User extends { email: string } = { email: string }> = (
+  input: AuthEmailInput<User>,
+  request?: Request,
+) => EmailMessage | Promise<EmailMessage>
+
+export function createAuthEmailHandler<User extends { email: string } = { email: string }>(
+  delivery: EmailDelivery,
+  message: AuthEmailMessageFactory<User>,
+) {
+  return async (input: AuthEmailInput<User>, request?: Request) => delivery.send(await message(input, request))
+}
+
 export function smtpConfigFromEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
   keys: SmtpEnvironmentOptions = {},

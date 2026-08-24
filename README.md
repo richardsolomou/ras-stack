@@ -39,10 +39,10 @@ These combinations are tested here and in production. [Sealed Lists](https://git
 | ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint    | Compiler/linter bases, setup actions, and version synchronization                                     |
 | Web application     | TanStack Start, React, TanStack Query       | Request binding, mutation-origin checks, canonical hosts, health handlers, and Query defaults         |
-| Authentication      | Better Auth                                 | Secure option builders, origins, secrets, tokens, failure classification, and React action state      |
+| Authentication      | Better Auth                                 | Secure option builders, origins, secrets, redirects, failure classification, and React action state   |
 | Data                | Drizzle, `better-sqlite3`, Postgres.js      | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
 | Realtime            | Centrifuge, Centrifugo, Caddy               | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
-| Email and uploads   | Nodemailer, `tus-js-client`                 | SMTP configuration/delivery and promise-based resumable uploads                                       |
+| Email and uploads   | Nodemailer, `tus-js-client`                 | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                      |
 | Observability       | PostHog JS, React, and Node SDKs            | Initialization, error defaults, request correlation, proxy routes, shutdown, and coverage decisions   |
 | Delivery            | GitHub Actions, Changesets, Dokploy, Docker | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 

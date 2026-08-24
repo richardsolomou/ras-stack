@@ -1,8 +1,8 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter'
 import { betterAuth } from 'better-auth'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
-import { standardAccountOptions, standardRateLimitOptions, standardSessionOptions } from 'ras-stack/auth'
-import type { EmailDelivery } from 'ras-stack/email'
+import { standardAccountOptions, standardEmailAndPasswordOptions, standardRateLimitOptions, standardSessionOptions } from 'ras-stack/auth'
+import { createAuthEmailHandler, type EmailDelivery } from 'ras-stack/email'
 import type { AppEnvironment } from './environment'
 import * as schema from './schema'
 
@@ -10,21 +10,20 @@ type Database = Parameters<typeof drizzleAdapter>[0]
 
 export function createAuth(options: { database: Database; email?: EmailDelivery; environment: AppEnvironment; secret: string }) {
   const email = options.email
-  const mail = email
-    ? {
-        emailVerification: {
-          sendOnSignUp: true,
-          autoSignInAfterVerification: true,
-          sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-            await email.send({
-              to: user.email,
-              subject: 'Verify your ras-stack example account',
-              text: `Verify your email: ${url}`,
-            })
-          },
-        },
-      }
-    : {}
+  const sendVerificationEmail = email
+    ? createAuthEmailHandler(email, ({ user, url }) => ({
+        to: user.email,
+        subject: 'Verify your ras-stack example account',
+        text: `Verify your email: ${url}`,
+      }))
+    : undefined
+  const sendResetPassword = email
+    ? createAuthEmailHandler(email, ({ user, url }) => ({
+        to: user.email,
+        subject: 'Reset your ras-stack example password',
+        text: `Reset your password: ${url}`,
+      }))
+    : undefined
   return betterAuth({
     appName: 'ras-stack full-stack example',
     baseURL: options.environment.appUrl,
@@ -32,23 +31,19 @@ export function createAuth(options: { database: Database; email?: EmailDelivery;
     trustedOrigins: [options.environment.appUrl],
     database: drizzleAdapter(options.database, { provider: 'sqlite', schema }),
     account: standardAccountOptions(),
-    emailAndPassword: {
-      enabled: true,
+    emailAndPassword: standardEmailAndPasswordOptions({
       requireEmailVerification: Boolean(email) && options.environment.requireEmailVerification,
-      revokeSessionsOnPasswordReset: true,
-      ...(email
-        ? {
-            sendResetPassword: async ({ user, url }: { user: { email: string }; url: string }) => {
-              await email.send({
-                to: user.email,
-                subject: 'Reset your ras-stack example password',
-                text: `Reset your password: ${url}`,
-              })
-            },
-          }
-        : {}),
-    },
-    ...mail,
+      ...(sendResetPassword ? { sendResetPassword } : {}),
+    }),
+    ...(sendVerificationEmail
+      ? {
+          emailVerification: {
+            sendOnSignUp: true,
+            autoSignInAfterVerification: true,
+            sendVerificationEmail,
+          },
+        }
+      : {}),
     session: standardSessionOptions(),
     rateLimit: standardRateLimitOptions(),
     advanced: {
