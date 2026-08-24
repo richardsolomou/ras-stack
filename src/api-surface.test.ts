@@ -38,6 +38,11 @@ type AuthConfiguration = {
 const authConfiguration: AuthConfiguration = { account: {}, providerEnvironment: {}, session: {} }
 void authConfiguration
 
+const betterAuthAccountOptions: { accountLinking?: { trustedProviders?: string[] } } = auth.standardAccountOptions({
+  accountLinking: { trustedProviders: ['google', 'discord'] },
+})
+void betterAuthAccountOptions
+
 // Widening the published surface is a semantic-version commitment, so it has to arrive as a reviewed diff here.
 const surface = {
   './auth': [

@@ -11,7 +11,7 @@ export function standardSessionOptions<const Options extends object>(overrides: 
   }
 }
 
-export function standardAccountOptions<const Options extends object>(
+export function standardAccountOptions<Options extends object>(
   overrides: Options & StandardAccountOptions = {} as Options & StandardAccountOptions,
 ) {
   return {
