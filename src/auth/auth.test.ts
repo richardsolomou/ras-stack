@@ -23,6 +23,10 @@ describe('auth settings', () => {
     expect(standardSessionOptions({ expiresIn: 2_592_000 })).toEqual({ expiresIn: 2_592_000, updateAge: 86_400 })
   })
 
+  it('retains session defaults for undefined overrides', () => {
+    expect(standardSessionOptions({ expiresIn: undefined, updateAge: undefined })).toEqual({ expiresIn: 7_776_000, updateAge: 86_400 })
+  })
+
   it('allows an application to replace individual rate limits', () => {
     expect(standardRateLimitOptions({ '/sign-up/email': { window: 10, max: 2 } }).customRules['/sign-up/email']).toEqual({
       window: 10,
@@ -82,16 +86,28 @@ describe('provider credentials', () => {
         { AUTH_GOOGLE_CLIENT_ID: ' id ', AUTH_GOOGLE_CLIENT_SECRET: ' secret ' },
         {
           prefix: 'AUTH_',
-          requireComplete: true,
+          rejectPartial: true,
         },
       ),
     ).toEqual({ clientId: 'id', clientSecret: 'secret' })
   })
 
-  it('rejects an incomplete credential pair when requested', () => {
-    expect(() => providerCredentials('google', { AUTH_GOOGLE_CLIENT_ID: 'id' }, { prefix: 'AUTH_', requireComplete: true })).toThrow(
-      'AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together',
-    )
+  it.each([{ AUTH_GOOGLE_CLIENT_ID: 'id' }, { AUTH_GOOGLE_CLIENT_SECRET: 'secret' }])(
+    'rejects an incomplete credential pair when requested',
+    (partialEnvironment) => {
+      expect(() => providerCredentials('google', partialEnvironment, { prefix: 'AUTH_', rejectPartial: true })).toThrow(
+        'AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together',
+      )
+    },
+  )
+
+  it('forwards provider environment options through collection helpers', () => {
+    const prefixedEnvironment = { AUTH_GOOGLE_CLIENT_ID: 'id', AUTH_GOOGLE_CLIENT_SECRET: 'secret' }
+    const options = { prefix: 'AUTH_', rejectPartial: true }
+    expect(configuredProviders(['google'] as const, prefixedEnvironment, options)).toEqual(['google'])
+    expect(configuredProviderOptions(['google'] as const, prefixedEnvironment, options)).toEqual({
+      google: { clientId: 'id', clientSecret: 'secret' },
+    })
   })
 })
 

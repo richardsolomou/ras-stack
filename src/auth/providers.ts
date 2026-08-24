@@ -1,5 +1,5 @@
 export type ProviderCredentials = { clientId: string; clientSecret: string }
-export type ProviderEnvironmentOptions = { prefix?: string; requireComplete?: boolean }
+export type ProviderEnvironmentOptions = { prefix?: string; rejectPartial?: boolean }
 
 function providerEnvironmentKeys(provider: string, prefix = '') {
   const name = provider.toUpperCase().replaceAll('-', '_')
@@ -22,7 +22,7 @@ export function providerCredentials(
   const keys = providerEnvironmentKeys(provider, options.prefix)
   const clientId = environment[keys.clientId]?.trim()
   const clientSecret = environment[keys.clientSecret]?.trim()
-  if (options.requireComplete && Boolean(clientId) !== Boolean(clientSecret)) {
+  if (options.rejectPartial && Boolean(clientId) !== Boolean(clientSecret)) {
     throw new Error(`${keys.clientId} and ${keys.clientSecret} must be configured together`)
   }
   return clientId && clientSecret ? { clientId, clientSecret } : undefined

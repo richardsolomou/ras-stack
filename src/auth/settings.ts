@@ -1,27 +1,19 @@
 export type RateLimitRule = { window: number; max: number }
 
-export type SessionOptions = { expiresIn: number; updateAge: number }
+export type SessionOptions = { expiresIn?: number | undefined; updateAge?: number | undefined }
+export type StandardAccountOptions = { encryptOAuthTokens?: boolean }
 
-export type StandardAccountLinkingOptions = {
-  enabled?: boolean
-  allowDifferentEmails?: boolean
-  allowUnlinkingAll?: boolean
-  disableImplicitLinking?: boolean
-  requireLocalEmailVerified?: boolean
-  trustedProviders?: string[] | ((request?: Request) => string[] | Promise<string[]>)
-  updateUserInfoOnLink?: boolean
+export function standardSessionOptions<const Options extends object>(overrides: Options & SessionOptions = {} as Options & SessionOptions) {
+  return {
+    ...overrides,
+    expiresIn: overrides.expiresIn ?? 60 * 60 * 24 * 90,
+    updateAge: overrides.updateAge ?? 60 * 60 * 24,
+  }
 }
 
-export type StandardAccountOptions = {
-  encryptOAuthTokens?: boolean
-  accountLinking?: StandardAccountLinkingOptions
-}
-
-export function standardSessionOptions(overrides: Partial<SessionOptions> = {}) {
-  return { expiresIn: 60 * 60 * 24 * 90, updateAge: 60 * 60 * 24, ...overrides }
-}
-
-export function standardAccountOptions(overrides: StandardAccountOptions = {}) {
+export function standardAccountOptions<const Options extends object>(
+  overrides: Options & StandardAccountOptions = {} as Options & StandardAccountOptions,
+) {
   return {
     ...overrides,
     encryptOAuthTokens: overrides.encryptOAuthTokens ?? true,

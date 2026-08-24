@@ -33,7 +33,7 @@ const auth = betterAuth({
 })
 ```
 
-`standardAccountOptions` encrypts stored OAuth tokens. Better Auth retains ownership of its verified-email linking safeguards, while applications can pass an explicit linking policy when their product requires one:
+`standardAccountOptions` encrypts stored OAuth access and refresh tokens. Better Auth does not encrypt stored ID tokens with this option. Better Auth retains ownership of its verified-email linking safeguards, while applications can pass an explicit linking policy when their product requires one:
 
 ```ts
 account: standardAccountOptions({
@@ -51,10 +51,12 @@ account: standardAccountOptions({
 session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
 ```
 
+For an existing rolling deployment, drain replicas that do not enable token encryption before the new version accepts traffic. Those replicas cannot read encrypted tokens, and rolling back after an encrypted write has the same limitation.
+
 Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications with a namespace can supply a prefix, and deployments can reject partial credential pairs instead of silently disabling the provider:
 
 ```ts
-const google = providerCredentials('google', process.env, { prefix: 'AUTH_', requireComplete: true })
+const google = providerCredentials('google', process.env, { prefix: 'AUTH_', rejectPartial: true })
 ```
 
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:
