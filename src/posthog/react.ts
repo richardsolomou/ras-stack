@@ -67,12 +67,13 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
   const session = authClient.useSession()
   const posthog = usePostHog()
   const isLoaded = useContext(PostHogLoadedContext)
+  const isReady = isLoaded || posthog['__loaded']
   const identified = useRef<string | undefined>(undefined)
   const propertiesRef = useRef(properties)
   propertiesRef.current = properties
 
   useEffect(() => {
-    if (!isLoaded || session.isPending || session.error) return
+    if (!isReady || session.isPending || session.error) return
     const user = session.data?.user
     const persistedUserId = posthog.get_property('$user_id')
     if (user) {
@@ -83,7 +84,7 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
       posthog.reset()
       identified.current = undefined
     }
-  }, [isLoaded, posthog, session.data?.user, session.error, session.isPending])
+  }, [isReady, posthog, session.data?.user, session.error, session.isPending])
 
   return null
 }
