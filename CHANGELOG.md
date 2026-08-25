@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.0
+
+### Minor Changes
+
+- fa32841: Compress proxied responses with zstd and gzip by default; pass `encode: false` to the Caddy proxy options to turn it off.
+
 ## 0.46.0
 
 ### Minor Changes
