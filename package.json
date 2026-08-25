@@ -186,7 +186,7 @@
     "centrifuge": "5.7.0",
     "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",
-    "oxfmt": "^0.62.0",
+    "oxfmt": "^0.63.0",
     "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^7.0.2001",
     "postgres": "3.4.9",
