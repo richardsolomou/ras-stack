@@ -183,7 +183,7 @@
     "@types/react-test-renderer": "19.1.0",
     "@vitest/coverage-v8": "^4.1.10",
     "better-sqlite3": "12.11.1",
-    "centrifuge": "5.7.0",
+    "centrifuge": "5.7.1",
     "drizzle-orm": "0.45.2",
     "nodemailer": "^9.0.3",
     "oxfmt": "^0.63.0",
