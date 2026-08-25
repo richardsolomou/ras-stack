@@ -241,7 +241,14 @@ export function caddyRuntimeEnvironment(options: CaddyRuntimeEnvironmentOptions 
   return { XDG_CONFIG_HOME: configHome, XDG_DATA_HOME: dataHome }
 }
 
-export type CaddyRealtimeProxyOptions = { publicPort?: number; appPort?: number; realtimePort?: number; websocketPath?: string }
+export type CaddyRealtimeProxyOptions = {
+  publicPort?: number
+  appPort?: number
+  realtimePort?: number
+  websocketPath?: string
+  /** Compress responses with zstd and gzip. On unless turned off: Caddy already skips upgrades and incompressible content. */
+  encode?: boolean
+}
 
 export function caddyRealtimeProxy(options: CaddyRealtimeProxyOptions = {}) {
   const publicPort = port(options.publicPort ?? 3000, 'publicPort')
@@ -259,7 +266,7 @@ export function caddyRealtimeProxy(options: CaddyRealtimeProxyOptions = {}) {
 }
 
 :${publicPort} {
-\troute {
+${options.encode === false ? '' : '\tencode zstd gzip\n'}\troute {
 \t\t@foreignWebSocketOrigin \`{path}.startsWith('${websocketPath}') && {http.request.header.Origin} != '' && {http.request.header.Origin} != 'http://' + {http.request.hostport} && {http.request.header.Origin} != 'https://' + {http.request.hostport}\`
 \t\trespond @foreignWebSocketOrigin 403
 

@@ -43,6 +43,11 @@ describe('self-hosted runtime configuration', () => {
     })
   })
 
+  it('compresses responses unless encoding is turned off', () => {
+    expect(caddyRealtimeProxy()).toContain('\tencode zstd gzip\n')
+    expect(caddyRealtimeProxy({ encode: false })).not.toContain('encode')
+  })
+
   it('places Caddy state in explicit writable directories', () => {
     expect(caddyRuntimeEnvironment({ configHome: '/data/caddy-config', dataHome: '/data/caddy-data' })).toEqual({
       XDG_CONFIG_HOME: '/data/caddy-config',
