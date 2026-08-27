@@ -6,8 +6,8 @@ import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 
 const exec = promisify(execFile)
-const resolveScript = new URL('../../actions/resolve-container-image/resolve.sh', import.meta.url).pathname
-const recordScript = new URL('../../actions/publish-production-image/record-reference.sh', import.meta.url).pathname
+const resolveScript = new URL('../../../../actions/resolve-container-image/resolve.sh', import.meta.url).pathname
+const recordScript = new URL('../../../../actions/publish-production-image/record-reference.sh', import.meta.url).pathname
 const digest = `sha256:${'a'.repeat(64)}`
 const sha = 'b'.repeat(40)
 

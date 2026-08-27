@@ -7,5 +7,5 @@
     "sourceMap": true,
     "inlineSources": true
   },
-  "exclude": ["actions/**/*.test.ts", "src/**/*.test.ts"]
+  "exclude": ["../../actions/**/*.test.ts", "src/**/*.test.ts"]
 }

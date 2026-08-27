@@ -10,7 +10,7 @@ const exec = promisify(execFile)
 
 // The script is read out of the workflow rather than copied here, so this cannot drift from what CI runs.
 async function releaseScript() {
-  const source = await readFile(new URL('../../.github/workflows/release-changesets.yml', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../../../../.github/workflows/release-changesets.yml', import.meta.url), 'utf8')
   const workflow = parse(source) as { jobs: { release: { steps: { name?: string; run?: string }[] } } }
   const step = workflow.jobs.release.steps.find((candidate) => candidate.name === 'Release pending changesets')
   if (!step?.run) throw new Error('release step is missing its script')
@@ -18,7 +18,7 @@ async function releaseScript() {
 }
 
 async function publicationScript() {
-  const source = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
   const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
   const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Publish through the OIDC-trusted workflow')
   if (!step?.run) throw new Error('publication step is missing its script')
@@ -26,7 +26,7 @@ async function publicationScript() {
 }
 
 async function releaseVerificationScript() {
-  const source = await readFile(new URL('../../.github/workflows/release.yml', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../../../../.github/workflows/release.yml', import.meta.url), 'utf8')
   const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
   const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Verify release version')
   if (!step?.run) throw new Error('release verification step is missing its script')
@@ -96,7 +96,7 @@ describe('npm publication dispatch', () => {
   })
 
   it('exempts the creator and its runtime dependency from the release-age gate', async () => {
-    const source = await readFile(new URL('../../pnpm-workspace.yaml', import.meta.url), 'utf8')
+    const source = await readFile(new URL('../../../../pnpm-workspace.yaml', import.meta.url), 'utf8')
     const workspace = parse(source) as { minimumReleaseAgeExclude?: string[] }
 
     expect(workspace.minimumReleaseAgeExclude).toEqual(expect.arrayContaining(['create-ras-app', 'ras-stack']))
@@ -172,8 +172,9 @@ type PublicationFixture = { work: string; head: string }
 
 async function publicationRepository(): Promise<PublicationFixture> {
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
+  await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
   await mkdir(join(work, 'packages/create-ras-app'), { recursive: true })
-  await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
+  await writeFile(join(work, 'packages/ras-stack/package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
   await writeFile(join(work, 'packages/create-ras-app/package.json'), JSON.stringify({ name: 'create-ras-app', version: '1.2.3' }))
   await exec('git', ['init', '--initial-branch=main'], { cwd: work })
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })

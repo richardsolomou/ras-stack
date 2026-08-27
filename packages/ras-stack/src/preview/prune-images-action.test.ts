@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
 
 const exec = promisify(execFile)
-const script = new URL('../../actions/prune-preview-images/prune.sh', import.meta.url).pathname
+const script = new URL('../../../../actions/prune-preview-images/prune.sh', import.meta.url).pathname
 
 describe('preview image pruning action', () => {
   it('deletes only the closed pull request preview version', async () => {

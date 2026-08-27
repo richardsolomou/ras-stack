@@ -33,13 +33,13 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "v$(node -p "require('./package.json').version")" = "$RELEASE_TAG"
-          test "$(node -p "require('./package.json').version")" = "$(node -p "require('./packages/create-ras-app/package.json').version")"
+          test "v$(node -p "require('./packages/ras-stack/package.json').version")" = "$RELEASE_TAG"
+          test "$(node -p "require('./packages/ras-stack/package.json').version")" = "$(node -p "require('./packages/create-ras-app/package.json').version")"
       - name: Publish packages
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/npm-packages"
-          for directory in . packages/create-ras-app; do
+          for directory in packages/ras-stack packages/create-ras-app; do
             package_name="$(node -p "require('./$directory/package.json').name")"
             package_version="$(node -p "require('./$directory/package.json').version")"
             if npm view "$package_name@$package_version" version >/dev/null 2>&1; then

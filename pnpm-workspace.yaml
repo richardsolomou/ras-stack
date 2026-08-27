@@ -1,12 +1,16 @@
 packages:
   - .
-  - examples/*
+  - apps/*
   - packages/*
+  - packages/ras-stack/examples/*
 allowBuilds:
   better-sqlite3: true
   core-js: false
   esbuild: true
   protobufjs: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
 minimumReleaseAge: 10080
 # Better Auth 1.7 is the compatibility target exercised by the full-stack reference.
 minimumReleaseAgeExclude:

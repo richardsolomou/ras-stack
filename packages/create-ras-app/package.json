@@ -8,7 +8,7 @@
     "ras-stack",
     "tanstack"
   ],
-  "homepage": "https://github.com/richardsolomou/ras-stack#readme",
+  "homepage": "https://github.com/richardsolomou/ras-stack/tree/main/packages/create-ras-app#readme",
   "bugs": "https://github.com/richardsolomou/ras-stack/issues",
   "license": "AGPL-3.0-only",
   "repository": {

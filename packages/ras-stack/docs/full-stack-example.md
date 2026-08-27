@@ -20,7 +20,7 @@ Build the package locally before exercising the repository CLI:
 
 ```sh
 pnpm build
-node dist/cli.js create ../my-app
+node packages/ras-stack/dist/cli.js create ../my-app
 ```
 
 For an installed package, run `pnpm create ras-app my-app`. The thin `create-ras-app` package calls the public `ras-stack/create` implementation in-process; it does not carry a separate template. Its initial `0.40.0` bootstrap can also delegate to the matching `ras create` executable because that already-published version predates the direct export. The destination must not exist or must be empty. `--dry-run` resolves and prints the destination without writing it. A repository enforcing pnpm's `minimumReleaseAge` must include both `create-ras-app` and `ras-stack` in `minimumReleaseAgeExclude` to use newly published versions immediately; generated applications include both exclusions.

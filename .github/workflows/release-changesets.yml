@@ -75,7 +75,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           bash -euo pipefail -c "$VERSION_COMMAND"
-          tag="${TAG_PREFIX}$(node -p "require('./package.json').version")"
+          tag="${TAG_PREFIX}$(node -p "require('./packages/ras-stack/package.json').version")"
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists"
             exit 1

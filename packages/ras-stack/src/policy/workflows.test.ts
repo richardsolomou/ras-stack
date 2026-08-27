@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 describe('shared workflow dependencies', () => {
   it('uses one ras-stack release for published actions', async () => {
-    const directory = new URL('../../.github/workflows/', import.meta.url)
+    const directory = new URL('../../../../.github/workflows/', import.meta.url)
     const files = await readdir(directory)
     const sources = await Promise.all(
       files.filter((file) => file.endsWith('.yml')).map((file) => readFile(new URL(file, directory), 'utf8')),

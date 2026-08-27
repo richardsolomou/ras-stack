@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { DokployClient, DokployPreviewManager } from './dokploy.js'
 
 const exec = promisify(execFile)
-const script = new URL('../../actions/deploy-dokploy-image/deploy.sh', import.meta.url).pathname
+const script = new URL('../../../../actions/deploy-dokploy-image/deploy.sh', import.meta.url).pathname
 
 describe('Dokploy image deployment action', () => {
   it('selects the public image provider before deploying', async () => {
