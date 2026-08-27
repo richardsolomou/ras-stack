@@ -38,6 +38,14 @@ describe('ras create', () => {
     }
   })
 
+  it('upgrades packages in the generated runtime image', async () => {
+    const parent = await temporary()
+    const destination = path.join(parent, 'app')
+    await runCreateCli([destination])
+
+    await expect(readFile(path.join(destination, 'Dockerfile'), 'utf8')).resolves.toContain('RUN apk upgrade --no-cache')
+  })
+
   it('does not write during a dry run', async () => {
     const parent = await temporary()
     const destination = path.join(parent, 'app')
