@@ -18,7 +18,8 @@ FROM ${RUNTIME_BINARIES_IMAGE} AS runtime-binaries
 
 FROM node:24-alpine
 WORKDIR /app
-RUN apk add --no-cache tini \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache tini \
     && rm -rf /usr/local/lib/node_modules/corepack /usr/local/lib/node_modules/npm /opt/yarn-v1.22.22 \
     && rm -f /usr/local/bin/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg \
     && mkdir -p /data \
