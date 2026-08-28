@@ -16,7 +16,7 @@ describe('published documentation', () => {
 })
 
 async function documentationSources() {
-  const directory = new URL('../../docs/', import.meta.url)
+  const directory = new URL('../../../../docs/', import.meta.url)
   const files = (await readdir(directory)).filter((file) => file.endsWith('.md'))
   return [readFile(new URL('../../README.md', import.meta.url), 'utf8'), ...files.map((file) => readFile(new URL(file, directory), 'utf8'))]
 }

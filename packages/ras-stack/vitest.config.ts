@@ -10,6 +10,6 @@ export default defineConfig({
       reporter: ['text-summary'],
       thresholds: { branches: 82, functions: 91, lines: 91, statements: 89 },
     },
-    include: ['actions/**/*.test.ts', 'src/**/*.test.ts'],
+    include: ['../../actions/**/*.test.ts', 'src/**/*.test.ts'],
   },
 })

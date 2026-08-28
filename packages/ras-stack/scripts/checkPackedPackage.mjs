@@ -14,7 +14,7 @@ try {
   const archive = path.join(temporary, 'ras-stack.tgz')
   const createArchive = path.join(temporary, 'create-ras-app.tgz')
   exec('pnpm', ['pack', '--out', archive], root)
-  exec('pnpm', ['pack', '--out', createArchive], path.join(root, 'packages/create-ras-app'))
+  exec('pnpm', ['pack', '--out', createArchive], path.join(root, '../create-ras-app'))
 
   writeFileSync(
     path.join(temporary, 'package.json'),

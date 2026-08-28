@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "extends": ["./config/oxlint.json"],
+  "extends": ["./packages/ras-stack/config/oxlint.json"],
   "categories": {
     "suspicious": "error",
     "perf": "error"

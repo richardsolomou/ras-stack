@@ -8,6 +8,9 @@ inputs:
   install-dependencies:
     description: Install browser system dependencies with the host package manager.
     default: 'true'
+  working-directory:
+    description: Directory containing the Playwright dependency.
+    default: .
 
 runs:
   using: composite
@@ -15,7 +18,11 @@ runs:
     - name: Read Playwright version
       id: version
       shell: bash
-      run: echo "version=$(pnpm exec playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+      env:
+        PLAYWRIGHT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        version="$(pnpm --dir "$PLAYWRIGHT_WORKING_DIRECTORY" exec playwright --version)"
+        echo "version=${version#Version }" >> "$GITHUB_OUTPUT"
     - name: Cache Playwright browser
       id: cache
       uses: actions/cache@v6
@@ -29,10 +36,12 @@ runs:
       shell: bash
       env:
         PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
-      run: pnpm exec playwright install-deps "$PLAYWRIGHT_BROWSER"
+        PLAYWRIGHT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: pnpm --dir "$PLAYWRIGHT_WORKING_DIRECTORY" exec playwright install-deps "$PLAYWRIGHT_BROWSER"
     - name: Install browser payload
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         PLAYWRIGHT_BROWSER: ${{ inputs.browser }}
-      run: pnpm exec playwright install "$PLAYWRIGHT_BROWSER"
+        PLAYWRIGHT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: pnpm --dir "$PLAYWRIGHT_WORKING_DIRECTORY" exec playwright install "$PLAYWRIGHT_BROWSER"

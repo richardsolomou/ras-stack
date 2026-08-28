@@ -10,7 +10,7 @@ export async function runCreateCli(arguments_: string[]) {
     return
   }
   const destination = path.resolve(positional[0]!)
-  const source = path.resolve(import.meta.dirname, '../../examples/full-stack')
+  const source = await starterSource()
   await assertSource(source)
   await assertEmptyDestination(destination)
   if (dryRun) {
@@ -36,9 +36,22 @@ export async function runCreateCli(arguments_: string[]) {
   const packageManifest = JSON.parse(await readFile(path.resolve(import.meta.dirname, '../../package.json'), 'utf8')) as { version: string }
   manifest.name = packageName(path.basename(destination))
   manifest.dependencies['ras-stack'] = `^${packageManifest.version}`
-  manifest.scripts.build = manifest.scripts.build!.replaceAll('node ../../dist/cli.js', 'ras')
+  manifest.scripts.build = manifest.scripts.build!.replaceAll('node ../../packages/ras-stack/dist/cli.js', 'ras')
   await writeFile(packageFile, `${JSON.stringify(manifest, null, 2)}\n`)
   console.log(destination)
+}
+
+async function starterSource() {
+  const bundled = path.resolve(import.meta.dirname, 'template')
+  try {
+    await assertSource(bundled)
+    return bundled
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  const workspace = path.resolve(import.meta.dirname, '../../../../examples/full-stack')
+  await assertSource(workspace)
+  return workspace
 }
 
 async function materializeTemplate(directory: string, template: string, output: string) {

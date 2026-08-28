@@ -1,5 +1,6 @@
 packages:
   - .
+  - apps/*
   - examples/*
   - packages/*
 allowBuilds:
@@ -7,6 +8,9 @@ allowBuilds:
   core-js: false
   esbuild: true
   protobufjs: true
+  sharp: true
+  unrs-resolver: true
+  workerd: true
 minimumReleaseAge: 10080
 # Better Auth 1.7 is the compatibility target exercised by the full-stack reference.
 minimumReleaseAgeExclude:

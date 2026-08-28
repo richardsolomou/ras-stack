@@ -50,7 +50,7 @@ jobs:
       - name: Exercise the published PostgreSQL statements
         env:
           RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
-        run: pnpm exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
+        run: pnpm --filter ras-stack exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
 
   peer-floor:
     name: Peer dependency floor
@@ -71,9 +71,10 @@ jobs:
       - uses: ./actions/setup-playwright
         with:
           install-dependencies: 'false'
+          working-directory: examples/full-stack
       - uses: docker/setup-buildx-action@v4
       - name: Build package and example
-        run: pnpm build && pnpm --filter @ras-stack/example-full-stack check
+        run: pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack check
       - name: Build and inspect runtime binaries
         uses: docker/build-push-action@v7
         with:

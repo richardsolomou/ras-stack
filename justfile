@@ -18,7 +18,7 @@ typecheck:
     pnpm typecheck
 
 test *args:
-    pnpm exec vitest run {{ args }}
+    pnpm --filter ras-stack exec vitest run {{ args }}
 
 check:
     pnpm check

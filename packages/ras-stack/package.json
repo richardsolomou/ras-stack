@@ -1,0 +1,271 @@
+{
+  "name": "ras-stack",
+  "version": "0.47.0",
+  "description": "Composable full-stack primitives shared across Richard Solomou's applications.",
+  "keywords": [
+    "authentication",
+    "centrifugo",
+    "fullstack",
+    "tanstack",
+    "tus"
+  ],
+  "homepage": "https://github.com/richardsolomou/ras-stack/tree/main/packages/ras-stack#readme",
+  "bugs": "https://github.com/richardsolomou/ras-stack/issues",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/richardsolomou/ras-stack.git",
+    "directory": "packages/ras-stack"
+  },
+  "bin": {
+    "ras": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "config"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./auth/client": {
+      "types": "./dist/auth/client.d.ts",
+      "default": "./dist/auth/client.js"
+    },
+    "./auth/react": {
+      "types": "./dist/auth/react.d.ts",
+      "default": "./dist/auth/react.js"
+    },
+    "./email": {
+      "types": "./dist/email/index.d.ts",
+      "default": "./dist/email/index.js"
+    },
+    "./build": {
+      "types": "./dist/build/index.d.ts",
+      "default": "./dist/build/index.js"
+    },
+    "./database": {
+      "types": "./dist/database/index.d.ts",
+      "default": "./dist/database/index.js"
+    },
+    "./database/sqlite": {
+      "types": "./dist/database/sqlite.d.ts",
+      "default": "./dist/database/sqlite.js"
+    },
+    "./database/postgres": {
+      "types": "./dist/database/postgres.d.ts",
+      "default": "./dist/database/postgres.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance/index.d.ts",
+      "default": "./dist/conformance/index.js"
+    },
+    "./create": {
+      "types": "./dist/create/index.d.ts",
+      "default": "./dist/create/index.js"
+    },
+    "./policy": {
+      "types": "./dist/policy/index.d.ts",
+      "default": "./dist/policy/index.js"
+    },
+    "./posthog": {
+      "types": "./dist/posthog/index.d.ts",
+      "default": "./dist/posthog/index.js"
+    },
+    "./posthog/client": {
+      "types": "./dist/posthog/client.d.ts",
+      "default": "./dist/posthog/client.js"
+    },
+    "./posthog/proxy": {
+      "types": "./dist/posthog/proxy.d.ts",
+      "default": "./dist/posthog/proxy.js"
+    },
+    "./posthog/react": {
+      "types": "./dist/posthog/react.d.ts",
+      "default": "./dist/posthog/react.js"
+    },
+    "./posthog/server": {
+      "types": "./dist/posthog/server.d.ts",
+      "default": "./dist/posthog/server.js"
+    },
+    "./preview/dokploy": {
+      "types": "./dist/preview/dokploy.d.ts",
+      "default": "./dist/preview/dokploy.js"
+    },
+    "./preview/github": {
+      "types": "./dist/preview/github.d.ts",
+      "default": "./dist/preview/github.js"
+    },
+    "./realtime": {
+      "types": "./dist/realtime/index.d.ts",
+      "default": "./dist/realtime/index.js"
+    },
+    "./realtime/client": {
+      "types": "./dist/realtime/client.d.ts",
+      "default": "./dist/realtime/client.js"
+    },
+    "./realtime/react": {
+      "types": "./dist/realtime/react.d.ts",
+      "default": "./dist/realtime/react.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/runtime/index.js"
+    },
+    "./tanstack/query": {
+      "types": "./dist/tanstack/query.d.ts",
+      "default": "./dist/tanstack/query.js"
+    },
+    "./tanstack/middleware": {
+      "types": "./dist/tanstack/middleware.d.ts",
+      "default": "./dist/tanstack/middleware.js"
+    },
+    "./tanstack/server": {
+      "types": "./dist/tanstack/server.d.ts",
+      "default": "./dist/tanstack/server.js"
+    },
+    "./uploads": {
+      "types": "./dist/uploads/index.d.ts",
+      "default": "./dist/uploads/index.js"
+    },
+    "./config/oxlint": "./config/oxlint.json",
+    "./config/oxlint/application": "./config/oxlint/application.json",
+    "./config/oxlint/tanstack": "./config/oxlint/tanstack.json",
+    "./config/typescript/base": "./config/typescript/base.json",
+    "./config/typescript/browser": "./config/typescript/browser.json",
+    "./config/typescript/bundler": "./config/typescript/bundler.json",
+    "./config/typescript/library": "./config/typescript/library.json",
+    "./config/typescript/node-bundler": "./config/typescript/node-bundler.json",
+    "./config/typescript/tanstack": "./config/typescript/tanstack.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/copyStarter.mjs",
+    "config:check": "tsc -p test/config-consumer/tsconfig.json && tsc -p test/config-consumer/tsconfig-bundler.json && tsc -p test/config-consumer/tsconfig-node-bundler.json && tsc -p test/config-consumer/tsconfig-library.json && oxlint --config config/oxlint/application.json --print-config > /dev/null && oxlint --config config/oxlint/tanstack.json --print-config > /dev/null",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run --config vitest.config.ts",
+    "package:check": "node scripts/checkPackedPackage.mjs",
+    "peer:floor": "node scripts/checkPeerFloor.mjs",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
+  },
+  "dependencies": {
+    "@inquirer/confirm": "^6.1.1",
+    "@inquirer/select": "^5.2.1",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@posthog/react": "^1.10.3",
+    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-start": "^1.168.32",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "^26.2.0",
+    "@types/nodemailer": "^8.0.1",
+    "@types/react": "19.2.18",
+    "@types/react-test-renderer": "19.1.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "better-sqlite3": "12.11.1",
+    "centrifuge": "5.7.1",
+    "drizzle-orm": "0.45.2",
+    "nodemailer": "^9.0.3",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.74.0",
+    "oxlint-tsgolint": "^7.0.2001",
+    "postgres": "3.4.9",
+    "posthog-js": "^1.414.0",
+    "posthog-node": "^5.48.1",
+    "react": "19.2.8",
+    "react-test-renderer": "19.2.8",
+    "tus-js-client": "^4.3.1",
+    "typescript": "^7.0.2",
+    "vite": "8.2.1",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
+    "@posthog/react": ">=1.1 <2",
+    "@tanstack/react-query": ">=5.62.8 <6",
+    "@tanstack/react-start": ">=1.168.10 <2",
+    "better-sqlite3": ">=12 <14",
+    "centrifuge": ">=5 <6",
+    "drizzle-orm": ">=0.45 <1",
+    "nodemailer": ">=9 <10",
+    "postgres": ">=3.4 <4",
+    "posthog-js": ">=1.407 <2",
+    "posthog-node": ">=5.47 <6",
+    "react": ">=19 <20",
+    "tus-js-client": ">=4 <5"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api-logs": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-logs-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
+      "optional": true
+    },
+    "@posthog/react": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "@tanstack/react-start": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "centrifuge": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    },
+    "nodemailer": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "tus-js-client": {
+      "optional": true
+    },
+    "posthog-js": {
+      "optional": true
+    },
+    "posthog-node": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

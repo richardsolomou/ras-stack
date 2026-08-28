@@ -104,7 +104,7 @@ describe('Dokploy preview workflows', () => {
 })
 
 async function workflow(name: string) {
-  return parse(await readFile(new URL(`../../.github/workflows/${name}`, import.meta.url), 'utf8')) as Workflow
+  return parse(await readFile(new URL(`../../../../.github/workflows/${name}`, import.meta.url), 'utf8')) as Workflow
 }
 
 function step(definition: Workflow, job: string, name: string) {
