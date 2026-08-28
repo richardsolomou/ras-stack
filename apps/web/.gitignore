@@ -12,7 +12,7 @@
 /coverage
 
 # build output
-/.output/
+/dist/
 
 # misc
 .DS_Store
