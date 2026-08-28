@@ -1,5 +1,3 @@
-@import 'tailwindcss';
-
 :root {
   color-scheme: dark;
   --background: #0b0b0b;
@@ -7,6 +5,8 @@
   --muted: #969691;
   --line: #292929;
   --accent: #ff6433;
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
 
 * {
@@ -23,7 +23,7 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--sans);
 }
 
 a {
@@ -51,7 +51,7 @@ header {
 }
 
 .wordmark {
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.95rem;
   font-weight: 650;
   letter-spacing: -0.04em;
@@ -70,7 +70,7 @@ nav {
   display: flex;
   gap: 2rem;
   color: var(--muted);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.7rem;
 }
 
@@ -89,7 +89,7 @@ main {
 .eyebrow {
   margin: 0 0 1.5rem;
   color: var(--accent);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -137,7 +137,7 @@ h1 {
 
 code {
   color: #b7b7b2;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.72rem;
 }
 
@@ -161,14 +161,14 @@ aside p {
 
 aside span {
   color: #5f5f5b;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.62rem;
 }
 
 footer {
   border-top: 1px solid var(--line);
   color: #62625e;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--mono);
   font-size: 0.6rem;
 }
 
