@@ -1,0 +1,37 @@
+name: Deploy website
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy-web.yml
+      - apps/web/**
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - name: Build website
+        run: pnpm --filter @ras-stack/web build
+      - name: Deploy website
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
