@@ -19,7 +19,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          test "$GITHUB_REF_NAME" = "runtime-v$(cat packages/ras-stack/runtime/VERSION)"
+          test "$GITHUB_REF_NAME" = "runtime-v$(cat runtime/VERSION)"
           git fetch origin main
           test "$GITHUB_SHA" = "$(git rev-parse origin/main)"
           run_id="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 1 --json databaseId --jq '.[0].databaseId')"
@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: packages/ras-stack/runtime/Dockerfile
+          file: runtime/Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository_owner }}/ras-stack-runtime-binaries:${{ github.ref_name }}

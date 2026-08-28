@@ -71,26 +71,26 @@ jobs:
       - uses: ./actions/setup-playwright
         with:
           install-dependencies: 'false'
-          working-directory: packages/ras-stack/examples/full-stack
+          working-directory: examples/full-stack
       - uses: docker/setup-buildx-action@v4
       - name: Build package and example
-        run: pnpm build && pnpm --filter @ras-stack/example-full-stack check
+        run: pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack check
       - name: Build and inspect runtime binaries
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: packages/ras-stack/runtime/Dockerfile
+          file: runtime/Dockerfile
           tags: ras-stack-runtime-binaries:test
           load: true
           cache-from: type=gha,scope=runtime-binaries
           cache-to: type=gha,mode=max,scope=runtime-binaries
       - name: Inspect runtime binaries
         run: |
-          test "$(docker image inspect ras-stack-runtime-binaries:test --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')" = "$(cat packages/ras-stack/runtime/VERSION)"
+          test "$(docker image inspect ras-stack-runtime-binaries:test --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')" = "$(cat runtime/VERSION)"
           test "$(docker run --rm --entrypoint /usr/local/bin/caddy ras-stack-runtime-binaries:test version)" = 'v2.11.4'
           docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F 'Centrifugo v6.9.1 '
       - name: Build production image
-        run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f packages/ras-stack/examples/full-stack/Dockerfile -t ras-stack-example:e2e .
+        run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
       - name: Scan production image
         uses: anchore/scan-action@v7
         with:
@@ -216,7 +216,7 @@ jobs:
           path: |
             example-container.log
             example-restored-container.log
-            packages/ras-stack/examples/full-stack/test-results
+            examples/full-stack/test-results
           if-no-files-found: ignore
           retention-days: 7
       - name: Remove example resources

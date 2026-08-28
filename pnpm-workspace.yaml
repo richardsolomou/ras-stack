@@ -1,8 +1,8 @@
 packages:
   - .
   - apps/*
+  - examples/*
   - packages/*
-  - packages/ras-stack/examples/*
 allowBuilds:
   better-sqlite3: true
   core-js: false

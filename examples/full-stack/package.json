@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && node ../../dist/cli.js assets sync && esbuild scripts/containerRuntime.ts scripts/database.ts --bundle --platform=node --format=esm --target=node24 --external:better-sqlite3 --outdir=.output/server --out-extension:.js=.mjs --log-level=warning && node ../../dist/cli.js assets check",
+    "build": "vite build && node ../../packages/ras-stack/dist/cli.js assets sync && esbuild scripts/containerRuntime.ts scripts/database.ts --bundle --platform=node --format=esm --target=node24 --external:better-sqlite3 --outdir=.output/server --out-extension:.js=.mjs --log-level=warning && node ../../packages/ras-stack/dist/cli.js assets check",
     "dev": "vite dev",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

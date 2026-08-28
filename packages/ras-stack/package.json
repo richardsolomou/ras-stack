@@ -22,8 +22,7 @@
   },
   "files": [
     "dist",
-    "config",
-    "examples/full-stack"
+    "config"
   ],
   "type": "module",
   "sideEffects": false,
@@ -150,7 +149,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/copyStarter.mjs",
     "config:check": "tsc -p test/config-consumer/tsconfig.json && tsc -p test/config-consumer/tsconfig-bundler.json && tsc -p test/config-consumer/tsconfig-node-bundler.json && tsc -p test/config-consumer/tsconfig-library.json && oxlint --config config/oxlint/application.json --print-config > /dev/null && oxlint --config config/oxlint/tanstack.json --print-config > /dev/null",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware --deny-warnings .",
@@ -171,7 +170,6 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-logs": "^0.221.0",
-    "@playwright/test": "1.62.1",
     "@posthog/react": "^1.10.3",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-start": "^1.168.32",

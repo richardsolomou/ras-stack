@@ -50,7 +50,7 @@ Applications still configure every upstream library directly. This table describ
 
 The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
 
-The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/packages/ras-stack/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration contract and the canonical source for the generated starter; once generated, the application owns its copied code and normal semver dependency.
+The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration contract and the canonical source for the generated starter; once generated, the application owns its copied code and normal semver dependency.
 
 ## Pick what you need 🧩
 
@@ -99,17 +99,17 @@ Three reusable workflows provide the standard pull-request preview lifecycle:
 - `deploy-dokploy-preview.yml` publishes, resolves, deploys, reports, and removes previews.
 - `prune-dokploy-previews.yml` cleans up applications and images left behind by interrupted runs.
 
-Applications supply only their package, application prefix, port, environment template, and optional product hook. They can provide a custom HTTPS domain, optionally manage a prefixed Cloudflare-proxied record for origins that reject direct traffic, or let Dokploy generate an HTTP `sslip.io` address. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
+Applications supply only their package, application prefix, port, environment template, and optional product hook. They can provide a custom HTTPS domain, optionally manage a prefixed Cloudflare-proxied record for origins that reject direct traffic, or let Dokploy generate an HTTP `sslip.io` address. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
 
 ## Guides 📚
 
-| Guide                                                                                                                                     | What it covers                                                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
-| [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
-| [PostHog integration](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
-| [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
-| [Production operations](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                        |
+| Guide                                                                                                                  | What it covers                                                                                                                          |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
+| [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
+| [PostHog integration](https://github.com/richardsolomou/ras-stack/blob/main/docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
+| [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
+| [Production operations](https://github.com/richardsolomou/ras-stack/blob/main/docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                        |
 
 ## Development 🛠️
 

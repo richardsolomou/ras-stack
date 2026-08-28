@@ -1,6 +1,6 @@
 .git
 node_modules
-packages/ras-stack/examples/full-stack/.data
-packages/ras-stack/examples/full-stack/.output
-packages/ras-stack/examples/full-stack/node_modules
-packages/ras-stack/examples/full-stack/test-results
+examples/full-stack/.data
+examples/full-stack/.output
+examples/full-stack/node_modules
+examples/full-stack/test-results
