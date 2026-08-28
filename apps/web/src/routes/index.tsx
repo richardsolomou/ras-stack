@@ -1,6 +1,10 @@
+import { createFileRoute } from '@tanstack/react-router'
+
 const capabilities = ['Auth', 'Data', 'Realtime', 'Observability', 'Delivery']
 
-export default function Home() {
+export const Route = createFileRoute('/')({ component: Home })
+
+function Home() {
   return (
     <div className="shell">
       <header>

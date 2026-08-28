@@ -5,7 +5,7 @@
   "scripts": {
     "build": "pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build",
     "config:check": "pnpm --filter ras-stack config:check",
-    "typecheck": "pnpm --filter ras-stack build && pnpm --filter ras-stack typecheck && pnpm --filter @ras-stack/example-full-stack typecheck",
+    "typecheck": "pnpm --filter ras-stack build && pnpm --filter ras-stack typecheck && pnpm --filter @ras-stack/example-full-stack typecheck && pnpm --filter @ras-stack/web typecheck",
     "lint": "pnpm --filter ras-stack lint && pnpm --filter @ras-stack/example-full-stack lint && pnpm --filter @ras-stack/web lint && oxlint --type-aware --deny-warnings actions",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",

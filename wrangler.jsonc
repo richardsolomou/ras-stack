@@ -2,5 +2,5 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ras-stack",
   "compatibility_date": "2026-08-27",
-  "pages_build_output_dir": "./apps/web/dist/client",
+  "pages_build_output_dir": "./apps/web/.output/public",
 }

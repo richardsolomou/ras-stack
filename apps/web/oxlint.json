@@ -1,0 +1,4 @@
+{
+  "extends": ["./node_modules/ras-stack/config/oxlint/application.json", "./node_modules/ras-stack/config/oxlint/tanstack.json"],
+  "ignorePatterns": ["src/routeTree.gen.ts", ".output/**", "node_modules/**"]
+}
