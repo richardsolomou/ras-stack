@@ -158,6 +158,7 @@
     "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkPackedPackage.mjs",
     "peer:floor": "node scripts/checkPeerFloor.mjs",
+    "runtime:pin": "node scripts/checkRuntimePin.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
   },
   "dependencies": {

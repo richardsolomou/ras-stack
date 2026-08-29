@@ -12,6 +12,7 @@
     "test": "pnpm --filter ras-stack test && pnpm --filter @ras-stack/example-full-stack test",
     "package:check": "pnpm --filter ras-stack package:check",
     "peer:floor": "pnpm --filter ras-stack peer:floor",
+    "runtime:pin": "pnpm --filter ras-stack runtime:pin",
     "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build && pnpm package:check && node packages/ras-stack/dist/cli.js policy check",
     "version-packages": "changeset version"
   },
