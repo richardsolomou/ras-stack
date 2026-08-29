@@ -124,4 +124,4 @@ See [CONTRIBUTING.md](https://github.com/richardsolomou/ras-stack/blob/main/CONT
 
 ## License
 
-[GNU Affero General Public License v3.0](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE).
+[MIT](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE).

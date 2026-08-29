@@ -1,8 +1,8 @@
 import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-router'
 import styles from '../styles.css?url'
 
-const title = 'ras-stack — Composable TypeScript infrastructure'
-const description = 'Strong defaults for auth, data, realtime, observability, and delivery without hiding the libraries underneath.'
+const title = 'ras-stack — TypeScript application infrastructure'
+const description = 'Shared application mechanics for TanStack projects, without hiding the libraries underneath.'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -18,7 +18,10 @@ export const Route = createRootRoute({
       { name: 'twitter:title', content: title },
       { name: 'twitter:description', content: description },
     ],
-    links: [{ rel: 'stylesheet', href: styles }],
+    links: [
+      { rel: 'stylesheet', href: styles },
+      { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+    ],
   }),
   component: Root,
 })
