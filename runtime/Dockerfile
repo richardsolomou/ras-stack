@@ -24,7 +24,7 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && echo "${CADDY_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "caddy-${CADDY_VERSION}" \
-    && go get google.golang.org/grpc@v1.82.1 golang.org/x/text@v0.39.0 golang.org/x/crypto@v0.55.0 \
+    && go get google.golang.org/grpc@v1.82.1 golang.org/x/text@v0.41.0 golang.org/x/crypto@v0.55.0 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/caddyserver/caddy/v2.CustomVersion=v${CADDY_VERSION}" -o /out/caddy ./cmd/caddy \
     && cp LICENSE /out/CADDY-LICENSE
 
