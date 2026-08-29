@@ -10,7 +10,7 @@ RUN wget -q "https://github.com/centrifugal/centrifugo/archive/${CENTRIFUGO_COMM
     && echo "${CENTRIFUGO_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "centrifugo-${CENTRIFUGO_COMMIT}" \
-    && go get google.golang.org/grpc@v1.82.1 \
+    && go get google.golang.org/grpc@v1.82.1 golang.org/x/crypto@v0.55.0 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/centrifugal/centrifugo/v6/internal/build.Version=${CENTRIFUGO_VERSION}" -o /out/centrifugo . \
     && cp LICENSE /out/CENTRIFUGO-LICENSE
 
@@ -24,12 +24,12 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && echo "${CADDY_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "caddy-${CADDY_VERSION}" \
-    && go get google.golang.org/grpc@v1.82.1 golang.org/x/text@v0.39.0 \
+    && go get google.golang.org/grpc@v1.82.1 golang.org/x/text@v0.39.0 golang.org/x/crypto@v0.55.0 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/caddyserver/caddy/v2.CustomVersion=v${CADDY_VERSION}" -o /out/caddy ./cmd/caddy \
     && cp LICENSE /out/CADDY-LICENSE
 
 FROM scratch
-ARG RUNTIME_VERSION=1.0.1
+ARG RUNTIME_VERSION=1.0.2
 ARG CADDY_VERSION=2.11.4
 ARG CENTRIFUGO_VERSION=6.9.1
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
