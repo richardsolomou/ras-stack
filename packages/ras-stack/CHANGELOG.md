@@ -1,5 +1,12 @@
 # ras-stack
 
+## 0.47.2
+
+### Patch Changes
+
+- 432c912: Pin the development runtime image to `runtime-v1.0.2`, which rebuilds Caddy
+  and Centrifugo against `golang.org/x/crypto` v0.55.0 for GO-2026-6303.
+
 ## 0.47.1
 
 ### Patch Changes
