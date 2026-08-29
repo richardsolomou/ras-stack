@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.1
+
+### Patch Changes
+
+- f0b2c01: Switch package licensing to MIT.
+
 ## 0.47.0
 
 ### Minor Changes

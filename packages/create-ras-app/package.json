@@ -1,6 +1,6 @@
 {
   "name": "create-ras-app",
-  "version": "0.47.0",
+  "version": "0.47.1",
   "description": "Create a production-ready ras-stack application.",
   "keywords": [
     "create",
