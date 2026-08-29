@@ -87,7 +87,7 @@ function Home() {
 
       <footer>
         <span>TanStack · Better Auth · Drizzle · Centrifugo · PostHog</span>
-        <span>AGPL-3.0</span>
+        <span>MIT</span>
       </footer>
     </div>
   )
