@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 const runtimeImage =
-  'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.1@sha256:581a691b59a603685bee8ba9576e80d419b967b63017f82d778fce39ca6f0c0b'
+  'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.2@sha256:311119db377ac80e87b3116e634912eeca2059b16c170a4d342923de3fd90ba9'
 
 export type RealtimeDevOptions = {
   configPath: string
