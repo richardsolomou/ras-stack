@@ -57,6 +57,7 @@ describe('Dokploy preview workflows', () => {
       approvalConcurrency: deploy.jobs['approve-deploy']?.concurrency,
       approvalEnvironment: deploy.jobs['approve-deploy']?.environment,
       deployNeeds: deploy.jobs.deploy?.needs,
+      deployEnvironment: deploy.jobs.deploy?.environment,
       dependabotProtection: step(deploy, 'approve-deploy', 'Verify Dependabot deployment protection'),
       deployConcurrency: deploy.jobs.deploy?.concurrency,
       reconcileEvents: deploy.jobs.deploy?.if,
@@ -106,6 +107,7 @@ describe('Dokploy preview workflows', () => {
       approvalConcurrency: undefined,
       approvalEnvironment: "${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}",
       deployNeeds: 'approve-deploy',
+      deployEnvironment: undefined,
       dependabotProtection: expect.objectContaining({
         if: "needs.classify-pr.outputs.dependabot == 'true'",
         env: {
