@@ -2,7 +2,15 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
-type Step = { name?: string; env?: Record<string, string>; if?: string; run?: string; uses?: string; with?: Record<string, string> }
+type Step = {
+  id?: string
+  name?: string
+  env?: Record<string, string>
+  if?: string
+  run?: string
+  uses?: string
+  with?: Record<string, string>
+}
 type Workflow = {
   on: { workflow_call: { inputs: Record<string, { default?: string }> } }
   env?: Record<string, string>
@@ -11,6 +19,8 @@ type Workflow = {
     {
       if?: string
       environment?: string
+      needs?: string
+      outputs?: Record<string, string>
       concurrency?: { group?: string; 'cancel-in-progress'?: boolean }
       permissions?: Record<string, string>
       steps?: Step[]
@@ -38,8 +48,17 @@ describe('Dokploy preview workflows', () => {
       readyUrl: step(deploy, 'deploy', 'Mark preview as ready').env?.PREVIEW_URL,
       failedUrl: step(deploy, 'deploy', 'Mark preview as failed').env?.PREVIEW_URL,
       dependabotEnvironmentDefault: deploy.on.workflow_call.inputs['dependabot-environment']?.default,
+      dependabotClassification: step(deploy, 'classify-pr', 'Classify pull request'),
+      classificationEvents: deploy.jobs['classify-pr']?.if,
+      classificationOutputs: deploy.jobs['classify-pr']?.outputs,
+      classificationPermissions: deploy.jobs['classify-pr']?.permissions,
+      approvalEvents: deploy.jobs['approve-deploy']?.if,
+      approvalNeeds: deploy.jobs['approve-deploy']?.needs,
+      approvalConcurrency: deploy.jobs['approve-deploy']?.concurrency,
+      approvalEnvironment: deploy.jobs['approve-deploy']?.environment,
+      deployNeeds: deploy.jobs.deploy?.needs,
       deployEnvironment: deploy.jobs.deploy?.environment,
-      dependabotProtection: step(deploy, 'deploy', 'Verify Dependabot deployment protection'),
+      dependabotProtection: step(deploy, 'approve-deploy', 'Verify Dependabot deployment protection'),
       deployConcurrency: deploy.jobs.deploy?.concurrency,
       reconcileEvents: deploy.jobs.deploy?.if,
       stateCheck: step(deploy, 'deploy', 'Resolve pull request state'),
@@ -68,10 +87,29 @@ describe('Dokploy preview workflows', () => {
       readyUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       failedUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       dependabotEnvironmentDefault: 'dependabot-preview',
-      deployEnvironment:
-        "${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]' && inputs.dependabot-environment || null }}",
+      dependabotClassification: expect.objectContaining({
+        env: {
+          EVENT_NAME: '${{ github.event_name }}',
+          GH_TOKEN: '${{ github.token }}',
+          PR_NUMBER: '${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
+        },
+        run: expect.stringMatching(
+          /dependabot=false[\s\S]*if \[\[ "\$EVENT_NAME" == "workflow_run" \]\]; then[\s\S]*pulls\/\$PR_NUMBER.*user\.login[\s\S]*dependabot\[bot\][\s\S]*dependabot=true[\s\S]*dependabot=\$dependabot/,
+        ),
+      }),
+      classificationEvents:
+        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
+      classificationOutputs: { dependabot: '${{ steps.pr.outputs.dependabot }}' },
+      classificationPermissions: { contents: 'read', 'pull-requests': 'read' },
+      approvalEvents:
+        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
+      approvalNeeds: 'classify-pr',
+      approvalConcurrency: undefined,
+      approvalEnvironment: "${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}",
+      deployNeeds: 'approve-deploy',
+      deployEnvironment: undefined,
       dependabotProtection: expect.objectContaining({
-        if: "github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]'",
+        if: "needs.classify-pr.outputs.dependabot == 'true'",
         env: {
           DEPENDABOT_ENVIRONMENT: '${{ inputs.dependabot-environment }}',
           GH_TOKEN: '${{ github.token }}',
