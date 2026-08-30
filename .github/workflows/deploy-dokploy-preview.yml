@@ -79,6 +79,31 @@ env:
   CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
 
 jobs:
+  classify-pr:
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      dependabot: ${{ steps.pr.outputs.dependabot }}
+    steps:
+      - name: Classify pull request
+        id: pr
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+        run: |
+          dependabot=false
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            author="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq .user.login)"
+            if [[ "$author" == "dependabot[bot]" ]]; then
+              dependabot=true
+            fi
+          fi
+          echo "dependabot=$dependabot" >> "$GITHUB_OUTPUT"
+
   mark-fork-status:
     if: github.event_name == 'workflow_run' && (github.event.action == 'requested' || github.event.action == 'in_progress') && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
     concurrency:
@@ -116,8 +141,9 @@ jobs:
           fi
 
   deploy:
+    needs: classify-pr
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
-    environment: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]' && inputs.dependabot-environment || null }}
+    environment: ${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}
     concurrency:
       group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       cancel-in-progress: false
@@ -133,7 +159,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.46.0
       - name: Verify Dependabot deployment protection
-        if: github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]'
+        if: needs.classify-pr.outputs.dependabot == 'true'
         env:
           DEPENDABOT_ENVIRONMENT: ${{ inputs.dependabot-environment }}
           GH_TOKEN: ${{ github.token }}
