@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.5
+
+### Patch Changes
+
+- 7ca2076: Resolve pull-request authors before gating Dependabot preview deployments.
+
 ## 0.47.4
 
 ### Patch Changes
