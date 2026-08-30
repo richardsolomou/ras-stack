@@ -10,6 +10,7 @@ type Workflow = {
     string,
     {
       if?: string
+      environment?: string
       concurrency?: { group?: string; 'cancel-in-progress'?: boolean }
       permissions?: Record<string, string>
       steps?: Step[]
@@ -36,6 +37,8 @@ describe('Dokploy preview workflows', () => {
       browserUrl: step(deploy, 'deploy', 'Verify preview').env?.PREVIEW_BASE_URL,
       readyUrl: step(deploy, 'deploy', 'Mark preview as ready').env?.PREVIEW_URL,
       failedUrl: step(deploy, 'deploy', 'Mark preview as failed').env?.PREVIEW_URL,
+      dependabotEnvironmentDefault: deploy.on.workflow_call.inputs['dependabot-environment']?.default,
+      deployEnvironment: deploy.jobs.deploy?.environment,
       deployConcurrency: deploy.jobs.deploy?.concurrency,
       reconcileEvents: deploy.jobs.deploy?.if,
       stateCheck: step(deploy, 'deploy', 'Resolve pull request state'),
@@ -63,6 +66,9 @@ describe('Dokploy preview workflows', () => {
       browserUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       readyUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
       failedUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
+      dependabotEnvironmentDefault: 'dependabot-preview',
+      deployEnvironment:
+        "${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]' && inputs.dependabot-environment || null }}",
       deployConcurrency: {
         group:
           'dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
