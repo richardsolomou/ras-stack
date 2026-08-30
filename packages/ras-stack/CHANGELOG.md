@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.4
+
+### Patch Changes
+
+- Fail Dependabot preview deployments when required reviewers are not configured.
+
 ## 0.47.3
 
 ### Patch Changes
