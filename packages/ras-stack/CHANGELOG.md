@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.3
+
+### Patch Changes
+
+- cc37d8a: Require protected-environment approval before deploying Dependabot previews.
+
 ## 0.47.2
 
 ### Patch Changes
