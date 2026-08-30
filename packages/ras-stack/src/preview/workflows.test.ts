@@ -39,6 +39,7 @@ describe('Dokploy preview workflows', () => {
       failedUrl: step(deploy, 'deploy', 'Mark preview as failed').env?.PREVIEW_URL,
       dependabotEnvironmentDefault: deploy.on.workflow_call.inputs['dependabot-environment']?.default,
       deployEnvironment: deploy.jobs.deploy?.environment,
+      dependabotProtection: step(deploy, 'deploy', 'Verify Dependabot deployment protection'),
       deployConcurrency: deploy.jobs.deploy?.concurrency,
       reconcileEvents: deploy.jobs.deploy?.if,
       stateCheck: step(deploy, 'deploy', 'Resolve pull request state'),
@@ -69,6 +70,14 @@ describe('Dokploy preview workflows', () => {
       dependabotEnvironmentDefault: 'dependabot-preview',
       deployEnvironment:
         "${{ github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]' && inputs.dependabot-environment || null }}",
+      dependabotProtection: expect.objectContaining({
+        if: "github.event_name == 'workflow_run' && github.event.workflow_run.pull_requests[0].user.login == 'dependabot[bot]'",
+        env: {
+          DEPENDABOT_ENVIRONMENT: '${{ inputs.dependabot-environment }}',
+          GH_TOKEN: '${{ github.token }}',
+        },
+        run: expect.stringMatching(/environments\/\$DEPENDABOT_ENVIRONMENT.*required_reviewers[\s\S]*protected.*true[\s\S]*exit 1/),
+      }),
       deployConcurrency: {
         group:
           'dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
