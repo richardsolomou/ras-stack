@@ -104,6 +104,27 @@ jobs:
           fi
           echo "dependabot=$dependabot" >> "$GITHUB_OUTPUT"
 
+  approve-deploy:
+    needs: classify-pr
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
+    environment: ${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Verify Dependabot deployment protection
+        if: needs.classify-pr.outputs.dependabot == 'true'
+        env:
+          DEPENDABOT_ENVIRONMENT: ${{ inputs.dependabot-environment }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          protected="$(gh api "repos/$GITHUB_REPOSITORY/environments/$DEPENDABOT_ENVIRONMENT" --jq 'any(.protection_rules[]; .type == "required_reviewers")')"
+          if [[ "$protected" != "true" ]]; then
+            echo "The $DEPENDABOT_ENVIRONMENT environment must have required reviewers configured." >&2
+            exit 1
+          fi
+
   mark-fork-status:
     if: github.event_name == 'workflow_run' && (github.event.action == 'requested' || github.event.action == 'in_progress') && github.event.workflow_run.pull_requests[0] && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
     concurrency:
@@ -141,9 +162,8 @@ jobs:
           fi
 
   deploy:
-    needs: classify-pr
+    needs: approve-deploy
     if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
-    environment: ${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}
     concurrency:
       group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       cancel-in-progress: false
@@ -158,17 +178,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: richardsolomou/ras-stack/actions/setup-js@v0.46.0
-      - name: Verify Dependabot deployment protection
-        if: needs.classify-pr.outputs.dependabot == 'true'
-        env:
-          DEPENDABOT_ENVIRONMENT: ${{ inputs.dependabot-environment }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          protected="$(gh api "repos/$GITHUB_REPOSITORY/environments/$DEPENDABOT_ENVIRONMENT" --jq 'any(.protection_rules[]; .type == "required_reviewers")')"
-          if [[ "$protected" != "true" ]]; then
-            echo "The $DEPENDABOT_ENVIRONMENT environment must have required reviewers configured." >&2
-            exit 1
-          fi
       - name: Resolve pull request state
         id: pr
         env:

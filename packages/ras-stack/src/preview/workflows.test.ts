@@ -52,9 +52,12 @@ describe('Dokploy preview workflows', () => {
       classificationEvents: deploy.jobs['classify-pr']?.if,
       classificationOutputs: deploy.jobs['classify-pr']?.outputs,
       classificationPermissions: deploy.jobs['classify-pr']?.permissions,
+      approvalEvents: deploy.jobs['approve-deploy']?.if,
+      approvalNeeds: deploy.jobs['approve-deploy']?.needs,
+      approvalConcurrency: deploy.jobs['approve-deploy']?.concurrency,
+      approvalEnvironment: deploy.jobs['approve-deploy']?.environment,
       deployNeeds: deploy.jobs.deploy?.needs,
-      deployEnvironment: deploy.jobs.deploy?.environment,
-      dependabotProtection: step(deploy, 'deploy', 'Verify Dependabot deployment protection'),
+      dependabotProtection: step(deploy, 'approve-deploy', 'Verify Dependabot deployment protection'),
       deployConcurrency: deploy.jobs.deploy?.concurrency,
       reconcileEvents: deploy.jobs.deploy?.if,
       stateCheck: step(deploy, 'deploy', 'Resolve pull request state'),
@@ -90,15 +93,19 @@ describe('Dokploy preview workflows', () => {
           PR_NUMBER: '${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
         },
         run: expect.stringMatching(
-          /dependabot=false[\s\S]*EVENT_NAME.*workflow_run[\s\S]*pulls\/\$PR_NUMBER.*user\.login[\s\S]*dependabot\[bot\][\s\S]*dependabot=true[\s\S]*dependabot=\$dependabot/,
+          /dependabot=false[\s\S]*if \[\[ "\$EVENT_NAME" == "workflow_run" \]\]; then[\s\S]*pulls\/\$PR_NUMBER.*user\.login[\s\S]*dependabot\[bot\][\s\S]*dependabot=true[\s\S]*dependabot=\$dependabot/,
         ),
       }),
       classificationEvents:
         "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
       classificationOutputs: { dependabot: '${{ steps.pr.outputs.dependabot }}' },
       classificationPermissions: { contents: 'read', 'pull-requests': 'read' },
-      deployNeeds: 'classify-pr',
-      deployEnvironment: "${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}",
+      approvalEvents:
+        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
+      approvalNeeds: 'classify-pr',
+      approvalConcurrency: undefined,
+      approvalEnvironment: "${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}",
+      deployNeeds: 'approve-deploy',
       dependabotProtection: expect.objectContaining({
         if: "needs.classify-pr.outputs.dependabot == 'true'",
         env: {
