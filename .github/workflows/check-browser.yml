@@ -48,9 +48,9 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-      - uses: richardsolomou/ras-stack/actions/setup-js@v0.46.0
+      - uses: richardsolomou/ras-stack/actions/setup-js@v0.47.4
       - if: inputs.just-version != ''
-        uses: richardsolomou/ras-stack/actions/setup-just@v0.46.0
+        uses: richardsolomou/ras-stack/actions/setup-just@v0.47.4
         with:
           version: ${{ inputs.just-version }}
       - name: Prepare application
@@ -59,7 +59,7 @@ jobs:
           PREPARE_COMMAND: ${{ inputs.prepare-command }}
         run: bash -euo pipefail -c "$PREPARE_COMMAND"
       - name: Set up browser
-        uses: richardsolomou/ras-stack/actions/setup-playwright@v0.46.0
+        uses: richardsolomou/ras-stack/actions/setup-playwright@v0.47.4
         with:
           browser: ${{ inputs.browser }}
       - name: Run browser checks
