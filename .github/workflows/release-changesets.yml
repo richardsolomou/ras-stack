@@ -22,7 +22,7 @@ on:
         type: string
         default: v
       validation-workflow:
-        description: Workflow to run against the release commit before updating the protected branch.
+        description: Workflow to validate the release commit before updating the protected branch.
         type: string
         default: ''
       version-file:
@@ -31,7 +31,7 @@ on:
         default: package.json
     secrets:
       CHANGESETS_TOKEN:
-        description: Optional token used to push through protected branches.
+        description: Optional token that creates release pull requests and triggers their workflows.
         required: false
 
 jobs:
@@ -55,6 +55,7 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ secrets.CHANGESETS_TOKEN || github.token }}
+          RELEASE_TOKEN_PRESENT: ${{ secrets.CHANGESETS_TOKEN != '' }}
           TAG_PREFIX: ${{ inputs.tag-prefix }}
           VALIDATION_WORKFLOW: ${{ inputs.validation-workflow }}
           VERSION_FILE: ${{ inputs.version-file }}
@@ -109,12 +110,18 @@ jobs:
           if [ -n "$VALIDATION_WORKFLOW" ]; then
             release_branch="release-candidate/${tag}-${GITHUB_RUN_ID}"
             git push origin "HEAD:refs/heads/$release_branch"
+            validation_event=workflow_dispatch
+            if [ "$RELEASE_TOKEN_PRESENT" = "true" ]; then
+              validation_event=pull_request
+            fi
+            existing_run_ids="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event "$validation_event" --limit 20 --json databaseId | jq '[.[].databaseId]')"
             release_pr="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$GITHUB_REF_NAME" --head "$release_branch" --title "chore: release $tag" --body "Automated release for $tag after validation.")"
-            existing_run_ids="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event workflow_dispatch --limit 20 --json databaseId | jq '[.[].databaseId]')"
-            gh workflow run "$VALIDATION_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$release_branch"
+            if [ "$validation_event" = "workflow_dispatch" ]; then
+              gh workflow run "$VALIDATION_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$release_branch"
+            fi
             validation_run_id=""
             for _ in $(seq 1 12); do
-              validation_run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event workflow_dispatch --limit 20 --json databaseId,headSha | jq -r --arg sha "$release_sha" --argjson existing "$existing_run_ids" '.[] | select(.headSha == $sha and (.databaseId as $id | $existing | index($id) == null)) | .databaseId' | head -n1)"
+              validation_run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event "$validation_event" --limit 20 --json databaseId,headSha | jq -r --arg sha "$release_sha" --argjson existing "$existing_run_ids" '.[] | select(.headSha == $sha and (.databaseId as $id | $existing | index($id) == null)) | .databaseId' | head -n1)"
               if [ -n "$validation_run_id" ]; then
                 break
               fi

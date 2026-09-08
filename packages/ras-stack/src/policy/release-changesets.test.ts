@@ -76,9 +76,11 @@ describe('changeset release workflow', () => {
     await run(fixture, fixture.head, {
       GH_DISPATCHED: fake.dispatched,
       GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
       GITHUB_REPOSITORY: 'example/repository',
       GITHUB_RUN_ID: '42',
       PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      RELEASE_TOKEN_PRESENT: 'true',
       VALIDATION_WORKFLOW: 'ci.yml',
       VERSION_COMMAND: 'printf release > release.txt',
     })
@@ -91,12 +93,9 @@ describe('changeset release workflow', () => {
 
     expect(remoteMain).toBe(released)
     expect(releaseBranches).toBe('')
-    expect(calls.findIndex((call) => call.startsWith('pr create '))).toBeLessThan(
-      calls.findIndex((call) => call.startsWith('workflow run ')),
-    )
-    expect(calls.findIndex((call) => call.startsWith('workflow run '))).toBeLessThan(
-      calls.findIndex((call) => call.startsWith('run watch ')),
-    )
+    expect(calls.findIndex((call) => call.startsWith('pr create '))).toBeLessThan(calls.findIndex((call) => call.startsWith('run watch ')))
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
+    expect(calls.some((call) => call.includes('run list') && call.includes('--event pull_request'))).toBe(true)
     expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr merge ')))
     expect(calls.find((call) => call.startsWith('pr merge '))).toContain(`--match-head-commit ${releaseCommit}`)
     expect(calls.findIndex((call) => call.startsWith('pr merge '))).toBeLessThan(
@@ -112,6 +111,7 @@ describe('changeset release workflow', () => {
       run(fixture, fixture.head, {
         GH_DISPATCHED: fake.dispatched,
         GH_LOG: fake.log,
+        GH_PR_CREATED: fake.prCreated,
         GH_WATCH_EXIT: '1',
         GITHUB_REPOSITORY: 'example/repository',
         GITHUB_RUN_ID: '42',
@@ -129,6 +129,8 @@ describe('changeset release workflow', () => {
     expect(remoteMain).toBe(fixture.head)
     expect(releaseBranches).toBe('')
     expect(releaseTags).toBe('')
+    expect(calls.some((call) => call.includes('run list') && call.includes('--event workflow_dispatch'))).toBe(true)
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(true)
     expect(calls.some((call) => call.startsWith('pr close '))).toBe(true)
   })
 })
@@ -205,6 +207,7 @@ async function run(fixture: Fixture, sha: string, overrides: Record<string, stri
       GITHUB_SHA: sha,
       GITHUB_REF_NAME: 'main',
       GH_TOKEN: 'unused',
+      RELEASE_TOKEN_PRESENT: 'false',
       TAG_PREFIX: 'v',
       VALIDATION_WORKFLOW: '',
       VERSION_COMMAND: 'true',
@@ -246,14 +249,15 @@ async function releaseGh(work: string) {
   const bin = join(work, 'bin')
   const dispatched = join(work, 'dispatched')
   const log = join(work, 'gh.log')
+  const prCreated = join(work, 'pr-created')
   const gh = join(bin, 'gh')
   await mkdir(bin)
   await writeFile(
     gh,
-    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  release_sha="$(git rev-parse HEAD)"\n  release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n  git fetch origin main >/dev/null 2>&1\n  git checkout -B release-merge origin/main >/dev/null 2>&1\n  git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n  git push origin HEAD:main >/dev/null 2>&1\n  git push origin --delete "$release_branch" >/dev/null 2>&1\nfi\n',
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  release_sha="$(git rev-parse HEAD)"\n  release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n  git fetch origin main >/dev/null 2>&1\n  git checkout -B release-merge origin/main >/dev/null 2>&1\n  git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n  git push origin HEAD:main >/dev/null 2>&1\n  git push origin --delete "$release_branch" >/dev/null 2>&1\nfi\n',
   )
   await chmod(gh, 0o755)
-  return { bin, log, dispatched }
+  return { bin, log, dispatched, prCreated }
 }
 
 async function publicationRepository(): Promise<PublicationFixture> {
