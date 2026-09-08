@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.7
+
+### Patch Changes
+
+- 41b00a9: Route validated release commits through pull requests before tagging protected branches.
+
 ## 0.47.6
 
 ### Patch Changes
