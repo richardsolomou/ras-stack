@@ -94,7 +94,11 @@ jobs:
             exit 1
           fi
           git add -A
-          git commit -m "chore: release ${tag} [skip ci]"
+          release_message="chore: release ${tag}"
+          if [ -z "$VALIDATION_WORKFLOW" ]; then
+            release_message="${release_message} [skip ci]"
+          fi
+          git commit -m "$release_message"
           release_sha="$(git rev-parse HEAD)"
           release_branch=""
           release_pr=""

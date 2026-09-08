@@ -69,6 +69,22 @@ describe('changeset release workflow', () => {
     })
   })
 
+  it('suppresses checks when a release does not use pull request validation', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_LOG: fake.log,
+      GITHUB_REPOSITORY: 'example/repository',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const releaseMessage = (await exec('git', ['log', '-1', '--format=%B'], { cwd: fixture.work })).stdout
+
+    expect(releaseMessage).toMatch(/\[(?:skip ci|ci skip)\]/i)
+  })
+
   it('validates and merges a release pull request before tagging the protected branch', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
@@ -87,11 +103,13 @@ describe('changeset release workflow', () => {
 
     const released = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
     const releaseCommit = (await exec('git', ['rev-parse', `${released}^2`], { cwd: fixture.work })).stdout.trim()
+    const releaseMessage = (await exec('git', ['log', '-1', '--format=%B', releaseCommit], { cwd: fixture.work })).stdout
     const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
     const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
     const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
 
     expect(remoteMain).toBe(released)
+    expect(releaseMessage).not.toMatch(/\[(?:skip ci|ci skip)\]/i)
     expect(releaseBranches).toBe('')
     expect(calls.findIndex((call) => call.startsWith('pr create '))).toBeLessThan(calls.findIndex((call) => call.startsWith('run watch ')))
     expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
