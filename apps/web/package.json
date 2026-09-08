@@ -16,17 +16,17 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.53.1",
-    "@types/node": "^26.2.0",
+    "@cloudflare/vite-plugin": "1.54.2",
+    "@types/node": "^26.4.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.5",
-    "oxlint": "^1.74.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.80.0",
     "oxlint-tsgolint": "^7.0.2001",
     "ras-stack": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
-    "wrangler": "4.125.0"
+    "wrangler": "4.127.1"
   },
   "engines": {
     "node": ">=24 <25"
