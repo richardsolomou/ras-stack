@@ -34,6 +34,13 @@ async function releaseVerificationScript() {
 }
 
 describe('changeset release workflow', () => {
+  it('grants the caller permission to merge release pull requests', async () => {
+    const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+    const workflow = parse(source) as { jobs: { release: { permissions: Record<string, string> } } }
+
+    expect(workflow.jobs.release.permissions['pull-requests']).toBe('write')
+  })
+
   it('stands down when the branch carries no changesets', async () => {
     const fixture = await repository({ changesets: false })
 
@@ -62,7 +69,7 @@ describe('changeset release workflow', () => {
     })
   })
 
-  it('validates the release commit before updating the protected branch', async () => {
+  it('validates and merges a release pull request before tagging the protected branch', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
 
@@ -77,16 +84,22 @@ describe('changeset release workflow', () => {
     })
 
     const released = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
+    const releaseCommit = (await exec('git', ['rev-parse', `${released}^2`], { cwd: fixture.work })).stdout.trim()
     const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
     const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
     const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
 
     expect(remoteMain).toBe(released)
     expect(releaseBranches).toBe('')
+    expect(calls.findIndex((call) => call.startsWith('pr create '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('workflow run ')),
+    )
     expect(calls.findIndex((call) => call.startsWith('workflow run '))).toBeLessThan(
       calls.findIndex((call) => call.startsWith('run watch ')),
     )
-    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(
+    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr merge ')))
+    expect(calls.find((call) => call.startsWith('pr merge '))).toContain(`--match-head-commit ${releaseCommit}`)
+    expect(calls.findIndex((call) => call.startsWith('pr merge '))).toBeLessThan(
       calls.findIndex((call) => call.startsWith('release create ')),
     )
   })
@@ -111,10 +124,12 @@ describe('changeset release workflow', () => {
     const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
     const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
     const releaseTags = (await exec('git', ['ls-remote', '--tags', 'origin', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
 
     expect(remoteMain).toBe(fixture.head)
     expect(releaseBranches).toBe('')
     expect(releaseTags).toBe('')
+    expect(calls.some((call) => call.startsWith('pr close '))).toBe(true)
   })
 })
 
@@ -235,7 +250,7 @@ async function releaseGh(work: string) {
   await mkdir(bin)
   await writeFile(
     gh,
-    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\n',
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  release_sha="$(git rev-parse HEAD)"\n  release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n  git fetch origin main >/dev/null 2>&1\n  git checkout -B release-merge origin/main >/dev/null 2>&1\n  git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n  git push origin HEAD:main >/dev/null 2>&1\n  git push origin --delete "$release_branch" >/dev/null 2>&1\nfi\n',
   )
   await chmod(gh, 0o755)
   return { bin, log, dispatched }
