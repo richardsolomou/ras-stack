@@ -146,13 +146,14 @@ release:
   permissions:
     actions: write
     contents: write
+    pull-requests: write
   uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.47.6
   with:
     validation-workflow: ci.yml
   secrets: inherit
 ```
 
-The validation workflow must support `workflow_dispatch`. The release job pushes the version commit to a temporary branch, runs that workflow against the exact commit, and only updates the protected branch and tag after it passes.
+The validation workflow must support `workflow_dispatch`. The release job opens a pull request for the version commit, runs that workflow against the exact commit, and merges the pull request after it passes. The release tag points to the protected branch's merge commit.
 
 Browser jobs can cache the pinned Playwright payload through the shared setup action. Production-container E2E can use the reusable workflow, while repository-specific preparation and the actual test command remain inputs:
 
