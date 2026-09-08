@@ -61,6 +61,61 @@ describe('changeset release workflow', () => {
       stderr: expect.stringContaining('reached-version-command'),
     })
   })
+
+  it('validates the release commit before updating the protected branch', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const released = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
+    const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+
+    expect(remoteMain).toBe(released)
+    expect(releaseBranches).toBe('')
+    expect(calls.findIndex((call) => call.startsWith('workflow run '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('run watch ')),
+    )
+    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('release create ')),
+    )
+  })
+
+  it('leaves the protected branch unchanged when release validation fails', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await expect(
+      run(fixture, fixture.head, {
+        GH_DISPATCHED: fake.dispatched,
+        GH_LOG: fake.log,
+        GH_WATCH_EXIT: '1',
+        GITHUB_REPOSITORY: 'example/repository',
+        GITHUB_RUN_ID: '42',
+        PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+        VALIDATION_WORKFLOW: 'ci.yml',
+        VERSION_COMMAND: 'printf release > release.txt',
+      }),
+    ).rejects.toMatchObject({ code: 1 })
+
+    const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
+    const releaseTags = (await exec('git', ['ls-remote', '--tags', 'origin', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout
+
+    expect(remoteMain).toBe(fixture.head)
+    expect(releaseBranches).toBe('')
+    expect(releaseTags).toBe('')
+  })
 })
 
 describe('npm publication dispatch', () => {
@@ -136,7 +191,9 @@ async function run(fixture: Fixture, sha: string, overrides: Record<string, stri
       GITHUB_REF_NAME: 'main',
       GH_TOKEN: 'unused',
       TAG_PREFIX: 'v',
+      VALIDATION_WORKFLOW: '',
       VERSION_COMMAND: 'true',
+      VERSION_FILE: 'package.json',
       ...overrides,
     },
   })
@@ -170,6 +227,20 @@ async function runPublicationVerification(fixture: PublicationFixture, ref: stri
 type Fixture = { work: string; output: string; head: string; previous: string }
 type PublicationFixture = { work: string; head: string }
 
+async function releaseGh(work: string) {
+  const bin = join(work, 'bin')
+  const dispatched = join(work, 'dispatched')
+  const log = join(work, 'gh.log')
+  const gh = join(bin, 'gh')
+  await mkdir(bin)
+  await writeFile(
+    gh,
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\n',
+  )
+  await chmod(gh, 0o755)
+  return { bin, log, dispatched }
+}
+
 async function publicationRepository(): Promise<PublicationFixture> {
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
   await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
@@ -193,6 +264,7 @@ async function repository(options: { changesets: boolean }): Promise<Fixture> {
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
   await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
   await exec('git', ['remote', 'add', 'origin', remote], { cwd: work })
+  await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'example', version: '1.2.3' }))
 
   if (options.changesets) {
     await mkdir(join(work, '.changeset'), { recursive: true })

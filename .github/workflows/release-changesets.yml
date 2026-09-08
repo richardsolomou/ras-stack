@@ -21,6 +21,14 @@ on:
         description: Prefix added to the root package version for the Git tag.
         type: string
         default: v
+      validation-workflow:
+        description: Workflow to run against the release commit before updating the protected branch.
+        type: string
+        default: ''
+      version-file:
+        description: Package manifest whose version is used for the release tag.
+        type: string
+        default: package.json
     secrets:
       CHANGESETS_TOKEN:
         description: Optional token used to push through protected branches.
@@ -30,6 +38,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
     outputs:
       created: ${{ steps.release.outputs.created }}
@@ -46,6 +55,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CHANGESETS_TOKEN || github.token }}
           TAG_PREFIX: ${{ inputs.tag-prefix }}
+          VALIDATION_WORKFLOW: ${{ inputs.validation-workflow }}
+          VERSION_FILE: ${{ inputs.version-file }}
           VERSION_COMMAND: ${{ inputs.version-command }}
         run: |
           set -euo pipefail
@@ -75,7 +86,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           bash -euo pipefail -c "$VERSION_COMMAND"
-          tag="${TAG_PREFIX}$(node -p "require('./packages/ras-stack/package.json').version")"
+          tag="${TAG_PREFIX}$(node -p "require('./' + process.env.VERSION_FILE).version")"
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists"
             exit 1
@@ -83,6 +94,29 @@ jobs:
           git add -A
           git commit -m "chore: release ${tag} [skip ci]"
           release_sha="$(git rev-parse HEAD)"
+          release_branch=""
+          cleanup() {
+            if [ -n "$release_branch" ]; then
+              git push origin --delete "$release_branch" >/dev/null 2>&1 || true
+            fi
+          }
+          trap cleanup EXIT
+          if [ -n "$VALIDATION_WORKFLOW" ]; then
+            release_branch="release-candidate/${tag}-${GITHUB_RUN_ID}"
+            git push origin "HEAD:refs/heads/$release_branch"
+            existing_run_ids="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event workflow_dispatch --limit 20 --json databaseId | jq '[.[].databaseId]')"
+            gh workflow run "$VALIDATION_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$release_branch"
+            validation_run_id=""
+            for _ in $(seq 1 12); do
+              validation_run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event workflow_dispatch --limit 20 --json databaseId,headSha | jq -r --arg sha "$release_sha" --argjson existing "$existing_run_ids" '.[] | select(.headSha == $sha and (.databaseId as $id | $existing | index($id) == null)) | .databaseId' | head -n1)"
+              if [ -n "$validation_run_id" ]; then
+                break
+              fi
+              sleep 5
+            done
+            test -n "$validation_run_id"
+            gh run watch "$validation_run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+          fi
           git tag "$tag"
           git push --atomic origin "HEAD:$GITHUB_REF_NAME" "$tag"
           gh release create "$tag" --title "$tag" --generate-notes
