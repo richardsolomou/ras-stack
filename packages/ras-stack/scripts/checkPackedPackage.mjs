@@ -84,6 +84,8 @@ try {
   const starter = JSON.parse(readFileSync(starterFile, 'utf8'))
   if (starter.dependencies['ras-stack'] !== `^${packageJson.version}`)
     throw new Error('installed starter does not target the packed version')
+  if (starter.dependencies['@better-auth/core'] !== starter.dependencies['better-auth'])
+    throw new Error('installed starter does not keep the Better Auth package family aligned')
   const gitignore = readFileSync(path.join(starterDirectory, '.gitignore'), 'utf8')
   if (!gitignore.includes('.data/')) throw new Error('installed starter is missing generated-state ignores')
   assertEnvironmentIgnores(gitignore, '.gitignore')
