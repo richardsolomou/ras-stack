@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.8
+
+### Patch Changes
+
+- aea0f7c: Trigger pull-request validation when protected branches require status checks.
+
 ## 0.47.7
 
 ### Patch Changes
