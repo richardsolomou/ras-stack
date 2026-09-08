@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.9
+
+### Patch Changes
+
+- 5ab6a2e: Allow release-candidate pull requests to trigger their validation checks.
+
 ## 0.47.8
 
 ### Patch Changes
