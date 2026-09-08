@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -239,8 +240,12 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: [actions, check, example, peer-floor, postgres, runtime-pin]
     permissions:
+      actions: write
       contents: write
     uses: ./.github/workflows/release-changesets.yml
+    with:
+      validation-workflow: ci.yml
+      version-file: packages/ras-stack/package.json
     secrets: inherit
 
   publish:
