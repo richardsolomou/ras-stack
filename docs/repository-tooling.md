@@ -155,7 +155,11 @@ release:
 
 Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Actions to create and approve pull requests**. The workflow cannot create the release pull request when this setting is off.
 
-The validation workflow must support `workflow_dispatch`. The release job opens a pull request for the version commit. It validates the exact commit and merges the pull request after validation passes. The release tag points to the protected branch's merge commit.
+Repositories with required status checks must define `CHANGESETS_TOKEN` as a repository secret. Use a fine-grained personal access token. Grant Actions read, Contents read/write, and Pull requests read/write permissions. Limit the token to the repository. The token lets the release pull request trigger the validation workflow's `pull_request` event.
+
+Without this secret, the validation workflow must support `workflow_dispatch`. Dispatched checks validate the release commit, but GitHub does not count them as required pull-request status checks.
+
+The release job opens a pull request for the version commit. It validates the exact commit and merges the pull request after validation passes. The release tag points to the protected branch's merge commit.
 
 Browser jobs can cache the pinned Playwright payload through the shared setup action. Production-container E2E can use the reusable workflow, while repository-specific preparation and the actual test command remain inputs:
 
