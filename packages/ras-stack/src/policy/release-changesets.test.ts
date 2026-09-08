@@ -34,6 +34,13 @@ async function releaseVerificationScript() {
 }
 
 describe('changeset release workflow', () => {
+  it('grants the caller permission to merge release pull requests', async () => {
+    const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+    const workflow = parse(source) as { jobs: { release: { permissions: Record<string, string> } } }
+
+    expect(workflow.jobs.release.permissions['pull-requests']).toBe('write')
+  })
+
   it('stands down when the branch carries no changesets', async () => {
     const fixture = await repository({ changesets: false })
 
