@@ -8,6 +8,13 @@
       "when": 1787072400000,
       "tag": "0000_production_reference",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788851695000,
+      "tag": "0001_remove_account_issuer",
+      "breakpoints": true
     }
   ]
 }
