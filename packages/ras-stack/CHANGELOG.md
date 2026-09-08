@@ -1,5 +1,15 @@
 # ras-stack
 
+## 0.47.6
+
+### Patch Changes
+
+- de7107c: Validate release commits before protected branch updates.
+
+  Support root and nested version manifests.
+
+  Keep generated Better Auth dependencies compatible.
+
 ## 0.47.5
 
 ### Patch Changes
