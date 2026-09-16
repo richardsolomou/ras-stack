@@ -47,7 +47,7 @@ describe('Docker-backed realtime development', () => {
       'CENTRIFUGO_VAR_PROXY_SECRET=development-secret',
       '-v',
       `${configPath}:/centrifugo/config.json:ro`,
-      'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.2@sha256:311119db377ac80e87b3116e634912eeca2059b16c170a4d342923de3fd90ba9',
+      'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e',
       '/usr/local/bin/centrifugo',
       '--config=/centrifugo/config.json',
       '--health.enabled',
