@@ -114,30 +114,22 @@ jobs:
           if [ -n "$VALIDATION_WORKFLOW" ]; then
             release_branch="release-candidate/${tag}-${GITHUB_RUN_ID}"
             git push origin "HEAD:refs/heads/$release_branch"
-            validation_event=workflow_dispatch
-            if [ "$RELEASE_TOKEN_PRESENT" = "true" ]; then
-              validation_event=pull_request
-            fi
-            existing_run_ids="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event "$validation_event" --limit 20 --json databaseId | jq '[.[].databaseId]')"
+            existing_run_ids="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event pull_request --limit 20 --json databaseId | jq '[.[].databaseId]')"
             release_pr="$(gh pr create --repo "$GITHUB_REPOSITORY" --base "$GITHUB_REF_NAME" --head "$release_branch" --title "chore: release $tag" --body "Automated release for $tag after validation.")"
-            if [ "$validation_event" = "workflow_dispatch" ]; then
-              gh workflow run "$VALIDATION_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$release_branch"
-            fi
             validation_run_id=""
             for _ in $(seq 1 12); do
-              validation_run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event "$validation_event" --limit 20 --json databaseId,headSha | jq -r --arg sha "$release_sha" --argjson existing "$existing_run_ids" '.[] | select(.headSha == $sha and (.databaseId as $id | $existing | index($id) == null)) | .databaseId' | head -n1)"
+              validation_run_id="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$VALIDATION_WORKFLOW" --branch "$release_branch" --event pull_request --limit 20 --json databaseId,headSha | jq -r --arg sha "$release_sha" --argjson existing "$existing_run_ids" '.[] | select(.headSha == $sha and (.databaseId as $id | $existing | index($id) == null)) | .databaseId' | head -n1)"
               if [ -n "$validation_run_id" ]; then
                 break
               fi
               sleep 5
             done
             test -n "$validation_run_id"
-            gh run watch "$validation_run_id" --repo "$GITHUB_REPOSITORY" --exit-status
-            merge_mode=--auto
-            if [ "$validation_event" = "workflow_dispatch" ]; then
-              merge_mode=--admin
+            if [ "$RELEASE_TOKEN_PRESENT" != "true" ]; then
+              gh run rerun "$validation_run_id" --repo "$GITHUB_REPOSITORY"
             fi
-            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" "$merge_mode" --merge --delete-branch --match-head-commit "$release_sha"
+            gh run watch "$validation_run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --auto --merge --delete-branch --match-head-commit "$release_sha"
             release_state=""
             for _ in $(seq 1 12); do
               release_state="$(gh pr view "$release_pr" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
