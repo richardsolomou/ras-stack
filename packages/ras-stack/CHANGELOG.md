@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.13
+
+### Patch Changes
+
+- d015874: Rerun release checks so protected branches merge without a personal token.
+
 ## 0.47.12
 
 ### Patch Changes
