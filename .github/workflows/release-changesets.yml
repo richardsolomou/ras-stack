@@ -133,7 +133,19 @@ jobs:
             done
             test -n "$validation_run_id"
             gh run watch "$validation_run_id" --repo "$GITHUB_REPOSITORY" --exit-status
-            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch --match-head-commit "$release_sha"
+            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --auto --merge --delete-branch --match-head-commit "$release_sha"
+            release_state=""
+            for _ in $(seq 1 12); do
+              release_state="$(gh pr view "$release_pr" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+              if [ "$release_state" = "MERGED" ]; then
+                break
+              fi
+              if [ "$release_state" != "OPEN" ]; then
+                break
+              fi
+              sleep 5
+            done
+            test "$release_state" = "MERGED"
             release_branch=""
             release_pr=""
             git fetch origin "$GITHUB_REF_NAME"

@@ -159,7 +159,7 @@ Repositories with required status checks must define `CHANGESETS_TOKEN` as a rep
 
 Without this secret, the validation workflow must support `workflow_dispatch`. Dispatched checks validate the release commit, but GitHub does not count them as required pull-request status checks.
 
-The release job opens a pull request for the version commit. It validates the exact commit and merges the pull request after validation passes. The release tag points to the protected branch's merge commit.
+The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. The release tag points to the protected branch's merge commit.
 
 Browser jobs can cache the pinned Playwright payload through the shared setup action. Production-container E2E can use the reusable workflow, while repository-specific preparation and the actual test command remain inputs:
 
