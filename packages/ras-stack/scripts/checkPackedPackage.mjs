@@ -33,6 +33,7 @@ try {
         'posthog-js': packageJson.devDependencies['posthog-js'],
         'posthog-node': packageJson.devDependencies['posthog-node'],
         react: packageJson.devDependencies.react,
+        'react-dom': packageJson.devDependencies.react,
         'create-ras-app': `file:${createArchive}`,
         'ras-stack': `file:${archive}`,
         'tus-js-client': packageJson.devDependencies['tus-js-client'],

@@ -115,7 +115,12 @@ describe('changeset release workflow', () => {
     expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
     expect(calls.some((call) => call.includes('run list') && call.includes('--event pull_request'))).toBe(true)
     expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr merge ')))
+    expect(calls.find((call) => call.startsWith('pr merge '))).toContain('--auto')
     expect(calls.find((call) => call.startsWith('pr merge '))).toContain(`--match-head-commit ${releaseCommit}`)
+    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr view ')))
+    expect(calls.findIndex((call) => call.startsWith('pr view '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('release create ')),
+    )
     expect(calls.findIndex((call) => call.startsWith('pr merge '))).toBeLessThan(
       calls.findIndex((call) => call.startsWith('release create ')),
     )
@@ -269,12 +274,14 @@ async function releaseGh(work: string) {
   const log = join(work, 'gh.log')
   const prCreated = join(work, 'pr-created')
   const gh = join(bin, 'gh')
+  const sleep = join(bin, 'sleep')
   await mkdir(bin)
   await writeFile(
     gh,
-    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  release_sha="$(git rev-parse HEAD)"\n  release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n  git fetch origin main >/dev/null 2>&1\n  git checkout -B release-merge origin/main >/dev/null 2>&1\n  git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n  git push origin HEAD:main >/dev/null 2>&1\n  git push origin --delete "$release_branch" >/dev/null 2>&1\nfi\n',
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  if [ "${GH_WATCH_EXIT:-0}" = "0" ]; then\n    touch "$GH_LOG.watched"\n  fi\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  touch "$GH_LOG.auto"\nfi\nif [ "$1 $2" = "pr view" ]; then\n  if [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.viewed" ]; then\n    touch "$GH_LOG.viewed"\n  elif [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.merged" ]; then\n    touch "$GH_LOG.merged"\n    release_sha="$(git rev-parse HEAD)"\n    release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n    git fetch origin main >/dev/null 2>&1\n    git checkout -B release-merge origin/main >/dev/null 2>&1\n    git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n    git push origin HEAD:main >/dev/null 2>&1\n    git push origin --delete "$release_branch" >/dev/null 2>&1\n  fi\n  if [ -e "$GH_LOG.merged" ]; then\n    printf \'%s\\n\' \'MERGED\'\n  else\n    printf \'%s\\n\' \'OPEN\'\n  fi\nfi\n',
   )
-  await chmod(gh, 0o755)
+  await writeFile(sleep, '#!/bin/sh\nexit 0\n')
+  await Promise.all([chmod(gh, 0o755), chmod(sleep, 0o755)])
   return { bin, log, dispatched, prCreated }
 }
 
