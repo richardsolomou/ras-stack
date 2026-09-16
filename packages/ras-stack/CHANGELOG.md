@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.12
+
+### Patch Changes
+
+- 2d14260: Merge protected release candidates after their dispatched validation succeeds.
+
 ## 0.47.11
 
 ### Patch Changes
