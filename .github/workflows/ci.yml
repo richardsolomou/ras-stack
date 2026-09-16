@@ -98,7 +98,7 @@ jobs:
         run: |
           test "$(docker image inspect ras-stack-runtime-binaries:test --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')" = "$(cat runtime/VERSION)"
           test "$(docker run --rm --entrypoint /usr/local/bin/caddy ras-stack-runtime-binaries:test version)" = 'v2.11.4'
-          docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F 'Centrifugo v6.9.1 '
+          docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F 'Centrifugo v6.9.6 '
       - name: Build production image
         run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
       - name: Scan production image
