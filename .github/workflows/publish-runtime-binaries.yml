@@ -21,7 +21,7 @@ jobs:
         run: |
           test "$GITHUB_REF_NAME" = "runtime-v$(cat runtime/VERSION)"
           git fetch origin main
-          test "$GITHUB_SHA" = "$(git rev-parse origin/main)"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           run_id="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --event push --limit 1 --json databaseId --jq '.[0].databaseId')"
           test -n "$run_id"
           gh run watch "$run_id" --exit-status
