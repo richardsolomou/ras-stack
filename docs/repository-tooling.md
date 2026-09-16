@@ -299,7 +299,7 @@ await runRealtimeStack({
 The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. Copy the binaries from an immutable release and pin its digest:
 
 ```dockerfile
-FROM ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.2@sha256:311119db377ac80e87b3116e634912eeca2059b16c170a4d342923de3fd90ba9 AS runtime-binaries
+FROM ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e AS runtime-binaries
 COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 ```

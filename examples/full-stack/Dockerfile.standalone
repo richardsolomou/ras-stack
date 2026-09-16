@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG RUNTIME_BINARIES_IMAGE=ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.2@sha256:311119db377ac80e87b3116e634912eeca2059b16c170a4d342923de3fd90ba9
+ARG RUNTIME_BINARIES_IMAGE=ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e
 FROM node:24-alpine AS build
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
