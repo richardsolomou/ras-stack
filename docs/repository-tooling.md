@@ -155,9 +155,7 @@ release:
 
 Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Actions to create and approve pull requests**. The workflow cannot create the release pull request when this setting is off.
 
-Repositories with required status checks must define `CHANGESETS_TOKEN` as a repository secret. Use a fine-grained personal access token. Grant Actions read, Contents read/write, and Pull requests read/write permissions. Limit the token to the repository. The token lets the release pull request trigger the validation workflow's `pull_request` event.
-
-Without this secret, the validation workflow must support `workflow_dispatch`. Dispatched checks validate the release commit, but GitHub does not count them as required pull-request status checks.
+`CHANGESETS_TOKEN` is optional. When it is absent, the release workflow reruns the pull request validation run that GitHub records without executing for pull requests created by `GITHUB_TOKEN`. This gives protected branches the required pull-request checks without a long-lived token. When supplied, use a fine-grained personal access token with Actions read, Contents read/write, and Pull requests read/write permissions, limited to the repository.
 
 The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. The release tag points to the protected branch's merge commit.
 

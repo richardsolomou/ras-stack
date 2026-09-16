@@ -126,7 +126,7 @@ describe('changeset release workflow', () => {
     )
   })
 
-  it('bypasses branch checks after a dispatched validation succeeds', async () => {
+  it('reruns pull-request validation when the release token is absent', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
 
@@ -144,9 +144,10 @@ describe('changeset release workflow', () => {
     const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
     const merge = calls.find((call) => call.startsWith('pr merge '))
 
-    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(true)
-    expect(merge).toContain('--admin')
-    expect(merge).not.toContain('--auto')
+    expect(calls.some((call) => call.startsWith('run rerun 123 '))).toBe(true)
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
+    expect(merge).toContain('--auto')
+    expect(merge).not.toContain('--admin')
   })
 
   it('leaves the protected branch unchanged when release validation fails', async () => {
@@ -175,8 +176,9 @@ describe('changeset release workflow', () => {
     expect(remoteMain).toBe(fixture.head)
     expect(releaseBranches).toBe('')
     expect(releaseTags).toBe('')
-    expect(calls.some((call) => call.includes('run list') && call.includes('--event workflow_dispatch'))).toBe(true)
-    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(true)
+    expect(calls.some((call) => call.includes('run list') && call.includes('--event pull_request'))).toBe(true)
+    expect(calls.some((call) => call.startsWith('run rerun 123 '))).toBe(true)
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
     expect(calls.some((call) => call.startsWith('pr close '))).toBe(true)
   })
 })
