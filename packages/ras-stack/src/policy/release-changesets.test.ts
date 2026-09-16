@@ -126,6 +126,29 @@ describe('changeset release workflow', () => {
     )
   })
 
+  it('bypasses branch checks after a dispatched validation succeeds', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+    const merge = calls.find((call) => call.startsWith('pr merge '))
+
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(true)
+    expect(merge).toContain('--admin')
+    expect(merge).not.toContain('--auto')
+  })
+
   it('leaves the protected branch unchanged when release validation fails', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
