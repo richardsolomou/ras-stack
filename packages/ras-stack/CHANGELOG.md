@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.10
+
+### Patch Changes
+
+- 6658ccc: Wait for protected release pull requests to merge before tagging.
+
 ## 0.47.9
 
 ### Patch Changes
