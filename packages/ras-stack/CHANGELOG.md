@@ -1,5 +1,11 @@
 # ras-stack
 
+## 0.47.11
+
+### Patch Changes
+
+- 9a5e079: Use the patched runtime binaries in development and deployment defaults.
+
 ## 0.47.10
 
 ### Patch Changes
