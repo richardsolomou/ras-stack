@@ -323,7 +323,7 @@ The workflow consumes pending changesets, commits the resulting versions and cha
 
 Consumer repositories follow the stable major compatibility tag, such as `v1`. Each exact release tag remains immutable, while the release pipeline advances the major tag only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 
-Reusable workflows refer to ras-stack actions with GitHub's `$/` self-repository syntax. Those references resolve to the same commit as the running workflow, so internal actions and nested reusable workflows need no bootstrap version. Consumer examples and direct action calls use the stable major tag.
+Reusable workflows refer to ras-stack actions and nested workflows through the stable major compatibility tag. GitHub requires remote actions and reusable workflows to use an `owner/repository/path@ref` reference, including calls made from another reusable workflow.
 
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
