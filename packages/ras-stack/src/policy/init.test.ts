@@ -22,17 +22,17 @@ describe('repository initialization plan', () => {
   })
 
   it('plans nothing for an empty selection', async () => {
-    expect(await planRepositoryInit(await repository(), { steps: [] }, '1.2.3')).toEqual([])
+    expect(await planRepositoryInit(await repository(), { steps: [] })).toEqual([])
   })
 
   it.each(INIT_STEPS)('plans the $name step on its own', async ({ name }) => {
-    const planned = await planRepositoryInit(await repository(), { steps: [name] }, '1.2.3')
+    const planned = await planRepositoryInit(await repository(), { steps: [name] })
 
     expect(planned.length).toBeGreaterThan(0)
   })
 
   it('generates the policy selection alongside the files that policy produces', async () => {
-    const planned = await planRepositoryInit(await repository(), { steps: ['policy'] }, '1.2.3')
+    const planned = await planRepositoryInit(await repository(), { steps: ['policy'] })
 
     expect(planned.map((file) => file.path)).toEqual([
       'ras-stack.policy.json',
@@ -43,16 +43,16 @@ describe('repository initialization plan', () => {
     expect(JSON.parse(planned[0]!.contents)).toEqual({ changesets: true, dependabot: true, pnpm: {} })
   })
 
-  it('pins the generated workflow to the release that generated it', async () => {
-    const [workflow] = await planRepositoryInit(await repository(), { steps: ['workflow'] }, '1.2.3')
+  it('uses the stable major workflow tag', async () => {
+    const [workflow] = await planRepositoryInit(await repository(), { steps: ['workflow'] })
 
-    expect(workflow?.contents).toContain('uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v1.2.3')
+    expect(workflow?.contents).toContain('uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v1')
   })
 
   it('keeps the rest of package.json when it sets the toolchain', async () => {
     const root = await repository({ name: 'example', scripts: { check: 'pnpm test' } })
 
-    const [manifest] = await planRepositoryInit(root, { steps: ['toolchain'] }, '1.2.3')
+    const [manifest] = await planRepositoryInit(root, { steps: ['toolchain'] })
 
     expect(JSON.parse(manifest!.contents)).toEqual({
       name: 'example',
@@ -65,11 +65,11 @@ describe('repository initialization plan', () => {
   it('refuses the toolchain step without a package.json to configure', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ras-stack-init-bare-'))
 
-    await expect(planRepositoryInit(root, { steps: ['toolchain'] }, '1.2.3')).rejects.toThrow('package.json is required')
+    await expect(planRepositoryInit(root, { steps: ['toolchain'] })).rejects.toThrow('package.json is required')
   })
 
   it('extends the requested TypeScript preset', async () => {
-    const [tsconfig] = await planRepositoryInit(await repository(), { steps: ['typescript'], typescriptPreset: 'tanstack' }, '1.2.3')
+    const [tsconfig] = await planRepositoryInit(await repository(), { steps: ['typescript'], typescriptPreset: 'tanstack' })
 
     expect(JSON.parse(tsconfig!.contents).extends).toBe('./node_modules/ras-stack/config/typescript/tanstack.json')
   })
@@ -78,14 +78,14 @@ describe('repository initialization plan', () => {
     const root = await repository()
     await writeFile(join(root, 'justfile'), 'default:\n    @echo mine\n')
 
-    const [justfile] = await planRepositoryInit(root, { steps: ['justfile'] }, '1.2.3')
+    const [justfile] = await planRepositoryInit(root, { steps: ['justfile'] })
 
     expect(justfile?.existing).toBe('default:\n    @echo mine\n')
   })
 
   it('writes every planned file to disk', async () => {
     const root = await repository()
-    const planned = await planRepositoryInit(root, { steps: everyStep }, '1.2.3')
+    const planned = await planRepositoryInit(root, { steps: everyStep })
 
     const written = await applyRepositoryInit(root, planned)
 

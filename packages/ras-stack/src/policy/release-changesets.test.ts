@@ -25,6 +25,14 @@ async function publicationScript() {
   return step.run
 }
 
+async function compatibilityTagScript() {
+  const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+  const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
+  const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Promote compatibility tag')
+  if (!step?.run) throw new Error('compatibility tag step is missing its script')
+  return step.run
+}
+
 async function releaseVerificationScript() {
   const source = await readFile(new URL('../../../../.github/workflows/release.yml', import.meta.url), 'utf8')
   const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
@@ -184,6 +192,24 @@ describe('changeset release workflow', () => {
 })
 
 describe('npm publication dispatch', () => {
+  it('promotes the compatibility tag after successful publication', async () => {
+    const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
+    const workflow = parse(source) as {
+      jobs: { publish: { permissions: Record<string, string>; steps: { name?: string; uses?: string; with?: Record<string, string> }[] } }
+    }
+    const job = workflow.jobs.publish
+
+    expect({
+      contents: job.permissions.contents,
+      order: job.steps.map((step) => step.name ?? step.uses),
+      ref: job.steps.find((step) => step.uses === 'actions/checkout@v7')?.with?.ref,
+    }).toEqual({
+      contents: 'write',
+      order: ['Publish through the OIDC-trusted workflow', 'actions/checkout@v7', 'Promote compatibility tag'],
+      ref: '${{ needs.release.outputs.tag }}',
+    })
+  })
+
   it('watches the newly dispatched tagged workflow instead of stale runs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ras-stack-publication-'))
     const bin = join(root, 'bin')
@@ -220,6 +246,25 @@ describe('npm publication dispatch', () => {
     const workspace = parse(source) as { minimumReleaseAgeExclude?: string[] }
 
     expect(workspace.minimumReleaseAgeExclude).toEqual(expect.arrayContaining(['create-ras-app', 'ras-stack']))
+  })
+
+  it('moves the compatibility tag forward without letting an older release roll it back', async () => {
+    const fixture = await compatibilityRepository()
+    const script = await compatibilityTagScript()
+
+    await exec('bash', ['-c', script], {
+      cwd: fixture.work,
+      env: { ...process.env, RELEASE_TAG: 'v1.2.3' },
+    })
+    await exec('bash', ['-c', script], {
+      cwd: fixture.work,
+      env: { ...process.env, RELEASE_TAG: 'v1.1.0' },
+    })
+
+    const compatibilityTag = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseTag = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
+
+    expect(compatibilityTag).toBe(releaseTag)
   })
 })
 
@@ -323,6 +368,26 @@ async function publicationRepository(): Promise<PublicationFixture> {
   await exec('git', ['commit', '-m', 'release'], { cwd: work })
   const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: work })).stdout.trim()
   return { work, head }
+}
+
+async function compatibilityRepository() {
+  const remote = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-origin-'))
+  const work = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-'))
+  await exec('git', ['init', '--bare', '--initial-branch=main'], { cwd: remote })
+  await exec('git', ['init', '--initial-branch=main'], { cwd: work })
+  await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
+  await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
+  await exec('git', ['remote', 'add', 'origin', remote], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'old')
+  await exec('git', ['add', 'release.txt'], { cwd: work })
+  await exec('git', ['commit', '-m', 'old release'], { cwd: work })
+  await exec('git', ['tag', 'v1.1.0'], { cwd: work })
+  await exec('git', ['tag', 'v1'], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'new')
+  await exec('git', ['commit', '-am', 'new release'], { cwd: work })
+  await exec('git', ['tag', 'v1.2.3'], { cwd: work })
+  await exec('git', ['push', 'origin', 'main', 'v1', 'v1.1.0', 'v1.2.3'], { cwd: work })
+  return { work }
 }
 
 async function repository(options: { changesets: boolean }): Promise<Fixture> {

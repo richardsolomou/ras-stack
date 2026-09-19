@@ -56,7 +56,7 @@ These configs do not set include paths, aliases, generated directories outside T
 pnpm exec ras init
 ```
 
-It offers the repository policy and its generated files, the declared Node and pnpm versions, a `tsconfig.json` extending a shared preset, an `.oxlintrc.json`, a CI workflow calling the shared check workflow, and a justfile. Every step is a separate question, so a repository can take the parts that fit and decline the rest. A file that already exists is never replaced without a separate answer for that file, and the generated workflow pins the release that generated it.
+It offers the repository policy and its generated files, the declared Node and pnpm versions, a `tsconfig.json` extending a shared preset, an `.oxlintrc.json`, a CI workflow calling the shared check workflow, and a justfile. Every step is a separate question, so a repository can take the parts that fit and decline the rest. A file that already exists is never replaced without a separate answer for that file, and the generated workflow follows the stable `v1` compatibility tag.
 
 `--dry-run` reports the plan without writing anything. The questions need a terminal, so `--yes` accepts every step for a non-interactive run.
 
@@ -86,7 +86,7 @@ pnpm exec ras policy sync
 pnpm exec ras policy check
 ```
 
-`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown except to ras-stack's own actions and reusable workflows. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown and ignores major ras-stack workflow upgrades, which require an intentional compatibility migration. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
 The package does not police which ras-stack version a repository is on. Pick the version you want to ship; if it lacks something you use, the type checker and the failing import say so more precisely than a declared floor ever could.
 
@@ -125,14 +125,14 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 ```yaml
 steps:
   - uses: actions/checkout@v7
-  - uses: richardsolomou/ras-stack/actions/setup-js@v0.38.2
+  - uses: richardsolomou/ras-stack/actions/setup-js@v1
   - run: pnpm check
 ```
 
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/setup-just@v0.38.2
+- uses: richardsolomou/ras-stack/actions/setup-just@v1
   with:
     version: '1.58.0'
 ```
@@ -147,7 +147,7 @@ release:
     actions: write
     contents: write
     pull-requests: write
-  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v0.47.7
+  uses: richardsolomou/ras-stack/.github/workflows/release-changesets.yml@v1
   with:
     validation-workflow: ci.yml
   secrets: inherit
@@ -163,7 +163,7 @@ Browser jobs can cache the pinned Playwright payload through the shared setup ac
 
 ```yaml
 e2e:
-  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v0.38.2
+  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v1
   with:
     image: my-app-e2e
     cache-scope: my-app-e2e
@@ -180,10 +180,10 @@ Production deployments can point Dokploy at the exact image that the workflow al
 
 ```yaml
 - id: image
-  uses: richardsolomou/ras-stack/actions/resolve-container-image@v0.38.2
+  uses: richardsolomou/ras-stack/actions/resolve-container-image@v1
   with:
     image: ghcr.io/example/application:sha-${{ github.sha }}
-- uses: richardsolomou/ras-stack/actions/deploy-dokploy-image@v0.38.2
+- uses: richardsolomou/ras-stack/actions/deploy-dokploy-image@v1
   with:
     url: ${{ secrets.DOKPLOY_URL }}
     api-key: ${{ secrets.DOKPLOY_API_KEY }}
@@ -258,7 +258,7 @@ mark-preview-ready:
     contents: read
     checks: write
     issues: write
-  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v0.38.2
+  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v1
   with:
     state: ready
     pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -321,14 +321,14 @@ Read-only containers can pass writable `configHome` and `dataHome` paths to `cad
 
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
-Pin actions and reusable workflows to a release tag and let Dependabot propose upgrades.
+Consumer repositories follow the stable major compatibility tag, such as `v1`. Each exact release tag remains immutable, while the release pipeline advances the major tag only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 
-Reusable workflows cannot refer to an action at their own dynamic release tag. Their implementations therefore pin ras-stack actions to one older independently published bootstrap tag. Keep every ras-stack action in the shared workflows on that same tag and advance them together. Consumer examples and direct action calls should use the current release.
+Reusable workflows refer to ras-stack actions with GitHub's `$/` self-repository syntax. Those references resolve to the same commit as the running workflow, so internal actions and nested reusable workflows need no bootstrap version. Consumer examples and direct action calls use the stable major tag.
 
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
 ```yaml
-- uses: richardsolomou/ras-stack/actions/require-current-base@v0.38.2
+- uses: richardsolomou/ras-stack/actions/require-current-base@v1
   if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
   with:
     base-sha: ${{ github.event.pull_request.base.sha }}
@@ -342,7 +342,7 @@ The reusable check workflow owns checkout and toolchain setup while the reposito
 ```yaml
 jobs:
   check:
-    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v0.38.2
+    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v1
     with:
       command: just check
       just-version: '1.58.0'
@@ -353,7 +353,7 @@ Simple Playwright jobs can also share browser installation and failure artifacts
 ```yaml
 jobs:
   end-to-end:
-    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v0.38.2
+    uses: richardsolomou/ras-stack/.github/workflows/check-browser.yml@v1
     with:
       prepare-command: pnpm build
       command: pnpm test:e2e:run
