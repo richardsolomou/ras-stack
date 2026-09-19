@@ -1,5 +1,11 @@
 # ras-stack
 
+## 1.0.1
+
+### Patch Changes
+
+- 8c5c358: Fix reusable workflows to use valid v1 action references.
+
 ## 1.0.0
 
 ### Major Changes
