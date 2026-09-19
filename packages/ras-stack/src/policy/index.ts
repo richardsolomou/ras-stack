@@ -45,7 +45,13 @@ const dependabotPolicy = {
       'package-ecosystem': 'github-actions',
       directory: '/',
       schedule: { interval: 'weekly' },
-      cooldown: { 'default-days': 7, exclude: ['richardsolomou/ras-stack*'] },
+      cooldown: { 'default-days': 7 },
+      ignore: [
+        {
+          'dependency-name': 'richardsolomou/ras-stack*',
+          'update-types': ['version-update:semver-major'],
+        },
+      ],
     },
   ],
 }

@@ -255,7 +255,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: read
+      contents: write
     steps:
       - name: Publish through the OIDC-trusted workflow
         env:
@@ -275,3 +275,36 @@ jobs:
           done
           test -n "$run_id"
           gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.release.outputs.tag }}
+      - name: Promote compatibility tag
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          compatibility_tag="v${BASH_REMATCH[1]}"
+          version_key() {
+            local major minor patch
+            IFS=. read -r major minor patch <<< "${1#v}"
+            printf '%010d%010d%010d' "$major" "$minor" "$patch"
+          }
+          current_sha="$(git ls-remote --tags origin "refs/tags/$compatibility_tag" | awk '{print $1}')"
+          if [ -n "$current_sha" ]; then
+            current_release="$(git tag --points-at "$current_sha" --list "$compatibility_tag.*" --sort=-version:refname | head -n1)"
+            if [[ ! "$current_release" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "Cannot resolve the release behind $compatibility_tag" >&2
+              exit 1
+            fi
+            if [[ "$(version_key "$current_release")" > "$(version_key "$RELEASE_TAG")" ]]; then
+              echo "$compatibility_tag already points to newer release $current_release"
+              exit 0
+            fi
+          fi
+          git tag --force "$compatibility_tag" "$RELEASE_TAG"
+          git push --force-with-lease="refs/tags/$compatibility_tag:$current_sha" origin "refs/tags/$compatibility_tag"

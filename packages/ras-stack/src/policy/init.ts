@@ -32,8 +32,7 @@ export const INIT_STEPS: readonly InitStep[] = [
   { name: 'justfile', title: 'Command runner', detail: 'justfile wrapping the package scripts' },
 ]
 
-export async function planRepositoryInit(root: string, answers: InitAnswers, release?: string): Promise<PlannedFile[]> {
-  const version = release ?? (await rasStackVersion())
+export async function planRepositoryInit(root: string, answers: InitAnswers): Promise<PlannedFile[]> {
   const selected = new Set(answers.steps)
   const planned: PlannedFile[] = []
 
@@ -66,7 +65,7 @@ export async function planRepositoryInit(root: string, answers: InitAnswers, rel
     })
   }
 
-  if (selected.has('workflow')) planned.push({ path: '.github/workflows/ci.yml', contents: workflow(version) })
+  if (selected.has('workflow')) planned.push({ path: '.github/workflows/ci.yml', contents: workflow() })
   if (selected.has('justfile')) planned.push({ path: 'justfile', contents: JUSTFILE })
 
   await Promise.all(
@@ -89,7 +88,7 @@ export async function applyRepositoryInit(root: string, files: readonly PlannedF
   return files.map((file) => file.path)
 }
 
-function workflow(version: string) {
+function workflow() {
   return `name: CI
 
 on:
@@ -102,7 +101,7 @@ permissions:
 
 jobs:
   check:
-    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v${version}
+    uses: richardsolomou/ras-stack/.github/workflows/check-js.yml@v1
     with:
       command: just check
       just-version: '${INIT_TOOLCHAIN.just}'
@@ -135,12 +134,4 @@ check:
 async function readJson(path: string | URL) {
   const source = await readFile(path, 'utf8').catch(() => undefined)
   return source === undefined ? undefined : (JSON.parse(source) as Record<string, unknown>)
-}
-
-// The generated workflow pins the release doing the generating, so a new repository starts on a version that exists.
-async function rasStackVersion() {
-  const manifest = await readJson(new URL('../../package.json', import.meta.url))
-  const version = manifest?.version
-  if (typeof version !== 'string') throw new Error('ras-stack version is unavailable')
-  return version
 }

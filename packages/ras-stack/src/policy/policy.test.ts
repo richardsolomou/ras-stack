@@ -24,7 +24,7 @@ describe('repository policy synchronization', () => {
     await expect(readFile(join(root, '.github/dependabot.yml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('automates routine updates without cooling down owned actions', async () => {
+  it('automates routine updates without proposing breaking ras-stack workflow upgrades', async () => {
     const root = await repository({ dependabot: true })
     await syncRepositoryPolicy(root, 'write')
     const config = parse(await readFile(join(root, '.github/dependabot.yml'), 'utf8')) as { updates: unknown[] }
@@ -58,7 +58,13 @@ describe('repository policy synchronization', () => {
         'package-ecosystem': 'github-actions',
         directory: '/',
         schedule: { interval: 'weekly' },
-        cooldown: { 'default-days': 7, exclude: ['richardsolomou/ras-stack*'] },
+        cooldown: { 'default-days': 7 },
+        ignore: [
+          {
+            'dependency-name': 'richardsolomou/ras-stack*',
+            'update-types': ['version-update:semver-major'],
+          },
+        ],
       },
     ])
   })
