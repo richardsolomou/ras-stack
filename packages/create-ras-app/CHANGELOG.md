@@ -1,5 +1,20 @@
 # create-ras-app
 
+## 1.0.0
+
+### Major Changes
+
+- 8e3fad8: Publish the stable v1 workflow and package contract.
+
+  Resolve reusable workflow actions from the running commit.
+
+  Let consumers follow v1 without routine version-update pull requests.
+
+### Patch Changes
+
+- Updated dependencies [8e3fad8]
+  - ras-stack@1.0.0
+
 ## 0.47.13
 
 ### Patch Changes
