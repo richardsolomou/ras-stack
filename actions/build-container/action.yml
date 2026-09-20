@@ -14,6 +14,9 @@ inputs:
   build-args:
     description: Newline-separated Docker build arguments.
     default: ''
+  secrets:
+    description: Newline-separated BuildKit secrets.
+    default: ''
   cache-scope:
     description: GitHub Actions cache scope.
     default: e2e-image
@@ -39,6 +42,7 @@ runs:
         load: true
         tags: ${{ inputs.image }}
         build-args: ${{ inputs.build-args }}
+        secrets: ${{ inputs.secrets }}
         cache-from: type=gha,scope=${{ inputs.cache-scope }}
         cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}
     - name: Record build duration

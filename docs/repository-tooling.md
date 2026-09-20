@@ -195,7 +195,7 @@ The action switches the application to Dokploy's Docker-image provider before de
 
 Preview images use the application package with a readable, commit-specific tag: `preview-pr-<number>-sha-<40-character commit>`. Resolve that tag through `actions/resolve-container-image` before deployment to retain its readable identity while pinning the exact manifest digest. On pull request close, and from a scheduled orphan sweep, `actions/prune-preview-images` removes only versions whose tags all match that preview convention; production versions are never candidates.
 
-Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
+Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. Both image-building actions accept newline-separated `secrets` for sensitive BuildKit mounts; Dockerfiles consume them with `RUN --mount=type=secret` rather than build arguments. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
 
 Dokploy applications share the complete preview lifecycle through three reusable workflows:
 

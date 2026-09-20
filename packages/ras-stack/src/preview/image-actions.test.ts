@@ -4,12 +4,18 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 
 const exec = promisify(execFile)
 const resolveScript = new URL('../../../../actions/resolve-container-image/resolve.sh', import.meta.url).pathname
 const recordScript = new URL('../../../../actions/publish-production-image/record-reference.sh', import.meta.url).pathname
 const digest = `sha256:${'a'.repeat(64)}`
 const sha = 'b'.repeat(40)
+
+type Action = {
+  inputs: Record<string, { default?: string }>
+  runs: { steps: Array<{ uses?: string; with?: Record<string, string> }> }
+}
 
 describe('container image actions', () => {
   it('resolves a readable tag to its immutable digest', async () => {
@@ -36,6 +42,16 @@ describe('container image actions', () => {
         env: { ...process.env, IMAGE: 'ghcr.io/example/app', SHA: sha, DIGEST: 'latest', GITHUB_OUTPUT: fixture.output },
       }),
     ).rejects.toBeDefined()
+  })
+
+  it.each(['build-container', 'publish-production-image'])('forwards BuildKit secrets through the %s action', async (name) => {
+    const action = parse(await readFile(new URL(`../../../../actions/${name}/action.yml`, import.meta.url), 'utf8')) as Action
+    const build = action.runs.steps.find((step) => step.uses === 'docker/build-push-action@v7')
+
+    expect({ default: action.inputs.secrets?.default, forwarded: build?.with?.secrets }).toEqual({
+      default: '',
+      forwarded: '${{ inputs.secrets }}',
+    })
   })
 })
 

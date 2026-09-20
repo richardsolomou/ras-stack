@@ -32,6 +32,9 @@ inputs:
   build-args:
     description: Newline-separated Docker build arguments.
     default: ''
+  secrets:
+    description: Newline-separated BuildKit secrets.
+    default: ''
   cache-scope:
     description: GitHub Actions cache scope.
     default: production-image
@@ -68,6 +71,7 @@ runs:
           ${{ inputs.image }}:${{ inputs.release-tag }}
           ${{ inputs.image }}:sha-${{ inputs.sha }}
         build-args: ${{ inputs.build-args }}
+        secrets: ${{ inputs.secrets }}
         cache-from: |
           type=gha,scope=${{ inputs.cache-scope }}
           type=gha,scope=${{ inputs.seed-cache-scope }}
