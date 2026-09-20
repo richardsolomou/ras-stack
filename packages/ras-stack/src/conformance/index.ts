@@ -315,6 +315,9 @@ export function assertPostHogBrowserConformance(options: Record<string, unknown>
   if (options.capture_pageview !== 'history_change') {
     throw new ConformanceError('PostHog browser initialization', 'SPA pageviews must follow history changes')
   }
+  if (options.capture_performance !== true) {
+    throw new ConformanceError('PostHog browser initialization', 'browser performance capture must be enabled')
+  }
   if (options.person_profiles !== 'identified_only') {
     throw new ConformanceError('PostHog browser initialization', 'person profiles must be limited to identified users')
   }
@@ -328,6 +331,16 @@ export function assertPostHogBrowserConformance(options: Record<string, unknown>
   if (!recording || typeof recording !== 'object' || !('maskAllInputs' in recording) || recording.maskAllInputs !== true) {
     throw new ConformanceError('PostHog browser initialization', 'session replay must mask all inputs by default')
   }
+  const logs = serviceName(options.logs)
+  const metrics = serviceName(options.metrics)
+  if ((logs || metrics) && (!logs || logs !== metrics)) {
+    throw new ConformanceError('PostHog browser initialization', 'logs and metrics must share one service name')
+  }
+}
+
+function serviceName(value: unknown) {
+  if (!value || typeof value !== 'object' || !('serviceName' in value) || typeof value.serviceName !== 'string') return undefined
+  return value.serviceName.trim() || undefined
 }
 
 type PostHogContextParser = (

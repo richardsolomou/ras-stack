@@ -2,8 +2,10 @@ import { PostHogErrorBoundary, PostHogProvider, usePostHog } from '@posthog/reac
 import { createContext, createElement, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import type { PostHogConfig, Properties } from 'posthog-js'
 import { postHogBrowserOptions } from './client.js'
-import type { PostHogEnvironment } from './config.js'
+import type { PostHogBrowserService, PostHogEnvironment } from './config.js'
 import { POSTHOG_DEFAULT_INGEST_PATH } from './proxy.js'
+
+export { usePostHog } from '@posthog/react'
 
 const PostHogLoadedContext = createContext(true)
 
@@ -13,12 +15,14 @@ export function PostHogIntegration({
   fallback = createElement('main', null, 'Something went wrong. Refresh the page to try again.'),
   ingestPath = POSTHOG_DEFAULT_INGEST_PATH,
   options,
+  service,
 }: {
   children?: ReactNode
   environment: PostHogEnvironment | undefined
   fallback?: ReactNode
   ingestPath?: string
   options?: Partial<PostHogConfig>
+  service?: PostHogBrowserService
 }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const loadedRef = useRef(options?.loaded)
@@ -33,6 +37,7 @@ export function PostHogIntegration({
         apiHost: ingestPath,
         uiHost: environment.uiHost,
         ...(tracingHostnames ? { tracingHostnames } : {}),
+        ...(service ? { service } : {}),
         options: {
           ...options,
           loaded: (posthog) => {

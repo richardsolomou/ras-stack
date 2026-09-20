@@ -7,24 +7,56 @@ import {
   shutdownPostHogServerClient,
 } from './server.js'
 
-const { capture, captureException, construct, emit, exporterConstruct, logShutdown, processorConstruct, providerConstruct, shutdown } =
-  vi.hoisted(() => ({
-    capture: vi.fn(),
-    captureException: vi.fn(),
-    construct: vi.fn(),
-    emit: vi.fn(),
-    exporterConstruct: vi.fn(),
-    logShutdown: vi.fn(async () => undefined),
-    processorConstruct: vi.fn(),
-    providerConstruct: vi.fn(),
-    shutdown: vi.fn(async () => undefined),
-  }))
+const {
+  capture,
+  captureException,
+  construct,
+  count,
+  flush,
+  emit,
+  exporterConstruct,
+  gauge,
+  histogram,
+  logFlush,
+  logShutdown,
+  processorConstruct,
+  providerConstruct,
+  shutdown,
+  startSpan,
+  withContext,
+  withSpan,
+} = vi.hoisted(() => ({
+  capture: vi.fn(),
+  captureException: vi.fn(),
+  construct: vi.fn(),
+  count: vi.fn(),
+  flush: vi.fn(async () => undefined),
+  emit: vi.fn(),
+  exporterConstruct: vi.fn(),
+  gauge: vi.fn(),
+  histogram: vi.fn(),
+  logFlush: vi.fn(async () => undefined),
+  logShutdown: vi.fn(async () => undefined),
+  processorConstruct: vi.fn(),
+  providerConstruct: vi.fn(),
+  shutdown: vi.fn(async () => undefined),
+  startSpan: vi.fn(() => ({ end: vi.fn() })),
+  withContext: vi.fn((_context: unknown, work: () => unknown) => work()),
+  withSpan: vi.fn((_name: string, optionsOrWork: unknown, maybeWork?: () => unknown) =>
+    (typeof optionsOrWork === 'function' ? optionsOrWork : maybeWork)?.({ setAttribute: vi.fn() }),
+  ),
+}))
 
 vi.mock('posthog-node', () => ({
   PostHog: class {
     _shutdown = shutdown
     capture = capture
     captureException = captureException
+    flush = flush
+    metrics = { count, gauge, histogram }
+    startSpan = startSpan
+    withContext = withContext
+    withSpan = withSpan
     constructor(...arguments_: unknown[]) {
       construct(...arguments_)
     }
@@ -57,6 +89,7 @@ vi.mock('@opentelemetry/sdk-logs', () => ({
       return { emit }
     }
     shutdown = logShutdown
+    forceFlush = logFlush
   },
 }))
 
@@ -115,11 +148,14 @@ describe('PostHog server integration', () => {
     await telemetry.capture('person', 'event')
     await telemetry.exception(new Error('failure'))
     await telemetry.log({ body: 'request completed' })
+    await telemetry.metrics.count('request.completed')
+    const result = await telemetry.withSpan('request', () => 'completed')
+    expect(result).toBe('completed')
     expect(construct).not.toHaveBeenCalled()
     expect(providerConstruct).not.toHaveBeenCalled()
   })
 
-  it('captures analytics, exceptions, and structured logs through one lifecycle', async () => {
+  it('captures analytics, exceptions, logs, metrics, and traces through one lifecycle', async () => {
     const telemetry = createManagedPostHogServerTelemetry({
       environment,
       serviceName: 'test-service',
@@ -130,6 +166,19 @@ describe('PostHog server integration', () => {
     const failure = new Error('failure')
     await telemetry.exception(failure, 'person', { action: 'save' })
     await telemetry.log({ body: 'request completed', severityText: 'info', attributes: { count: 2 } })
+    await telemetry.metrics.count('request.completed', 1, { attributes: { status: 'ok' } })
+    await telemetry.metrics.gauge('queue.depth', 2)
+    await telemetry.metrics.histogram('request.duration', 12, { unit: 'ms' })
+    const traced = await telemetry.withSpan('request', { kind: 'server' }, () => 'completed')
+    expect(traced).toBe('completed')
+    expect(await telemetry.startSpan('background', { kind: 'internal' })).toBeDefined()
+    expect(construct).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({
+        metrics: { serviceName: 'test-service', serviceVersion: '1.2.3', environment: 'test' },
+        traces: { serviceName: 'test-service', serviceVersion: '1.2.3', environment: 'test' },
+      }),
+    )
     expect(capture).toHaveBeenCalledWith({ distinctId: 'person', event: 'request_completed', properties: { count: 2 } })
     expect(captureException).toHaveBeenCalledWith(failure, 'person', { action: 'save' })
     expect(exporterConstruct).toHaveBeenCalledWith({
@@ -152,6 +201,29 @@ describe('PostHog server integration', () => {
       severityText: 'info',
       attributes: { count: 2 },
     })
+    expect(count).toHaveBeenCalledWith('request.completed', 1, { attributes: { status: 'ok' } })
+    expect(gauge).toHaveBeenCalledWith('queue.depth', 2, undefined)
+    expect(histogram).toHaveBeenCalledWith('request.duration', 12, { unit: 'ms' })
+    expect(withSpan).toHaveBeenCalledWith('request', { kind: 'server' }, expect.any(Function))
+    expect(startSpan).toHaveBeenCalledWith('background', { kind: 'internal' })
+    await telemetry.flush()
+    expect(flush).toHaveBeenCalledOnce()
+    expect(logFlush).toHaveBeenCalledOnce()
+  })
+
+  it('links traces, logs, and exceptions to trusted browser request context', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const request = new Request('https://example.com/action', {
+      headers: { 'x-posthog-distinct-id': 'person-1', 'x-posthog-session-id': 'session-1' },
+    })
+    await telemetry.withRequestContext(request, { authenticatedDistinctId: 'person-1' }, async () => {
+      await telemetry.withSpan('request', () => undefined)
+      await telemetry.log({ body: 'request completed' })
+      await telemetry.exception(new Error('failure'))
+    })
+    expect(withContext).toHaveBeenCalledWith({ distinctId: 'person-1', sessionId: 'session-1' }, expect.any(Function))
+    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ attributes: { posthogDistinctId: 'person-1', sessionId: 'session-1' } }))
+    expect(captureException).toHaveBeenCalledWith(expect.any(Error), 'person-1', { $session_id: 'session-1' })
   })
 
   it('retries failed initialization without failing application work', async () => {
@@ -166,6 +238,19 @@ describe('PostHog server integration', () => {
     expect(capture).toHaveBeenCalledWith({ distinctId: 'person', event: 'second' })
     expect(diagnostic).toHaveBeenCalledTimes(1)
     expect(diagnostic).toHaveBeenCalledWith(expect.objectContaining({ message: 'startup failed' }))
+  })
+
+  it('runs traced work once when client initialization fails', async () => {
+    const diagnostic = vi.fn()
+    const work = vi.fn(() => 'completed')
+    construct.mockImplementationOnce(() => {
+      throw new Error('startup failed')
+    })
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test', onError: diagnostic })
+    await expect(telemetry.withSpan('request', work)).resolves.toBe('completed')
+    expect(work).toHaveBeenCalledOnce()
+    expect(work).toHaveBeenCalledWith(undefined)
+    expect(diagnostic).toHaveBeenCalledOnce()
   })
 
   it('correlates RPC exceptions and logs with trusted request context', async () => {

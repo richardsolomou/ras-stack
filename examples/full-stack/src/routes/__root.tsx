@@ -9,6 +9,8 @@ const posthog = postHogEnvironment({
   host: import.meta.env.VITE_POSTHOG_HOST,
 })
 
+const posthogService = { name: 'ras-stack-example-web', environment: import.meta.env.MODE }
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -28,7 +30,7 @@ function Root() {
         <HeadContent />
       </head>
       <body>
-        <PostHogIntegration environment={posthog}>
+        <PostHogIntegration environment={posthog} service={posthogService}>
           <Outlet />
         </PostHogIntegration>
         <Scripts />

@@ -10,9 +10,17 @@ describe('PostHog coverage declaration', () => {
           errorTracking: true,
           featureFlags: true,
           identity: true,
+          logs: true,
+          metrics: { disabled: 'Metrics is not enabled for this project' },
           sessionReplay: { disabled: 'No user interface' },
         },
-        server: { analytics: true, errorTracking: true, logs: { disabled: 'Logs stay local' } },
+        server: {
+          analytics: true,
+          errorTracking: true,
+          logs: { disabled: 'Logs stay local' },
+          metrics: true,
+          tracing: true,
+        },
         sourceMaps: { disabled: 'The application is not minified' },
       }),
     ).toMatchObject({ browser: { analytics: true }, server: { analytics: true } })

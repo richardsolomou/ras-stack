@@ -78,7 +78,13 @@ describe('consumer conformance assertions', () => {
 
   it('accepts the shared PostHog browser and request composition', () => {
     expect(() =>
-      assertPostHogBrowserConformance(postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com' })),
+      assertPostHogBrowserConformance(
+        postHogBrowserOptions({
+          apiHost: '/ingest',
+          uiHost: 'https://us.posthog.com',
+          service: { name: 'example-web' },
+        }),
+      ),
     ).not.toThrow()
     expect(() => assertPostHogRequestConformance(postHogRequestContext)).not.toThrow()
   })
@@ -109,6 +115,16 @@ describe('consumer conformance assertions', () => {
       name: 'reset token URL masking',
       options: { custom_personal_data_properties: [] },
       message: 'token query parameters must be masked',
+    },
+    {
+      name: 'browser performance capture',
+      options: { capture_performance: false },
+      message: 'browser performance capture must be enabled',
+    },
+    {
+      name: 'shared log and metric identity',
+      options: { logs: { serviceName: 'web' }, metrics: { serviceName: 'api' } },
+      message: 'logs and metrics must share one service name',
     },
   ])('identifies PostHog setup without $name', ({ options, message }) => {
     const configured = postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com' })

@@ -2,7 +2,9 @@
 
 [Back to the ras-stack overview](../README.md)
 
-The PostHog entrypoints provide a complete default installation: product analytics, autocapture, pageviews, session replay, feature flags, browser and server error tracking, request correlation, reverse proxying, source maps, and clean shutdown. Applications retain the native SDK clients and mainly own the events and properties that describe their product.
+The PostHog entrypoints provide a complete default installation: product analytics, autocapture, pageviews, session replay, browser performance, structured logs, application metrics, distributed tracing, feature flags, browser and server error tracking, request correlation, reverse proxying, source maps, and clean shutdown. Applications retain the native SDK clients and own the events, measurements, spans, and properties that describe their product.
+
+PostHog application metrics is currently in open alpha and distributed tracing is in beta. Enable Metrics once in the PostHog project before expecting metric data. The SDK and ingestion details may still change upstream.
 
 ## Install
 
@@ -37,12 +39,28 @@ Wrap the application once:
 ```tsx
 import { PostHogIntegration } from 'ras-stack/posthog/react'
 
-;<PostHogIntegration environment={posthog}>{children}</PostHogIntegration>
+;<PostHogIntegration
+  environment={posthog}
+  service={{ name: 'my-app-web', version: import.meta.env.VITE_APP_VERSION, environment: import.meta.env.MODE }}
+>
+  {children}
+</PostHogIntegration>
 ```
 
-This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
+This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, browser performance, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. The service identity configures browser logs and metrics with matching OpenTelemetry resource fields. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, console-log capture, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
 
-Use `usePostHog()` or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, and manual exception context.
+Use the re-exported `usePostHog()` hook or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, structured logs, metrics, and manual exception context:
+
+```tsx
+import { usePostHog } from 'ras-stack/posthog/react'
+
+const posthog = usePostHog()
+posthog.logger.info('checkout completed', { plan: 'pro' })
+posthog.metrics.count('checkout.completed', 1, { attributes: { plan: 'pro' } })
+posthog.metrics.histogram('checkout.duration', 187, { unit: 'ms' })
+```
+
+Metric attributes must stay low-cardinality: route templates, statuses, plans, and bounded enums are appropriate; user IDs, session IDs, request IDs, and raw URLs are not. Browser logs automatically carry the current PostHog person and session. `ras-stack` does not enable console-log capture because application and dependency output can contain secrets or personal data.
 
 ## Better Auth identity
 
@@ -91,9 +109,21 @@ client.capture({
 
 Anonymous distinct IDs require the explicit `allowAnonymousDistinctId` option. All propagated IDs are character- and length-bounded before they enter logs or event properties.
 
+Wrap server work in the same validated context to link its logs, exceptions, and spans to the browser session:
+
+```ts
+await telemetry.withRequestContext(request, { authenticatedDistinctId: user.id }, () =>
+  telemetry.withSpan('POST /checkout', { kind: 'server', parent: request.headers.get('traceparent') ?? undefined }, () =>
+    processCheckout(),
+  ),
+)
+```
+
+PostHog's browser SDK injects person and session headers; distributed trace propagation uses the W3C `traceparent` header. Browser applications do not create PostHog spans themselves.
+
 ## Server setup
 
-Use one managed object for server analytics, exception capture, structured OTLP logs, and shutdown:
+Use one managed object for server analytics, exception capture, structured OTLP logs, native metrics and spans, flushing, and shutdown:
 
 ```ts
 import { postHogEnvironment } from 'ras-stack/posthog'
@@ -118,14 +148,29 @@ installPostHogServerTelemetryShutdown(telemetry)
 void telemetry.start()
 ```
 
-Absent deployment configuration keeps every method as a no-op. Failed initialization is reported through `onError` and retried on the next call. Logs are bounded before export, and shutdown flushes both the native PostHog client and OpenTelemetry provider once.
+Absent deployment configuration keeps capture methods as no-ops while traced work still runs normally. Failed initialization is reported through `onError` and retried on the next call. Logs are bounded before export. `shutdown()` flushes the native PostHog client and OpenTelemetry log provider once.
 
 Keep product events explicit:
 
 ```ts
 await telemetry.capture(user.id, 'action_completed', { item_count: 2 })
 await telemetry.log({ body: 'request completed', severityText: 'info', attributes: { item_count: 2 } })
+await telemetry.metrics.count('request.completed', 1, { attributes: { route: '/action', status: '200' } })
+await telemetry.metrics.gauge('queue.depth', 4, { attributes: { queue: 'email' } })
+await telemetry.metrics.histogram('request.duration', 42, { unit: 'ms', attributes: { route: '/action' } })
 ```
+
+Wrap timed operations with low-cardinality span names. The callback always runs, even when PostHog is disabled or initialization fails; the span is `undefined` only in that fallback path:
+
+```ts
+const result = await telemetry.withSpan('catalogue.refresh', { kind: 'internal' }, async (span) => {
+  const result = await refreshCatalogue()
+  span?.setAttribute('catalogue.entries', result.entryCount)
+  return result
+})
+```
+
+Use `startSpan()` only when work cannot be wrapped, and always end the returned span. For serverless or other short-lived work, call `await telemetry.flush()` before the runtime freezes. Long-running processes should use `shutdown()` at their lifecycle boundary instead.
 
 TanStack RPC wrappers can preserve their existing console logger while automatically capturing handled exceptions and a structured error log:
 
@@ -203,12 +248,16 @@ export const postHogCoverage = definePostHogCoverage({
     errorTracking: true,
     featureFlags: { disabled: 'This application has no staged rollouts' },
     identity: true,
+    logs: true,
+    metrics: true,
     sessionReplay: true,
   },
   server: {
     analytics: true,
     errorTracking: true,
     logs: { disabled: 'Logs are exported through another provider' },
+    metrics: true,
+    tracing: true,
   },
   sourceMaps: true,
 })
@@ -226,7 +275,7 @@ Applications own:
 - identity properties and group definitions;
 - consent, retention, masking, and replay policy;
 - feature-flag keys, fallbacks, and rollout conditions;
-- manual exception context, log attributes, traces, and metrics;
+- manual exception context, log attributes, metric names and dimensions, and span names and attributes;
 - source-map credentials and the final deployment order.
 
 The integration should make correct setup routine, not make unrelated products emit the same telemetry.

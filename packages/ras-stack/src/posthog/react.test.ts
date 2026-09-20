@@ -50,6 +50,7 @@ describe('PostHog React integration', () => {
               uiHost: 'https://us.posthog.com',
               assetsHost: 'https://us-assets.i.posthog.com',
             },
+            service: { name: 'example-web', environment: 'test' },
           },
           'application',
         ),
@@ -63,7 +64,10 @@ describe('PostHog React integration', () => {
           api_host: '/t',
           capture_exceptions: true,
           capture_pageview: 'history_change',
+          capture_performance: true,
           person_profiles: 'identified_only',
+          logs: { serviceName: 'example-web', environment: 'test' },
+          metrics: { serviceName: 'example-web', environment: 'test' },
         }),
       }),
     )

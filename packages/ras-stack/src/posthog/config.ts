@@ -5,6 +5,13 @@ export type PostHogEnvironment = {
   assetsHost: string
 }
 
+export type PostHogBrowserService = {
+  name: string
+  version?: string
+  environment?: string
+  resourceAttributes?: Record<string, string>
+}
+
 export function postHogEnvironment(input: { projectToken?: string; host?: string; assetsHost?: string }): PostHogEnvironment | undefined {
   const projectToken = input.projectToken?.trim()
   const host = input.host?.trim()
