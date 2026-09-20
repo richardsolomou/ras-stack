@@ -6,12 +6,16 @@ export type PostHogCoverage = {
     errorTracking: PostHogCoverageDecision
     featureFlags: PostHogCoverageDecision
     identity: PostHogCoverageDecision
+    logs?: PostHogCoverageDecision
+    metrics?: PostHogCoverageDecision
     sessionReplay: PostHogCoverageDecision
   }
   server: {
     analytics: PostHogCoverageDecision
     errorTracking: PostHogCoverageDecision
     logs: PostHogCoverageDecision
+    metrics?: PostHogCoverageDecision
+    tracing?: PostHogCoverageDecision
   }
   sourceMaps: PostHogCoverageDecision
 }
@@ -33,10 +37,14 @@ function coverageDecisions(coverage: PostHogCoverage): Array<[string, PostHogCov
     ['browser.errorTracking', coverage.browser.errorTracking],
     ['browser.featureFlags', coverage.browser.featureFlags],
     ['browser.identity', coverage.browser.identity],
+    ...(coverage.browser.logs ? ([['browser.logs', coverage.browser.logs]] as Array<[string, PostHogCoverageDecision]>) : []),
+    ...(coverage.browser.metrics ? ([['browser.metrics', coverage.browser.metrics]] as Array<[string, PostHogCoverageDecision]>) : []),
     ['browser.sessionReplay', coverage.browser.sessionReplay],
     ['server.analytics', coverage.server.analytics],
     ['server.errorTracking', coverage.server.errorTracking],
     ['server.logs', coverage.server.logs],
+    ...(coverage.server.metrics ? ([['server.metrics', coverage.server.metrics]] as Array<[string, PostHogCoverageDecision]>) : []),
+    ...(coverage.server.tracing ? ([['server.tracing', coverage.server.tracing]] as Array<[string, PostHogCoverageDecision]>) : []),
     ['sourceMaps', coverage.sourceMaps],
   ]
 }
