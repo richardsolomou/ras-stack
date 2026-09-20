@@ -113,6 +113,7 @@ const surface = {
   './posthog/server': [
     'createManagedPostHogServerTelemetry',
     'createPostHogRpcLogger',
+    'createPostHogRpcObserver',
     'createPostHogServerClient',
     'installPostHogServerTelemetryShutdown',
     'shutdownPostHogServerClient',

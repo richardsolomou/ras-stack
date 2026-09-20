@@ -127,6 +127,19 @@ describe('tus uploads', () => {
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
     expect(mockedUpload.abort.mock.calls).toEqual([[false]])
   })
+
+  it('settles cancellation without waiting for remote termination', async () => {
+    const controller = new AbortController()
+    const upload = createTusUpload({ endpoint: '/api/upload', file: new File([], 'pending.bin'), metadata: {} })
+    const mockedUpload = upload as unknown as MockUpload
+    mockedUpload.abort.mockImplementation(() => new Promise(() => undefined))
+    const result = startTusUpload(upload, { resume: false, signal: controller.signal, terminateOnAbort: true })
+
+    controller.abort()
+
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    expect(mockedUpload.abort).toHaveBeenCalledWith(true)
+  })
 })
 
 describe('tus errors', () => {

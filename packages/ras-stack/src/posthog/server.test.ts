@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createManagedPostHogServerTelemetry,
   createPostHogRpcLogger,
+  createPostHogRpcObserver,
   createPostHogServerClient,
   installPostHogServerTelemetryShutdown,
   shutdownPostHogServerClient,
@@ -287,6 +288,39 @@ describe('PostHog server integration', () => {
     const failure = new Error('request failed')
     await logger(failure, { method: 'POST', path: '/action' })
     expect(captureException).toHaveBeenCalledWith(failure, 'server', { request_method: 'POST', request_path: '/action' })
+  })
+
+  it('observes server functions with bounded request metrics and traces', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const observer = createPostHogRpcObserver(telemetry)
+    const request = new Request('https://example.com/private?token=secret', {
+      method: 'POST',
+      headers: { traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' },
+    })
+
+    await expect(observer(request, async () => 'completed')).resolves.toBe('completed')
+
+    expect(withSpan).toHaveBeenCalledWith(
+      'server_function',
+      { kind: 'server', parent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' },
+      expect.any(Function),
+    )
+    expect(count).toHaveBeenCalledWith('server_function.requests', 1, {
+      attributes: { method: 'POST', outcome: 'success' },
+    })
+    expect(histogram).toHaveBeenCalledWith('server_function.duration', expect.any(Number), { unit: 'ms', attributes: { method: 'POST' } })
+    expect(JSON.stringify([...count.mock.calls, ...histogram.mock.calls])).not.toContain('secret')
+  })
+
+  it('preserves failed server function work after observing it', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const observer = createPostHogRpcObserver(telemetry)
+    const failure = new Error('failed')
+
+    await expect(observer(new Request('https://example.com/action'), () => Promise.reject(failure))).rejects.toBe(failure)
+    expect(count).toHaveBeenCalledWith('server_function.requests', 1, {
+      attributes: { method: 'GET', outcome: 'error' },
+    })
   })
 
   it('flushes clients once and ignores captures after shutdown', async () => {

@@ -27,10 +27,18 @@ on:
         description: Newline-separated Docker build arguments.
         type: string
         default: ''
+      build-secret-id:
+        description: Optional BuildKit secret ID exposed only to trusted same-repository builds.
+        type: string
+        default: ''
       cache-scope:
         description: GitHub Actions cache scope.
         type: string
         default: preview-image
+    secrets:
+      build-secret:
+        description: Optional BuildKit secret value for trusted same-repository builds.
+        required: false
 
 jobs:
   build:
@@ -57,6 +65,7 @@ jobs:
           platforms: linux/amd64
           tags: ${{ inputs.published-image }}
           build-args: ${{ inputs.build-args }}
+          secrets: ${{ inputs.build-secret-id != '' && format('{0}={1}', inputs.build-secret-id, secrets.build-secret) || '' }}
           push: true
           cache-from: type=gha,scope=${{ inputs.cache-scope }}
           cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}

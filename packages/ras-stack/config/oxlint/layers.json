@@ -8,7 +8,7 @@
           {
             "patterns": [
               {
-                "regex": "^\\./[^.]",
+                "regex": "^(?:\\./[^.]|(?:\\.\\./)+routes/|@/routes/)",
                 "message": "Route modules must not import sibling route modules."
               }
             ]

@@ -51,6 +51,8 @@ describe('opt-in import boundaries', () => {
     ['src/db/repository.ts', '../adapters/store'],
     ['src/contracts/request.ts', '../server/app'],
     ['src/routes/index.ts', './other'],
+    ['src/routes/index.ts', '../routes/other'],
+    ['src/routes/index.ts', '@/routes/other'],
   ])('rejects %s importing %s', async (file, specifier) => {
     expect(await lint(file, specifier)).toContain('no-restricted-imports')
   })

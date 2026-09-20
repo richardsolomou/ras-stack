@@ -282,6 +282,18 @@ describe('Centrifugo publisher', () => {
     await closed
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publisher is closed' }), 'two')
   })
+
+  it('lets shutdown stop waiting at its deadline', async () => {
+    const request = vi.fn<typeof fetch>().mockImplementation(() => new Promise<Response>(() => undefined))
+    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError: vi.fn() })
+    const controller = new AbortController()
+    publisher.publish('one', { type: 'change' })
+    const closed = publisher.close({ signal: controller.signal })
+
+    controller.abort(new DOMException('shutdown deadline exceeded', 'TimeoutError'))
+
+    await expect(closed).rejects.toMatchObject({ name: 'TimeoutError' })
+  })
 })
 
 function publisherWith(request: ReturnType<typeof vi.fn<typeof fetch>>, overrides: Record<string, unknown> = {}) {

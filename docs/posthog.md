@@ -130,6 +130,7 @@ import { postHogEnvironment } from 'ras-stack/posthog'
 import {
   createManagedPostHogServerTelemetry,
   createPostHogRpcLogger,
+  createPostHogRpcObserver,
   installPostHogServerTelemetryShutdown,
 } from 'ras-stack/posthog/server'
 
@@ -181,10 +182,11 @@ const logError = createPostHogRpcLogger(telemetry, {
   allowAnonymousDistinctId: true,
 })
 
-const { rpc, mutationRpc } = createTanStackRpc({ logError })
+const observe = createPostHogRpcObserver(telemetry)
+const { rpc, mutationRpc } = createTanStackRpc({ logError, observe })
 ```
 
-The adapter includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID.
+The logger includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes.
 
 The lower-level helper remains available when an application already owns its telemetry lifecycle.
 

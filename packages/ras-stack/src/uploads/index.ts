@@ -53,10 +53,11 @@ export async function startTusUpload(upload: Upload, options: boolean | TusUploa
       })
     : undefined
   const abort = () => {
-    void upload.abort(terminateOnAbort).then(
-      () => rejectAbort?.(tusAbortError()),
-      (error) => rejectAbort?.(error),
-    )
+    rejectAbort?.(tusAbortError())
+    // Remote termination is best-effort after local cancellation has settled for the caller.
+    void Promise.resolve()
+      .then(() => upload.abort(terminateOnAbort))
+      .catch(() => undefined)
   }
   signal?.addEventListener('abort', abort, { once: true })
 

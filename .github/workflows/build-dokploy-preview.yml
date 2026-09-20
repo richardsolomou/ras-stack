@@ -39,10 +39,18 @@ on:
         description: Newline-separated Docker build arguments.
         type: string
         default: ''
+      build-secret-id:
+        description: Optional BuildKit secret ID exposed only to trusted same-repository builds.
+        type: string
+        default: ''
       cache-scope:
         description: GitHub Actions cache scope.
         type: string
         default: preview-image
+    secrets:
+      build-secret:
+        description: Optional BuildKit secret value forwarded to trusted same-repository builds.
+        required: false
 
 jobs:
   mark-deploying:
@@ -72,7 +80,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v1
+    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v2
     with:
       published-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
       fork-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
@@ -80,4 +88,7 @@ jobs:
       context: ${{ inputs.context }}
       dockerfile: ${{ inputs.dockerfile }}
       build-args: ${{ inputs.build-args }}
+      build-secret-id: ${{ inputs.build-secret-id }}
       cache-scope: ${{ inputs.cache-scope }}
+    secrets:
+      build-secret: ${{ secrets.build-secret }}

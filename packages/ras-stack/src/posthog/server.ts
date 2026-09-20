@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { CaptureMetricOptions, PostHog, PostHogOptions, Span, StartSpanOptions } from 'posthog-node'
-import type { RpcErrorContext, RpcLogger } from '../server/rpc.js'
+import type { RpcErrorContext, RpcLogger, RpcObserver } from '../server/rpc.js'
 import type { PostHogEnvironment } from './config.js'
 import { postHogRequestContext, type PostHogRequestContextOptions } from './request.js'
 
@@ -40,6 +40,11 @@ export type PostHogRpcLoggerOptions = {
   resolveAuthenticatedDistinctId?: (request: Request) => string | undefined | Promise<string | undefined>
   allowAnonymousDistinctId?: boolean
   fallbackDistinctId?: string
+}
+
+export type PostHogRpcObserverOptions = {
+  metricPrefix?: string
+  spanName?: string
 }
 
 type PostHogShutdownProcess = {
@@ -290,6 +295,41 @@ export function createPostHogRpcLogger(telemetry: PostHogServerTelemetry, option
         attributes: { ...properties, posthogDistinctId: distinctId },
       }),
     ])
+  }
+}
+
+export function createPostHogRpcObserver(
+  telemetry: Pick<PostHogServerTelemetry, 'metrics' | 'withRequestContext' | 'withSpan'>,
+  options: PostHogRpcObserverOptions = {},
+): RpcObserver {
+  const metricPrefix = options.metricPrefix ?? 'server_function'
+  const spanName = options.spanName ?? 'server_function'
+  return async function observe<T>(request: Request | undefined, work: () => Promise<T>) {
+    if (!request) return work()
+    const method = request.method.toUpperCase()
+    const attributes = { method }
+    const parent = request.headers.get('traceparent')
+    return telemetry.withRequestContext(request, {}, () =>
+      telemetry.withSpan(spanName, { kind: 'server', ...(parent ? { parent } : {}) }, async (span) => {
+        const startedAt = performance.now()
+        span?.setAttribute('http.request.method', method)
+        let outcome = 'error'
+        try {
+          const result = await work()
+          outcome = 'success'
+          return result
+        } finally {
+          span?.setAttribute('server.function.outcome', outcome)
+          await Promise.all([
+            telemetry.metrics.count(`${metricPrefix}.requests`, 1, { attributes: { ...attributes, outcome } }),
+            telemetry.metrics.histogram(`${metricPrefix}.duration`, Math.max(0, performance.now() - startedAt), {
+              unit: 'ms',
+              attributes,
+            }),
+          ])
+        }
+      }),
+    )
   }
 }
 

@@ -58,9 +58,11 @@ export class CentrifugoPublisher {
     return new Promise<void>((resolve) => this.idleWaiters.add(resolve))
   }
 
-  async close() {
+  async close(options: { signal?: AbortSignal } = {}) {
     this.closed = true
-    await this.idle()
+    const idle = this.idle()
+    if (!options.signal) return idle
+    await abortable(idle, options.signal)
   }
 
   private pump() {
@@ -164,6 +166,20 @@ export class CentrifugoPublisher {
     if (!this.isIdle()) return
     for (const resolve of this.idleWaiters) resolve()
     this.idleWaiters.clear()
+  }
+}
+
+async function abortable(work: Promise<void>, signal: AbortSignal) {
+  signal.throwIfAborted()
+  let abort!: () => void
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abort = () => reject(signal.reason)
+    signal.addEventListener('abort', abort, { once: true })
+  })
+  try {
+    await Promise.race([work, aborted])
+  } finally {
+    signal.removeEventListener('abort', abort)
   }
 }
 
