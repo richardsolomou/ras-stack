@@ -9,6 +9,7 @@ describe('PostHog browser integration', () => {
       defaults: '2026-05-30',
       capture_exceptions: true,
       capture_pageview: 'history_change',
+      capture_performance: true,
       custom_personal_data_properties: ['token'],
       mask_personal_data_properties: true,
       person_profiles: 'identified_only',
@@ -27,6 +28,34 @@ describe('PostHog browser integration', () => {
     expect(
       postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com', tracingHostnames: ['app.example'] }),
     ).toMatchObject({ tracing_headers: ['app.example'] })
+  })
+
+  it('configures browser logs and metrics with one service identity', () => {
+    expect(
+      postHogBrowserOptions({
+        apiHost: '/ingest',
+        uiHost: 'https://us.posthog.com',
+        service: {
+          name: 'storefront-web',
+          version: '1.2.3',
+          environment: 'production',
+          resourceAttributes: { region: 'eu' },
+        },
+      }),
+    ).toMatchObject({
+      logs: {
+        serviceName: 'storefront-web',
+        serviceVersion: '1.2.3',
+        environment: 'production',
+        resourceAttributes: { region: 'eu' },
+      },
+      metrics: {
+        serviceName: 'storefront-web',
+        serviceVersion: '1.2.3',
+        environment: 'production',
+        resourceAttributes: { region: 'eu' },
+      },
+    })
   })
 
   it('propagates bounded distinct and session identifiers', () => {

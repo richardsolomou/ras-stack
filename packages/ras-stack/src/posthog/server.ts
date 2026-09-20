@@ -1,7 +1,8 @@
-import type { PostHog, PostHogOptions } from 'posthog-node'
+import { AsyncLocalStorage } from 'node:async_hooks'
+import type { CaptureMetricOptions, PostHog, PostHogOptions, Span, StartSpanOptions } from 'posthog-node'
 import type { RpcErrorContext, RpcLogger } from '../server/rpc.js'
 import type { PostHogEnvironment } from './config.js'
-import { postHogRequestContext } from './request.js'
+import { postHogRequestContext, type PostHogRequestContextOptions } from './request.js'
 
 type LogProvider = InstanceType<(typeof import('@opentelemetry/sdk-logs'))['LoggerProvider']>
 
@@ -19,11 +20,20 @@ export type ManagedPostHogServerTelemetryOptions = {
   serviceName: string
   serviceVersion?: string
   deploymentEnvironment?: string
+  resourceAttributes?: Record<string, string>
   clientOptions?: Omit<PostHogOptions, 'host'>
   onError?: (error: unknown) => void
 }
 
 export type PostHogServerTelemetry = ReturnType<typeof createManagedPostHogServerTelemetry>
+
+export type PostHogTelemetryContext = {
+  distinctId?: string
+  sessionId?: string
+  properties?: Record<string, unknown>
+}
+
+export type PostHogTraceSpan = Span | undefined
 
 export type PostHogRpcLoggerOptions = {
   logError?: (error: unknown, context: RpcErrorContext) => void
@@ -62,6 +72,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
   let client: Promise<PostHog | undefined> | undefined
   let logProvider: Promise<LogProvider | undefined> | undefined
   let closed = false
+  const context = new AsyncLocalStorage<PostHogTelemetryContext>()
 
   const report = (error: unknown) => {
     try {
@@ -72,7 +83,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
   const getClient = () => {
     if (closed || !options.environment) return undefined
     if (!client) {
-      const pending = createPostHogServerClient(options.environment, options.clientOptions)
+      const pending = createPostHogServerClient(options.environment, managedClientOptions(options))
       client = pending
       void pending.catch(() => {
         if (client === pending) client = undefined
@@ -102,7 +113,75 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
     }
   }
 
+  const loadClient = async () => {
+    try {
+      return await getClient()
+    } catch (error) {
+      report(error)
+      return undefined
+    }
+  }
+
+  async function withContext<T>(telemetryContext: PostHogTelemetryContext, work: () => T): Promise<Awaited<T>> {
+    const inherited = context.getStore()
+    const correlation = {
+      ...(inherited?.distinctId ? { distinctId: inherited.distinctId } : {}),
+      ...(inherited?.sessionId ? { sessionId: inherited.sessionId } : {}),
+      ...telemetryContext,
+    }
+    const requestContext: PostHogTelemetryContext = {
+      ...(correlation.distinctId ? { distinctId: correlation.distinctId } : {}),
+      ...(correlation.sessionId ? { sessionId: correlation.sessionId } : {}),
+      properties: {
+        ...inherited?.properties,
+        ...telemetryContext.properties,
+        ...(correlation.sessionId ? { $session_id: correlation.sessionId } : {}),
+      },
+    }
+    const run = () => context.run(requestContext, work)
+    const value = await loadClient()
+    return (value ? value.withContext(telemetryContext, run) : run()) as Awaited<T>
+  }
+
+  async function withRequestContext<T>(request: Request, requestOptions: PostHogRequestContextOptions, work: () => T): Promise<Awaited<T>> {
+    const correlation = postHogRequestContext(request, requestOptions)
+    return withContext(
+      {
+        ...(correlation.distinctId ? { distinctId: correlation.distinctId } : {}),
+        ...(correlation.sessionId ? { sessionId: correlation.sessionId } : {}),
+      },
+      work,
+    )
+  }
+
+  async function withSpan<T>(name: string, work: (span: PostHogTraceSpan) => T): Promise<Awaited<T>>
+  async function withSpan<T>(name: string, spanOptions: StartSpanOptions, work: (span: PostHogTraceSpan) => T): Promise<Awaited<T>>
+  async function withSpan<T>(
+    name: string,
+    optionsOrWork: StartSpanOptions | ((span: PostHogTraceSpan) => T),
+    maybeWork?: (span: PostHogTraceSpan) => T,
+  ): Promise<Awaited<T>> {
+    const spanOptions = typeof optionsOrWork === 'function' ? undefined : optionsOrWork
+    const work = typeof optionsOrWork === 'function' ? optionsOrWork : maybeWork!
+    const value = await loadClient()
+    if (!value) return work(undefined) as Awaited<T>
+    return (spanOptions ? value.withSpan(name, spanOptions, work) : value.withSpan(name, work)) as Awaited<T>
+  }
+
+  const metrics = {
+    count(name: string, value = 1, metricOptions?: CaptureMetricOptions) {
+      return safely(async () => (await getClient())?.metrics.count(name, value, metricOptions))
+    },
+    gauge(name: string, value: number, metricOptions?: CaptureMetricOptions) {
+      return safely(async () => (await getClient())?.metrics.gauge(name, value, metricOptions))
+    },
+    histogram(name: string, value: number, metricOptions?: CaptureMetricOptions) {
+      return safely(async () => (await getClient())?.metrics.histogram(name, value, metricOptions))
+    },
+  }
+
   return {
+    metrics,
     async start() {
       await safely(async () => {
         await Promise.all([getClient(), getLogProvider()])
@@ -114,16 +193,24 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
         value?.capture({ distinctId, event, ...(properties ? { properties } : {}) })
       })
     },
-    async exception(error: unknown, distinctId = 'server', properties?: Record<string, unknown>) {
+    async exception(error: unknown, distinctId?: string, properties?: Record<string, unknown>) {
       await safely(async () => {
         const value = await getClient()
-        value?.captureException(error, distinctId, properties)
+        const correlation = context.getStore()
+        const capturedProperties = mergeProperties(properties, correlation?.properties)
+        value?.captureException(error, distinctId ?? correlation?.distinctId ?? 'server', capturedProperties)
       })
     },
     async log(record: PostHogLogRecord) {
       await safely(async () => {
         const provider = await getLogProvider()
-        const attributes = boundedAttributes(record.attributes)
+        const correlation = context.getStore()
+        const attributes = boundedAttributes(
+          mergeProperties(record.attributes, {
+            ...(correlation?.distinctId ? { posthogDistinctId: correlation.distinctId } : {}),
+            ...(correlation?.sessionId ? { sessionId: correlation.sessionId } : {}),
+          }),
+        )
         provider?.getLogger(options.serviceName).emit({
           body: boundedString(record.body),
           ...(record.severityText ? { severityText: record.severityText } : {}),
@@ -132,6 +219,18 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
         })
       })
     },
+    async flush() {
+      await safely(async () => {
+        const [value, provider] = await Promise.all([getClient(), getLogProvider()])
+        await Promise.all([value?.flush(), provider?.forceFlush()])
+      })
+    },
+    async startSpan(name: string, spanOptions?: StartSpanOptions) {
+      return (await loadClient())?.startSpan(name, spanOptions)
+    },
+    withContext,
+    withRequestContext,
+    withSpan,
     async shutdown(timeoutMs = 10_000) {
       if (closed) return
       assertShutdownTimeout(timeoutMs)
@@ -142,6 +241,21 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
       ])
       for (const result of results) if (result.status === 'rejected') report(result.reason)
     },
+  }
+}
+
+function managedClientOptions(options: ManagedPostHogServerTelemetryOptions): Omit<PostHogOptions, 'host'> {
+  const { metrics, traces, ...clientOptions } = options.clientOptions ?? {}
+  const service = {
+    serviceName: options.serviceName,
+    ...(options.serviceVersion ? { serviceVersion: options.serviceVersion } : {}),
+    ...(options.deploymentEnvironment ? { environment: options.deploymentEnvironment } : {}),
+    ...(options.resourceAttributes ? { resourceAttributes: options.resourceAttributes } : {}),
+  }
+  return {
+    ...clientOptions,
+    metrics: { ...service, ...metrics },
+    traces: { ...service, ...traces },
   }
 }
 
@@ -223,9 +337,15 @@ async function createPostHogLogProvider(options: ManagedPostHogServerTelemetryOp
       'service.name': options.serviceName,
       ...(options.serviceVersion ? { 'service.version': options.serviceVersion } : {}),
       ...(options.deploymentEnvironment ? { 'deployment.environment': options.deploymentEnvironment } : {}),
+      ...options.resourceAttributes,
     }),
     processors: [new BatchLogRecordProcessor({ exporter })],
   })
+}
+
+function mergeProperties(...values: Array<Record<string, unknown> | undefined>) {
+  const merged = Object.assign({}, ...values.filter(Boolean))
+  return Object.keys(merged).length ? merged : undefined
 }
 
 function boundedAttributes(attributes: Record<string, unknown> | undefined) {

@@ -7,10 +7,12 @@ export type PostHogRequestContext = {
   properties: { $session_id?: string }
 }
 
-export function postHogRequestContext(
-  request: Request,
-  options: { authenticatedDistinctId?: string; allowAnonymousDistinctId?: boolean } = {},
-): PostHogRequestContext {
+export type PostHogRequestContextOptions = {
+  authenticatedDistinctId?: string
+  allowAnonymousDistinctId?: boolean
+}
+
+export function postHogRequestContext(request: Request, options: PostHogRequestContextOptions = {}): PostHogRequestContext {
   const claimedDistinctId = postHogIdentifier(request.headers.get(POSTHOG_DISTINCT_ID_HEADER))
   const sessionId = postHogIdentifier(request.headers.get(POSTHOG_SESSION_ID_HEADER))
   const distinctId = options.authenticatedDistinctId
