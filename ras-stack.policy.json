@@ -1,7 +1,9 @@
 {
   "changesets": {
     "overrides": {
-      "fixed": [["ras-stack", "create-ras-app"]]
+      "fixed": [["ras-stack", "create-ras-app"]],
+      "access": "public",
+      "privatePackages": { "version": true, "tag": false }
     }
   },
   "dependabot": true,

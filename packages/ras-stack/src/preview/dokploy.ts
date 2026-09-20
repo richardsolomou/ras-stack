@@ -413,3 +413,21 @@ function requiredEnvironment(environment: NodeJS.ProcessEnv, name: string) {
 function optionalEnvironment(environment: NodeJS.ProcessEnv, name: string) {
   return environment[name]?.trim() || undefined
 }
+
+// Deploy scripts receive product secrets as one JSON object; an unknown key is a mistake, not a passthrough.
+export function loadPreviewAppSecrets(
+  allowed: Iterable<string>,
+  source: NodeJS.ProcessEnv = process.env,
+  target: NodeJS.ProcessEnv = process.env,
+) {
+  const serialized = source.PREVIEW_APP_SECRETS?.trim()
+  if (!serialized) return
+  const parsed: unknown = JSON.parse(serialized)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('PREVIEW_APP_SECRETS must be a JSON object')
+  const names = new Set(allowed)
+  for (const [name, value] of Object.entries(parsed)) {
+    if (!names.has(name)) throw new Error(`PREVIEW_APP_SECRETS contains unsupported key ${name}`)
+    if (typeof value !== 'string') throw new Error(`PREVIEW_APP_SECRETS.${name} must be a string`)
+    target[name] = value
+  }
+}

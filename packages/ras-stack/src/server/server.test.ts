@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { canonicalRedirect } from './canonical-host.js'
 import { healthResponse } from './health.js'
 import { errorHasCode, InfrastructureError, infrastructureDiagnostic, infrastructureFailure, safeInfrastructureError } from './errors.js'
-import { createRpc } from './rpc.js'
+import { createRpc, type RpcObserver } from './rpc.js'
 import { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'
 
 describe('canonical redirects', () => {
@@ -99,6 +99,22 @@ describe('RPC wrappers', () => {
     const { mutationRpc } = createRpc({ requireMutation })
     await expect(mutationRpc(() => 'saved', request)).resolves.toBe('saved')
     expect(requireMutation).toHaveBeenCalledWith(request)
+  })
+
+  it('observes work with the request used by each RPC call', async () => {
+    const ambient = new Request('https://example.com/query', { method: 'GET' })
+    const explicit = new Request('https://example.com/action', { method: 'POST' })
+    const observed: Array<Request | undefined> = []
+    const observe: RpcObserver = async function observe<T>(request: Request | undefined, work: () => Promise<T>) {
+      observed.push(request)
+      return work()
+    }
+    const { mutationRpc, rpc } = createRpc({ getRequest: () => ambient, observe })
+
+    await expect(rpc(() => 'loaded')).resolves.toBe('loaded')
+    await expect(mutationRpc(() => 'saved', explicit)).resolves.toBe('saved')
+
+    expect(observed).toEqual([ambient, explicit])
   })
 
   it('rejects a mutation when no request is available', async () => {

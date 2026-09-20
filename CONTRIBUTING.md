@@ -19,6 +19,8 @@ Keep exports composable. Shared code may implement duplicated infrastructure mec
 
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `packages/ras-stack/src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
+Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published.
+
 ## Releases
 
 Add a Changeset for every package, action, or reusable-workflow change that needs a release. `ras-stack` and `create-ras-app` are fixed to the same version because the latter delegates directly to the former. Merging a Changeset to `main` runs the shared release workflow, updates both versions and changelogs, creates the tag and GitHub release, and triggers `.github/workflows/release.yml` at that tag to publish every missing npm package with provenance bound to the released commit.

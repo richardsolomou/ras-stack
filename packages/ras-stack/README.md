@@ -29,8 +29,6 @@ An application can use one surface without adopting the others. The npm package 
 
 ## The stack 🧰
 
-These combinations are tested here and in production. [Sealed Lists](https://github.com/richardsolomou/sealed-lists), [Praetorium](https://github.com/richardsolomou/praetorium.gg), and [STL Quest](https://github.com/richardsolomou/stl.quest) use the application and runtime pieces. [BaseKit](https://github.com/richardsolomou/basekit) and [tro.gg](https://github.com/richardsolomou/tro.gg) use only the tooling that fits their different architectures.
-
 | Layer               | Supported technology                        | What `ras-stack` centralizes                                                                          |
 | ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint    | Compiler/linter bases, setup actions, and version synchronization                                     |

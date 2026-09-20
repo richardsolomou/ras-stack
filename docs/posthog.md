@@ -130,6 +130,7 @@ import { postHogEnvironment } from 'ras-stack/posthog'
 import {
   createManagedPostHogServerTelemetry,
   createPostHogRpcLogger,
+  createPostHogRpcObserver,
   installPostHogServerTelemetryShutdown,
 } from 'ras-stack/posthog/server'
 
@@ -181,10 +182,11 @@ const logError = createPostHogRpcLogger(telemetry, {
   allowAnonymousDistinctId: true,
 })
 
-const { rpc, mutationRpc } = createTanStackRpc({ logError })
+const observe = createPostHogRpcObserver(telemetry)
+const { rpc, mutationRpc } = createTanStackRpc({ logError, observe })
 ```
 
-The adapter includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID.
+The logger includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes.
 
 The lower-level helper remains available when an application already owns its telemetry lifecycle.
 
@@ -219,9 +221,9 @@ export default defineConfig({
 })
 ```
 
-Keep `/ingest/static` and `/ingest/array` ahead of `/ingest` when composing these objects with local routes.
+The proxy mounts at `/t` by default (exported as `POSTHOG_DEFAULT_INGEST_PATH`), because ad-blocker lists block the literal `/ingest` segment regardless of host. The Vite keys are regular expressions bound to that whole segment, so an application route such as `/teams` stays local. Keep the `static` and `array` entries ahead of the ingest entry when composing these objects with local routes.
 
-Some ad-blocker lists block requests by the literal `/ingest` path segment regardless of the host serving it. Pass a custom `path` to move the proxy elsewhere, and pass the same value as `ingestPath` to `PostHogIntegration` so the browser client requests it:
+Pass a custom `path` to move the proxy elsewhere, and pass the same value as `ingestPath` to `PostHogIntegration` so the browser client requests it:
 
 ```ts
 const proxy = postHogIngestProxy(posthog, { path: '/relay' })
@@ -233,7 +235,7 @@ const proxy = postHogIngestProxy(posthog, { path: '/relay' })
 </PostHogIntegration>
 ```
 
-Both default to `/ingest` (exported as `POSTHOG_DEFAULT_INGEST_PATH`) when omitted.
+Both default to `POSTHOG_DEFAULT_INGEST_PATH` when omitted.
 
 ## Coverage declaration
 
@@ -265,18 +267,7 @@ export const postHogCoverage = definePostHogCoverage({
 
 `assertPostHogBrowserConformance()` checks pinned browser defaults, exception capture, and personal-data URL masking. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both alongside their coverage declaration.
 
-Build browser assets with source maps, then process the final directory before packaging or deployment:
-
-```yaml
-- uses: richardsolomou/ras-stack/actions/upload-posthog-sourcemaps@v1
-  with:
-    directory: .output/public/assets
-    release-name: my-app
-    project-id: 507920
-    personal-api-key: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
-```
-
-The action pins the PostHog CLI, injects chunk IDs, uploads the maps with the release name and commit SHA, deletes the maps, and leaves the exact instrumented JavaScript ready to deploy. Run it after the final browser build and before the container or artifact is assembled. The personal API key stays in the deployment workflow.
+Source-map upload stays in the application build: run the PostHog CLI against the final browser assets, after the build and before the container or artifact is assembled, and keep the personal API key in that deployment step. Declare the decision in `sourceMaps`, including a reason when it is disabled.
 
 ## What remains local
 

@@ -38,6 +38,20 @@ describe('policy CLI', () => {
     expect(process.exitCode).toBe(1)
   })
 
+  it('fails invalid release notes without suggesting that sync repairs them', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const root = await repository()
+    await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'app', version: '1.0.0' }))
+    await runPolicyCli(['sync'])
+    await writeFile(join(root, '.changeset/invalid.md'), '---\nunknown: patch\n---\nFix it.\n')
+
+    await runPolicyCli(['check'])
+
+    expect(process.exitCode).toBe(1)
+    expect(error.mock.calls).toEqual([['.changeset/invalid.md: unknown package "unknown"']])
+  })
+
   it('writes the generated files a sync produces', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)

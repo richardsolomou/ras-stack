@@ -89,16 +89,16 @@ describe('auth settings', () => {
 describe('provider credentials', () => {
   const environment = { GOOGLE_CLIENT_ID: ' id ', GOOGLE_CLIENT_SECRET: ' secret ', GITHUB_CLIENT_ID: 'incomplete' }
 
-  it('returns only fully configured providers', () => {
-    expect(configuredProviders(['google', 'github'] as const, environment)).toEqual(['google'])
+  it('returns only fully configured providers when partial pairs are tolerated', () => {
+    expect(configuredProviders(['google', 'github'] as const, environment, { rejectPartial: false })).toEqual(['google'])
   })
 
   it('returns trimmed credentials', () => {
     expect(providerCredentials('google', environment)).toEqual({ clientId: 'id', clientSecret: 'secret' })
   })
 
-  it('maps only configured providers to their credentials', () => {
-    expect(configuredProviderOptions(['google', 'github'] as const, environment)).toEqual({
+  it('maps only configured providers to their credentials when partial pairs are tolerated', () => {
+    expect(configuredProviderOptions(['google', 'github'] as const, environment, { rejectPartial: false })).toEqual({
       google: { clientId: 'id', clientSecret: 'secret' },
     })
   })
@@ -117,13 +117,17 @@ describe('provider credentials', () => {
   })
 
   it.each([{ AUTH_GOOGLE_CLIENT_ID: 'id' }, { AUTH_GOOGLE_CLIENT_SECRET: 'secret' }])(
-    'rejects an incomplete credential pair when requested',
+    'rejects an incomplete credential pair by default',
     (partialEnvironment) => {
-      expect(() => providerCredentials('google', partialEnvironment, { prefix: 'AUTH_', rejectPartial: true })).toThrow(
+      expect(() => providerCredentials('google', partialEnvironment, { prefix: 'AUTH_' })).toThrow(
         'AUTH_GOOGLE_CLIENT_ID and AUTH_GOOGLE_CLIENT_SECRET must be configured together',
       )
     },
   )
+
+  it('treats an incomplete credential pair as unconfigured only when asked', () => {
+    expect(providerCredentials('google', { GOOGLE_CLIENT_ID: 'id' }, { rejectPartial: false })).toBeUndefined()
+  })
 
   it('forwards provider environment options through collection helpers', () => {
     const prefixedEnvironment = { AUTH_GOOGLE_CLIENT_ID: 'id', AUTH_GOOGLE_CLIENT_SECRET: 'secret' }

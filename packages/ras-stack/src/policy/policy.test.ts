@@ -6,14 +6,18 @@ import { parse } from 'yaml'
 import { syncRepositoryPolicy } from './index.js'
 
 describe('repository policy synchronization', () => {
-  it('writes only selected policy files with local overrides', async () => {
-    const root = await repository({
-      changesets: { overrides: { access: 'restricted', privatePackages: { version: true, tag: true } } },
-      dependabot: false,
-    })
+  it('versions and tags private application packages by default', async () => {
+    const root = await repository({ changesets: true })
     await syncRepositoryPolicy(root, 'write')
     const changesets = JSON.parse(await readFile(join(root, '.changeset/config.json'), 'utf8'))
-    expect(changesets.access).toBe('restricted')
+    expect(changesets).toMatchObject({ access: 'restricted', privatePackages: { version: true, tag: true } })
+  })
+
+  it('writes only selected policy files with local overrides', async () => {
+    const root = await repository({ changesets: { overrides: { access: 'public' } }, dependabot: false })
+    await syncRepositoryPolicy(root, 'write')
+    const changesets = JSON.parse(await readFile(join(root, '.changeset/config.json'), 'utf8'))
+    expect(changesets.access).toBe('public')
     expect(changesets.privatePackages).toEqual({ version: true, tag: true })
     await expect(readFile(join(root, '.github/dependabot.yml'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   })

@@ -12,7 +12,12 @@ type Step = {
   with?: Record<string, string>
 }
 type Workflow = {
-  on: { workflow_call: { inputs: Record<string, { default?: string }> } }
+  on: {
+    workflow_call: {
+      inputs: Record<string, { default?: string }>
+      secrets?: Record<string, { required?: boolean }>
+    }
+  }
   env?: Record<string, string>
   jobs: Record<
     string,
@@ -25,11 +30,37 @@ type Workflow = {
       permissions?: Record<string, string>
       steps?: Step[]
       with?: Record<string, string>
+      secrets?: Record<string, string>
     }
   >
 }
 
 describe('Dokploy preview workflows', () => {
+  it('forwards an optional build secret only to trusted preview builds', async () => {
+    const dokploy = await workflow('build-dokploy-preview.yml')
+    const image = await workflow('build-preview-image.yml')
+    const trusted = step(image, 'build', 'Build and publish trusted preview image')
+    const untrusted = step(image, 'build', 'Build untrusted preview artifact')
+
+    expect({
+      inputDefault: dokploy.on.workflow_call.inputs['build-secret-id']?.default,
+      declaredSecret: dokploy.on.workflow_call.secrets?.['build-secret'],
+      forwardedInput: dokploy.jobs.build?.with?.['build-secret-id'],
+      forwardedSecret: dokploy.jobs.build?.secrets?.['build-secret'],
+      imageSecret: image.on.workflow_call.secrets?.['build-secret'],
+      trustedBuildSecret: trusted.with?.secrets,
+      untrustedBuildSecret: untrusted.with?.secrets,
+    }).toEqual({
+      inputDefault: '',
+      declaredSecret: { description: 'Optional BuildKit secret value forwarded to trusted same-repository builds.', required: false },
+      forwardedInput: '${{ inputs.build-secret-id }}',
+      forwardedSecret: '${{ secrets.build-secret }}',
+      imageSecret: { description: 'Optional BuildKit secret value for trusted same-repository builds.', required: false },
+      trustedBuildSecret: "${{ inputs.build-secret-id != '' && format('{0}={1}', inputs.build-secret-id, secrets.build-secret) || '' }}",
+      untrustedBuildSecret: undefined,
+    })
+  })
+
   it('routes custom and generated preview URLs through every deployment consumer', async () => {
     const build = await workflow('build-dokploy-preview.yml')
     const deploy = await workflow('deploy-dokploy-preview.yml')

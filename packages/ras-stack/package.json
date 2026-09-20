@@ -143,7 +143,9 @@
     "./config/typescript/bundler": "./config/typescript/bundler.json",
     "./config/typescript/library": "./config/typescript/library.json",
     "./config/typescript/node-bundler": "./config/typescript/node-bundler.json",
-    "./config/typescript/tanstack": "./config/typescript/tanstack.json"
+    "./config/typescript/tanstack": "./config/typescript/tanstack.json",
+    "./config/oxlint/domain": "./config/oxlint/domain.json",
+    "./config/oxlint/layers": "./config/oxlint/layers.json"
   },
   "publishConfig": {
     "access": "public"
@@ -162,8 +164,10 @@
     "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
   },
   "dependencies": {
+    "@changesets/parse": "1.0.0",
     "@inquirer/confirm": "^6.1.1",
     "@inquirer/select": "^5.2.1",
+    "@manypkg/get-packages": "3.1.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {

@@ -8,7 +8,7 @@ describe('shared workflow dependencies', () => {
     const sources = await Promise.all(
       files.filter((file) => file.endsWith('.yml')).map((file) => readFile(new URL(file, directory), 'utf8')),
     )
-    const stableSelfReferences = sources.flatMap((source) => source.match(/uses:\s+richardsolomou\/ras-stack\/[^\s]+@v1/g) ?? [])
+    const stableSelfReferences = sources.flatMap((source) => source.match(/uses:\s+richardsolomou\/ras-stack\/[^\s]+@v[12]/g) ?? [])
     const invalidSelfReferences = sources.flatMap((source) => source.match(/uses:\s+\$\//g) ?? [])
 
     expect(invalidSelfReferences).toEqual([])
@@ -23,7 +23,7 @@ describe('shared workflow dependencies', () => {
       files.filter((file) => file.endsWith('.yml')).map((file) => readFile(new URL(file, directory), 'utf8')),
     )
     const references = sources.flatMap((source) =>
-      [...source.matchAll(/uses:\s+richardsolomou\/ras-stack\/([^\s@]+)@v1/g)].map((match) => match[1]!),
+      [...source.matchAll(/uses:\s+richardsolomou\/ras-stack\/([^\s@]+)@v[12]/g)].map((match) => match[1]!),
     )
 
     await expect(

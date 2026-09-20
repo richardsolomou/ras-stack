@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { parseDocument, stringify } from 'yaml'
+import { checkChangesets } from './changesets.js'
 
 const changesetsPolicy = {
   $schema: 'https://unpkg.com/@changesets/config@3.1.2/schema.json',
@@ -8,7 +9,8 @@ const changesetsPolicy = {
   commit: false,
   fixed: [],
   linked: [],
-  access: 'public',
+  access: 'restricted',
+  privatePackages: { version: true, tag: true },
   baseBranch: 'main',
   updateInternalDependencies: 'patch',
   ignore: [],
@@ -83,8 +85,9 @@ export async function syncRepositoryPolicy(root: string, mode: 'check' | 'write'
 }
 
 export async function checkRepositoryPolicy(root: string) {
+  const config = repositoryPolicy(await readFile(join(root, 'ras-stack.policy.json'), 'utf8'))
   const files = await syncRepositoryPolicy(root, 'check')
-  return files.map((path) => `policy drift: ${path}`)
+  return [...files.map((path) => `policy drift: ${path}`), ...(config.changesets ? await checkChangesets(root) : [])]
 }
 
 export async function renderedPolicyFiles(root: string, config: RepositoryPolicy) {

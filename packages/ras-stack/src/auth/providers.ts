@@ -22,7 +22,7 @@ export function providerCredentials(
   const keys = providerEnvironmentKeys(provider, options.prefix)
   const clientId = environment[keys.clientId]?.trim()
   const clientSecret = environment[keys.clientSecret]?.trim()
-  if (options.rejectPartial && Boolean(clientId) !== Boolean(clientSecret)) {
+  if (options.rejectPartial !== false && Boolean(clientId) !== Boolean(clientSecret)) {
     throw new Error(`${keys.clientId} and ${keys.clientSecret} must be configured together`)
   }
   return clientId && clientSecret ? { clientId, clientSecret } : undefined

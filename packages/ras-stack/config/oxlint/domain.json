@@ -1,0 +1,29 @@
+{
+  "overrides": [
+    {
+      "files": ["src/core/**", "src/geometry/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:node:|(?:assert|async_hooks|buffer|child_process|cluster|console|constants|crypto|dgram|diagnostics_channel|dns|domain|events|fs|http|http2|https|inspector|module|net|os|path|perf_hooks|process|punycode|querystring|readline|repl|stream|string_decoder|sys|timers|tls|trace_events|tty|url|util|v8|vm|wasi|worker_threads|zlib)(?:/|$))",
+                "message": "Domain modules must not import Node builtins."
+              },
+              {
+                "regex": "^(@tanstack/|react(?:/|-|$)|@testing-library/|drizzle-orm(?:/|$)|postgres(?:/|$)|iovalkey(?:/|$)|ioredis(?:/|$)|@electric-sql/|better-auth(?:/|$)|cheerio(?:/|$)|html-to-text(?:/|$)|centrifuge(?:/|$)|posthog-(?:js|node)(?:/|$))",
+                "message": "Domain modules must not import framework or persistence dependencies."
+              },
+              {
+                "regex": "^(?:(?:\\.\\.?/)+|@/)(?:adapters|client|components|db|lib|routes|server)/",
+                "message": "Domain modules must not import application layers."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    }
+  ]
+}

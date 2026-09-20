@@ -4,7 +4,14 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, runRealtimeStack, superviseProcesses } from './index.js'
+import {
+  caddyRealtimeProxy,
+  caddyRuntimeEnvironment,
+  centrifugoEnvironment,
+  persistedRealtimeSecret,
+  runRealtimeStack,
+  superviseProcesses,
+} from './index.js'
 
 describe('self-hosted runtime configuration', () => {
   it('builds standard token and Redis Centrifugo environment', () => {
@@ -243,3 +250,20 @@ async function startRealtimeStack(
   await vi.waitFor(() => expect(spawned).toEqual(['app', 'realtime', 'proxy']))
   return { directory, running }
 }
+
+describe('persisted realtime secret', () => {
+  it('generates the secret once at the configured file and exports it to the environment', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'ras-stack-realtime-secret-'))
+    const environment: NodeJS.ProcessEnv = { APP_REALTIME_SECRET_FILE: join(directory, 'realtime-secret') }
+    const secret = persistedRealtimeSecret(environment, { prefix: 'APP_' })
+    expect(secret).toMatch(/^[A-Za-z0-9_-]{64}$/)
+    expect(environment.APP_REALTIME_SECRET).toBe(secret)
+    expect(await readFile(join(directory, 'realtime-secret'), 'utf8')).toBe(secret)
+    expect(persistedRealtimeSecret({ ...environment, APP_REALTIME_SECRET: undefined }, { prefix: 'APP_' })).toBe(secret)
+  })
+
+  it('keeps a secret the environment already carries', () => {
+    const environment: NodeJS.ProcessEnv = { REALTIME_SECRET: 'configured', REALTIME_SECRET_FILE: '/nonexistent/realtime-secret' }
+    expect(persistedRealtimeSecret(environment)).toBe('configured')
+  })
+})

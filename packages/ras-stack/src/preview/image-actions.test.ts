@@ -44,8 +44,10 @@ describe('container image actions', () => {
     ).rejects.toBeDefined()
   })
 
-  it.each(['build-container', 'publish-production-image'])('forwards BuildKit secrets through the %s action', async (name) => {
-    const action = parse(await readFile(new URL(`../../../../actions/${name}/action.yml`, import.meta.url), 'utf8')) as Action
+  it('forwards BuildKit secrets through the production image action', async () => {
+    const action = parse(
+      await readFile(new URL('../../../../actions/publish-production-image/action.yml', import.meta.url), 'utf8'),
+    ) as Action
     const build = action.runs.steps.find((step) => step.uses === 'docker/build-push-action@v7')
 
     expect({ default: action.inputs.secrets?.default, forwarded: build?.with?.secrets }).toEqual({

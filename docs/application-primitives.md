@@ -1,5 +1,7 @@
 # Application primitives
 
+Consumer conformance tests must call the application's adapter, handler, or configuration actually used at startup. Passing a ras-stack factory directly into a ras-stack assertion only retests the library and cannot detect a disconnected application integration. Keep upstream defaults covered here; use application tests to verify routing, identity, tenant scope, lifecycle ownership, and provider wiring.
+
 [Back to the ras-stack overview](../README.md)
 
 These entrypoints share application infrastructure while leaving upstream objects and product behavior in the consuming application.
@@ -57,10 +59,10 @@ session: standardSessionOptions({ expiresIn: 60 * 60 * 24 * 30 })
 
 For an existing rolling deployment, drain replicas that do not enable token encryption before the new version accepts traffic. Those replicas cannot read encrypted tokens, and rolling back after an encrypted write has the same limitation.
 
-Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications with a namespace can supply a prefix, and deployments can reject partial credential pairs instead of silently disabling the provider:
+Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications with a namespace can supply a prefix. A client ID without its secret, or the reverse, throws rather than silently disabling the provider; pass `rejectPartial: false` to treat it as unconfigured:
 
 ```ts
-const google = providerCredentials('google', process.env, { prefix: 'AUTH_', rejectPartial: true })
+const google = providerCredentials('google', process.env, { prefix: 'AUTH_' })
 ```
 
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:
@@ -231,7 +233,7 @@ await assertSqliteConformance((name) => sqliteClient.pragma(name, { simple: true
 Applications choose their channel names, authorize subscriptions, and define payloads. `ras-stack` handles Centrifugo's HTTP publication, signed tokens, and repeated browser lifecycle mechanics:
 
 ```ts
-import { CentrifugoPublisher, signRealtimeToken } from 'ras-stack/realtime'
+import { CentrifugoPublisher, realtimeEnvironment, signRealtimeToken } from 'ras-stack/realtime'
 import {
   connectRealtimeClient,
   createSameOriginRealtimeClient,
@@ -240,9 +242,12 @@ import {
   watchSubscriptionPresence,
 } from 'ras-stack/realtime/client'
 
+const realtime = realtimeEnvironment(process.env, { prefix: 'APP_', developmentSecret: 'app-development-realtime-secret' })
+if (!realtime) throw new Error('Realtime secret is not configured')
+
 const publisher = new CentrifugoPublisher({
-  apiUrl,
-  apiKey,
+  apiUrl: realtime.apiUrl,
+  apiKey: realtime.apiKey,
   maxConcurrentChannels: 8,
   maxPendingChannels: 1024,
   onError: (error, channel) => logger.error({ error, channel }, 'realtime publication failed'),
@@ -250,7 +255,7 @@ const publisher = new CentrifugoPublisher({
 
 publisher.publish(`battle:${battle.id}`, { type: 'change' })
 
-const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret })
+const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret: realtime.secret })
 
 await publisher.close()
 
@@ -295,7 +300,7 @@ await assertRealtimePublisherConformance(() => new CentrifugoPublisher({ ...opti
 
 Pass a publisher whose `fetch` does not reach a real Centrifugo; the suite fills it past capacity and then closes it.
 
-The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish.
+`realtimeEnvironment` reads `<prefix>REALTIME_API_URL`, `REALTIME_API_KEY`, and `REALTIME_SECRET` or `REALTIME_SECRET_FILE`, defaulting the API key to the secret and the API address to the local development container. It returns `undefined` when no secret is configured, except outside production when a `developmentSecret` is supplied; the container entrypoint pairs it with `persistedRealtimeSecret()` from `ras-stack/runtime`, which generates the secret once under `/data` and exports it to the supervised processes. The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish; pass an `AbortSignal` when the surrounding process has a stricter shutdown deadline.
 
 Because the application owns the route that mints tokens, a mistake there is only visible once Centrifugo rejects a connection or, worse, accepts one it should not. Consumer tests can check the route's signer against the shared secret instead:
 
@@ -312,12 +317,19 @@ It verifies the token is HS256, binds the subject it was asked for, carries its 
 The optional integrations return the underlying library objects when an application needs more control:
 
 ```ts
-import { createAuthEmailHandler, createSmtpDelivery, createSmtpTransport, smtpConfigFromEnvironment } from 'ras-stack/email'
+import {
+  createAuthEmailHandler,
+  createSmtpDelivery,
+  createSmtpTransport,
+  smtpConfigFromEnvironment,
+  standardAuthEmails,
+} from 'ras-stack/email'
 import { createTusUpload, startTusUpload } from 'ras-stack/uploads'
 
 const smtp = smtpConfigFromEnvironment()
 const email = smtp ? createSmtpDelivery(smtp) : undefined
 
+const authEmails = email ? standardAuthEmails(email, { productName: 'Example' }) : undefined
 const sendVerificationEmail = email
   ? createAuthEmailHandler(email, ({ user, url }) => ({ to: user.email, subject: 'Verify your email', text: url }))
   : undefined
@@ -330,10 +342,10 @@ const upload = createTusUpload({
   onProgress,
 })
 
-await startTusUpload(upload)
+await startTusUpload(upload, { signal, terminateOnAbort: true })
 ```
 
-`createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured.
+`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. `createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
 
 Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to:
 
