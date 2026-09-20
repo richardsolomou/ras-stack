@@ -202,7 +202,7 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-logs": "^0.221.0",
-    "@posthog/react": ">=1.10.6 <2",
+    "@posthog/react": ">=1.1 <2",
     "@tanstack/react-query": ">=5.62.8 <6",
     "@tanstack/react-start": ">=1.168.10 <2",
     "better-sqlite3": ">=12 <14",
