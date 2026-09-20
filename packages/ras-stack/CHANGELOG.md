@@ -1,5 +1,11 @@
 # ras-stack
 
+## 1.1.0
+
+### Minor Changes
+
+- 72015a3: Add shared PostHog observability setup.
+
 ## 1.0.1
 
 ### Patch Changes
