@@ -19,7 +19,7 @@ Keep exports composable. Shared code may implement duplicated infrastructure mec
 
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `packages/ras-stack/src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
-`Consumer compatibility` packs the candidate and builds, typechecks, and runs focused integration tests against pinned revisions of STL Quest, Praetorium, and BaseKit. The workflow runs for package changes and can also be dispatched manually. Update the pinned revisions after consumer migrations merge. The packed-package and full-stack-example checks remain responsible for the library's own contracts; this matrix catches incompatibilities in real callers without deploying them.
+Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published.
 
 ## Releases
 
