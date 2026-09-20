@@ -10,7 +10,10 @@ type MockOptions = {
 
 type MockUpload = {
   options: MockOptions
+  abort: ReturnType<typeof vi.fn>
+  findPreviousUploads: ReturnType<typeof vi.fn>
   resumeFromPreviousUpload: ReturnType<typeof vi.fn>
+  start: ReturnType<typeof vi.fn>
 }
 
 const mocks = vi.hoisted(() => ({ instances: [] as MockUpload[], retry: vi.fn(() => true) }))
@@ -20,8 +23,14 @@ vi.mock('tus-js-client', () => ({
   Upload: class {
     options: MockOptions
     url: string | null = 'https://uploads.example.com/one'
+    abort = vi.fn(async () => undefined)
     findPreviousUploads = vi.fn(async () => [{ uploadUrl: 'previous' }])
     resumeFromPreviousUpload = vi.fn()
+    start = vi.fn(() => {
+      if (this.file.name === 'pending.bin') return
+      if (this.file.name === 'fail.bin') this.options.onError?.(new Error('upload failed'))
+      else this.options.onSuccess?.({ lastResponse: { getBody: () => '{"id":"asset-1"}', getStatus: () => 200 } })
+    })
 
     constructor(
       public file: File,
@@ -29,11 +38,6 @@ vi.mock('tus-js-client', () => ({
     ) {
       this.options = options
       mocks.instances.push(this)
-    }
-
-    start() {
-      if (this.file.name === 'fail.bin') this.options.onError?.(new Error('upload failed'))
-      else this.options.onSuccess?.({ lastResponse: { getBody: () => '{"id":"asset-1"}', getStatus: () => 200 } })
     }
   },
 }))
@@ -94,6 +98,34 @@ describe('tus uploads', () => {
     upload.options.onError = upstream
     await expect(startTusUpload(upload)).rejects.toThrow('upload failed')
     expect(upstream).toHaveBeenCalledOnce()
+  })
+
+  it('does not start when cancellation arrives while discovering a resumable upload', async () => {
+    const controller = new AbortController()
+    const upload = createTusUpload({ endpoint: '/api/upload', file: new File([], 'asset.bin'), metadata: {} })
+    const mockedUpload = upload as unknown as MockUpload
+    let finishDiscovery!: (uploads: []) => void
+    mockedUpload.findPreviousUploads = vi.fn(() => new Promise<[]>((resolve) => (finishDiscovery = resolve)))
+
+    const result = startTusUpload(upload, { signal: controller.signal, terminateOnAbort: true })
+    controller.abort()
+    finishDiscovery([])
+
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    expect(mockedUpload.abort.mock.calls).toEqual([[true]])
+    expect(mockedUpload.start.mock.calls).toHaveLength(0)
+  })
+
+  it('aborts an active upload when its signal is cancelled', async () => {
+    const controller = new AbortController()
+    const upload = createTusUpload({ endpoint: '/api/upload', file: new File([], 'pending.bin'), metadata: {} })
+    const mockedUpload = upload as unknown as MockUpload
+    const result = startTusUpload(upload, { resume: false, signal: controller.signal })
+
+    controller.abort()
+
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' })
+    expect(mockedUpload.abort.mock.calls).toEqual([[false]])
   })
 })
 

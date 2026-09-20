@@ -342,10 +342,10 @@ const upload = createTusUpload({
   onProgress,
 })
 
-await startTusUpload(upload)
+await startTusUpload(upload, { signal, terminateOnAbort: true })
 ```
 
-`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. `createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured.
+`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. `createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
 
 Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to:
 

@@ -20,6 +20,12 @@ export type TusUploadResult = {
   uploadUrl: string | null
 }
 
+export type TusUploadStartOptions = {
+  resume?: boolean
+  signal?: AbortSignal
+  terminateOnAbort?: boolean
+}
+
 export function createTusUpload(options: TusUploadOptions) {
   return new Upload(options.file, {
     endpoint: options.endpoint,
@@ -37,40 +43,66 @@ export function createTusUpload(options: TusUploadOptions) {
   })
 }
 
-export async function startTusUpload(upload: Upload, resume = true): Promise<TusUploadResult> {
-  if (resume) {
-    const previous = await upload.findPreviousUploads()
-    if (previous[0]) upload.resumeFromPreviousUpload(previous[0])
+export async function startTusUpload(upload: Upload, options: boolean | TusUploadStartOptions = true): Promise<TusUploadResult> {
+  const { resume = true, signal, terminateOnAbort = false } = typeof options === 'boolean' ? { resume: options } : options
+  if (signal?.aborted) throw tusAbortError()
+  let rejectAbort: ((reason: unknown) => void) | undefined
+  const aborted = signal
+    ? new Promise<never>((_resolve, reject) => {
+        rejectAbort = reject
+      })
+    : undefined
+  const abort = () => {
+    void upload.abort(terminateOnAbort).then(
+      () => rejectAbort?.(tusAbortError()),
+      (error) => rejectAbort?.(error),
+    )
+  }
+  signal?.addEventListener('abort', abort, { once: true })
+
+  const run = async () => {
+    if (resume) {
+      const previous = await upload.findPreviousUploads()
+      if (signal?.aborted) throw tusAbortError()
+      if (previous[0]) upload.resumeFromPreviousUpload(previous[0])
+    }
+
+    return new Promise<TusUploadResult>((resolve, reject) => {
+      const previousError = upload.options.onError
+      const previousSuccess = upload.options.onSuccess
+      upload.options.onError = (error) => {
+        try {
+          previousError?.(error)
+        } finally {
+          reject(error)
+        }
+      }
+      upload.options.onSuccess = (event) => {
+        try {
+          previousSuccess?.(event)
+          resolve({
+            responseBody: event.lastResponse.getBody(),
+            responseStatus: event.lastResponse.getStatus(),
+            uploadUrl: upload.url,
+          })
+        } catch (error) {
+          reject(error)
+        }
+      }
+      upload.start()
+    })
   }
 
-  return new Promise((resolve, reject) => {
-    const previousError = upload.options.onError
-    const previousSuccess = upload.options.onSuccess
-    upload.options.onError = (error) => {
-      try {
-        previousError?.(error)
-      } finally {
-        reject(error)
-      }
-    }
-    upload.options.onSuccess = (event) => {
-      try {
-        previousSuccess?.(event)
-        resolve({
-          responseBody: event.lastResponse.getBody(),
-          responseStatus: event.lastResponse.getStatus(),
-          uploadUrl: upload.url,
-        })
-      } catch (error) {
-        reject(error)
-      }
-    }
-    upload.start()
-  })
+  try {
+    const result = run()
+    return await (aborted ? Promise.race([result, aborted]) : result)
+  } finally {
+    signal?.removeEventListener('abort', abort)
+  }
 }
 
-export function uploadWithTus(options: TusUploadOptions, resume = true) {
-  return startTusUpload(createTusUpload(options), resume)
+export function uploadWithTus(options: TusUploadOptions, startOptions: boolean | TusUploadStartOptions = true) {
+  return startTusUpload(createTusUpload(options), startOptions)
 }
 
 export function tusResponseMessage(error: unknown) {
@@ -92,4 +124,8 @@ function responseFromError(error: unknown) {
   const status: unknown = response.getStatus()
   const body: unknown = response.getBody()
   return { status: typeof status === 'number' ? status : undefined, body: typeof body === 'string' ? body : '' }
+}
+
+function tusAbortError() {
+  return new DOMException('Upload cancelled', 'AbortError')
 }
