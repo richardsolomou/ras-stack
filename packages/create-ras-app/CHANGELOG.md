@@ -1,5 +1,17 @@
 # create-ras-app
 
+## 2.0.0
+
+### Patch Changes
+
+- Updated dependencies [4674fd4]
+- Updated dependencies [410d963]
+- Updated dependencies [4674fd4]
+- Updated dependencies [4674fd4]
+- Updated dependencies [ad9238d]
+- Updated dependencies [6425ecd]
+  - ras-stack@2.0.0
+
 ## 1.1.1
 
 ### Patch Changes

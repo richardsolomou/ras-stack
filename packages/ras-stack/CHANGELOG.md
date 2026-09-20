@@ -1,5 +1,19 @@
 # ras-stack
 
+## 2.0.0
+
+### Major Changes
+
+- 4674fd4: Tune shared defaults to how applications deploy: the Changesets policy targets private packages, the PostHog ingest proxy mounts at `/t` with segment-bound Vite routes, and half-configured provider credentials throw.
+- 4674fd4: Add a `fetch-depth` input to the check workflow and remove the unused container-browser workflow, build-container action, and PostHog source-map action.
+
+### Minor Changes
+
+- 410d963: Add `AbortSignal` cancellation to TUS uploads, including resume discovery.
+- 4674fd4: Add `standardAuthEmails`, `realtimeEnvironment`, `persistedRealtimeSecret`, and `loadPreviewAppSecrets`.
+- ad9238d: Share import boundaries and validate changeset package names.
+- 6425ecd: Add shared RPC telemetry, bounded realtime shutdown, and trusted preview build-secret forwarding.
+
 ## 1.1.1
 
 ### Patch Changes
