@@ -1,5 +1,7 @@
 # Application primitives
 
+Consumer conformance tests must call the application's adapter, handler, or configuration actually used at startup. Passing a ras-stack factory directly into a ras-stack assertion only retests the library and cannot detect a disconnected application integration. Keep upstream defaults covered here; use application tests to verify routing, identity, tenant scope, lifecycle ownership, and provider wiring.
+
 [Back to the ras-stack overview](../README.md)
 
 These entrypoints share application infrastructure while leaving upstream objects and product behavior in the consuming application.

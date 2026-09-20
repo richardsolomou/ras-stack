@@ -1,0 +1,116 @@
+{
+  "overrides": [
+    {
+      "files": ["src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^\\./[^.]",
+                "message": "Route modules must not import sibling route modules."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    },
+    {
+      "files": ["src/server/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:(?:\\.\\.?/)+|@/)(?:client|routes)/",
+                "message": "Server modules must not import client or route modules."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    },
+    {
+      "files": ["src/client/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/adapters/**",
+                  "**/db/**",
+                  "**/routes/**",
+                  "**/server/**",
+                  "!**/server/functions",
+                  "!**/server/functions.*",
+                  "!**/server/functions/**",
+                  "!**/server/fns",
+                  "!**/server/fns.*"
+                ],
+                "message": "Client modules may import server functions, but not server implementations."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    },
+    {
+      "files": ["src/contracts/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:(?:\\.\\.?/)+|@/)(?:adapters|client|components|db|lib|routes|server)/",
+                "message": "Shared contracts must not import application layers."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    },
+    {
+      "files": ["src/adapters/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:(?:\\.\\.?/)+|@/)(?:client|db|routes|server)/",
+                "message": "Adapters must not import application layers."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    },
+    {
+      "files": ["src/db/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(?:(?:\\.\\.?/)+|@/)(?:adapters|client|routes|server)/",
+                "message": "Database modules must not import application layers."
+              }
+            ]
+          }
+        ]
+      },
+      "excludeFiles": ["**/*.test.*", "**/*.spec.*"]
+    }
+  ]
+}

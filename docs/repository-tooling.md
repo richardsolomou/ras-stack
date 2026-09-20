@@ -48,6 +48,13 @@ Oxlint applications can extend the strict default plus independent layers for sh
 
 These configs do not set include paths, aliases, generated directories outside TanStack's route tree, or framework-specific worker globals. Keep those differences in the consuming repository.
 
+Two opt-in import-boundary presets can be added to the same `extends` list:
+
+- `./node_modules/ras-stack/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**` and `src/geometry/**`. Pure libraries such as Zod and Manifold remain available.
+- `./node_modules/ras-stack/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
+
+Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither preset is enabled by `application` or `tanstack` automatically.
+
 ## Adopting the tooling
 
 `ras init` lays down the shared tooling a repository wants:
@@ -63,6 +70,10 @@ It offers the repository policy and its generated files, the declared Node and p
 This lays down tooling; it is not an application starter. [`examples/full-stack`](../examples/full-stack) remains an integration contract rather than something to copy.
 
 ## Repository policy
+
+When Changesets policy is enabled, `ras policy check` also validates every existing `.changeset/*.md` file except `README.md`. It accepts empty changesets and CRLF frontmatter, rejects malformed entries and unknown package names, and discovers packages through the repository's workspace configuration. It does not require a changeset when no release is intended. `ras policy sync` only updates generated policy files; it never repairs or rewrites release notes.
+
+The tooling uses `@changesets/parse` for the upstream frontmatter contract and `@manypkg/get-packages` for workspace discovery, avoiding a second parser or package-glob implementation.
 
 Policy files which cannot inherit can stay committed while being checked against the shared source. Select only the policies a repository wants in `ras-stack.policy.json`:
 

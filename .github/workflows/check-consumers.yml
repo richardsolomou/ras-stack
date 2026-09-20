@@ -1,0 +1,64 @@
+name: Consumer compatibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - packages/ras-stack/**
+      - pnpm-lock.yaml
+      - .github/workflows/check-consumers.yml
+  push:
+    branches: [main]
+    paths:
+      - packages/ras-stack/**
+      - pnpm-lock.yaml
+      - .github/workflows/check-consumers.yml
+
+permissions:
+  contents: read
+
+jobs:
+  consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: stl.quest
+            ref: 096900fe274614a69c495ab5a6d5901e63c8a21a
+            tests: src/server/conformance.test.ts src/adapters/events.test.ts src/server/realtime.test.ts
+          - repository: praetorium.gg
+            ref: 7898e0a2978dc817952dae68421cc6e214ccce58
+            tests: src/server/conformance.test.ts src/adapters/events.test.ts src/adapters/realtime.test.ts
+          - repository: basekit
+            ref: 357eaab9f7225efc73fffc4f3ef9751cbf292724
+            tests: src/lib/posthog.test.ts
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - name: Pack candidate
+        run: |
+          pnpm --filter ras-stack build
+          pnpm --dir packages/ras-stack pack --out "$RUNNER_TEMP/ras-stack-candidate.tgz"
+      - uses: actions/checkout@v7
+        with:
+          repository: richardsolomou/${{ matrix.repository }}
+          ref: ${{ matrix.ref }}
+          path: consumer
+          persist-credentials: false
+      - name: Install consumer and candidate
+        working-directory: consumer
+        run: |
+          pnpm install --frozen-lockfile
+          node --input-type=module -e "import fs from 'node:fs'; const file = 'package.json'; const manifest = JSON.parse(fs.readFileSync(file, 'utf8')); manifest.dependencies['ras-stack'] = 'file:' + process.env.RUNNER_TEMP + '/ras-stack-candidate.tgz'; fs.writeFileSync(file, JSON.stringify(manifest, null, 2) + '\n');"
+          pnpm install --no-frozen-lockfile
+      - name: Check consumer integration
+        working-directory: consumer
+        env:
+          CONSUMER_TESTS: ${{ matrix.tests }}
+        run: |
+          pnpm build
+          pnpm typecheck
+          read -r -a tests <<< "$CONSUMER_TESTS"
+          pnpm exec vitest run "${tests[@]}"
