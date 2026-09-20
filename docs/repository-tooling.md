@@ -79,12 +79,7 @@ Policy files which cannot inherit can stay committed while being checked against
 
 ```json
 {
-  "changesets": {
-    "overrides": {
-      "access": "restricted",
-      "privatePackages": { "version": true, "tag": true }
-    }
-  },
+  "changesets": true,
   "dependabot": true,
   "pnpm": {}
 }
@@ -97,7 +92,7 @@ pnpm exec ras policy sync
 pnpm exec ras policy check
 ```
 
-`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown and ignores major ras-stack workflow upgrades, which require an intentional compatibility migration. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
+`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Changesets policy is shaped for private application packages: restricted access, and private packages versioned and tagged. A published library overrides `access` and `privatePackages` instead. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown and ignores major ras-stack workflow upgrades, which require an intentional compatibility migration. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
 
 The package does not police which ras-stack version a repository is on. Pick the version you want to ship; if it lacks something you use, the type checker and the failing import say so more precisely than a declared floor ever could.
 
@@ -140,6 +135,8 @@ steps:
   - run: pnpm check
 ```
 
+Pass `fetch-depth: 0` when the check command reads history, and `audit-level` to run `pnpm audit` before it.
+
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
@@ -170,22 +167,9 @@ Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Acti
 
 The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. The release tag points to the protected branch's merge commit.
 
-Browser jobs can cache the pinned Playwright payload through the shared setup action. Production-container E2E can use the reusable workflow, while repository-specific preparation and the actual test command remain inputs:
+Browser jobs can cache the pinned Playwright payload through `actions/setup-playwright`. It installs system dependencies by default; set `install-dependencies: 'false'` only for runner images that already provide the browser libraries. Production-container E2E stays a repository job: the image build, cache strategy, sharding, and PR-versus-main topology differ per application, and the check workflow above supplies the toolchain steps.
 
-```yaml
-e2e:
-  uses: richardsolomou/ras-stack/.github/workflows/check-container-browser.yml@v1
-  with:
-    image: my-app-e2e
-    cache-scope: my-app-e2e
-    prepare-command: just prepare-e2e
-    command: just e2e-run
-    just-version: '1.58.0'
-```
-
-The loaded image tag is also available to the command as `RAS_STACK_TEST_IMAGE`. Build and browser durations are written to the job summary, and failure artifacts remain configurable. Applications that need extra caches, services, registry publication, or a different PR/main topology can use `actions/build-container` and `actions/setup-playwright` inside their own job instead. The Playwright setup action installs system dependencies by default; set `install-dependencies: 'false'` only for runner images that already provide the browser libraries.
-
-Container actions export the smaller final-image cache by default. `publish-production-image` reads both its production cache and the `e2e-image` cache, so an E2E build can warm unchanged layers for the release build without paying to upload every intermediate BuildKit layer.
+`publish-production-image` reads both its production cache and the `e2e-image` cache, so an E2E build can warm unchanged layers for the release build without paying to upload every intermediate BuildKit layer.
 
 Production deployments can point Dokploy at the exact image that the workflow already published instead of asking Dokploy to rebuild the repository:
 
@@ -220,7 +204,7 @@ Dependabot preview deployments target the `dependabot-preview` GitHub environmen
 
 Origins restricted to Cloudflare can set `cloudflare-zone-id` and inherit a `CLOUDFLARE_API_TOKEN` secret with DNS Write access limited to that zone. The deploy workflow creates or updates a proxied A record at the custom preview hostname before deployment, while close and prune workflows delete only records carrying the matching ras-stack ownership comment. Use a first-level hostname such as `sealed-lists-pr-42.ras.sh` when the zone's Universal SSL certificate covers `*.ras.sh`; a nested hostname requires separate certificate coverage.
 
-Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
+Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the script reads product secrets through `loadPreviewAppSecrets(allowedNames)`, which copies only the allowlisted keys of the `PREVIEW_APP_SECRETS` JSON secret into the environment; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
 
 `dokployPreviewFromEnvironment` reads the same variables the commands use and returns the resolved configuration alongside a `DokployPreviewManager`, so a script only writes the part that differs:
 
@@ -330,7 +314,7 @@ The foreground command follows terminal signals and leaves an existing named con
 
 Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
 
-The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
+The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
 Consumer repositories follow the stable major compatibility tag, such as `v1`. Each exact release tag remains immutable, while the release pipeline advances the major tag only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 

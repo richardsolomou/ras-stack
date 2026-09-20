@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { DokployClient, DokployPreviewManager, previewHostname, pullRequestNumber } from './dokploy.js'
+import { DokployClient, DokployPreviewManager, loadPreviewAppSecrets, previewHostname, pullRequestNumber } from './dokploy.js'
 
 describe('Dokploy preview lifecycle', () => {
   it('creates, configures, deploys, and health-checks one preview', async () => {
@@ -393,3 +393,32 @@ function fakeDokploy(
   })
   return { bodies, events, fetch, healthUrls, procedures }
 }
+
+describe('preview application secrets', () => {
+  it('copies allowlisted keys into the target environment', () => {
+    const target: NodeJS.ProcessEnv = {}
+    loadPreviewAppSecrets(['DATABASE_ADMIN_URL'], { PREVIEW_APP_SECRETS: JSON.stringify({ DATABASE_ADMIN_URL: 'postgres://x' }) }, target)
+    expect(target).toEqual({ DATABASE_ADMIN_URL: 'postgres://x' })
+  })
+
+  it('does nothing when no secrets are supplied', () => {
+    const target: NodeJS.ProcessEnv = {}
+    loadPreviewAppSecrets(['DATABASE_ADMIN_URL'], {}, target)
+    expect(target).toEqual({})
+  })
+
+  it('rejects keys outside the allowlist', () => {
+    expect(() => loadPreviewAppSecrets(['SAFE'], { PREVIEW_APP_SECRETS: JSON.stringify({ AWS_SECRET_ACCESS_KEY: 'x' }) }, {})).toThrow(
+      'PREVIEW_APP_SECRETS contains unsupported key AWS_SECRET_ACCESS_KEY',
+    )
+  })
+
+  it('rejects anything but a JSON object of strings', () => {
+    expect(() => loadPreviewAppSecrets(['SAFE'], { PREVIEW_APP_SECRETS: '["SAFE"]' }, {})).toThrow(
+      'PREVIEW_APP_SECRETS must be a JSON object',
+    )
+    expect(() => loadPreviewAppSecrets(['SAFE'], { PREVIEW_APP_SECRETS: JSON.stringify({ SAFE: 7 }) }, {})).toThrow(
+      'PREVIEW_APP_SECRETS.SAFE must be a string',
+    )
+  })
+})

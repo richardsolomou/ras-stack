@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { persistedSecret } from '../auth/secret.js'
 
 export { runRealtimeDev, type RealtimeDevOptions } from './dev.js'
 
@@ -296,4 +297,21 @@ function port(value: number, name: string) {
 function absolutePath(value: string, name: string) {
   if (!path.isAbsolute(value)) throw new Error(`${name} must be an absolute path`)
   return value
+}
+
+export type PersistedRealtimeSecretOptions = { prefix?: string; defaultFile?: string }
+
+// The secret lands back in the environment so the supervised application inherits the value Centrifugo was given.
+export function persistedRealtimeSecret(environment: NodeJS.ProcessEnv = process.env, options: PersistedRealtimeSecretOptions = {}) {
+  const prefix = options.prefix ?? ''
+  const file = environment[`${prefix}REALTIME_SECRET_FILE`]?.trim() || options.defaultFile || '/data/realtime-secret'
+  const secret = persistedSecret({
+    directory: path.dirname(file),
+    filename: path.basename(file),
+    environment,
+    environmentKey: `${prefix}REALTIME_SECRET`,
+    bytes: 48,
+  })
+  environment[`${prefix}REALTIME_SECRET`] = secret
+  return secret
 }

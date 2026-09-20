@@ -88,3 +88,31 @@ export function createSmtpTransport(config: SmtpConfig) {
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
   })
 }
+
+export type StandardAuthEmailOptions = { productName: string }
+
+export function standardAuthEmails<User extends { email: string } = { email: string }>(
+  delivery: EmailDelivery,
+  options: StandardAuthEmailOptions,
+) {
+  const expiry = 'This link expires in one hour.'
+  const message =
+    (subject: string, label: string): AuthEmailMessageFactory<User> =>
+    ({ user, url }) => ({
+      to: user.email,
+      subject,
+      text: `${subject} using this link: ${url}\n\n${expiry}`,
+      html: `<p>${escapeHtml(subject)} using the link below.</p><p><a href="${escapeHtml(url)}">${label}</a></p><p>${expiry}</p>`,
+    })
+  return {
+    sendResetPassword: createAuthEmailHandler(delivery, message(`Reset your ${options.productName} password`, 'Reset password')),
+    sendVerificationEmail: createAuthEmailHandler(
+      delivery,
+      message(`Verify your ${options.productName} email address`, 'Verify email address'),
+    ),
+  }
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+}

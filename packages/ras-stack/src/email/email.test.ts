@@ -6,7 +6,7 @@ vi.mock('nodemailer', () => ({
   default: { createTransport: mocks.createTransport },
 }))
 
-import { createAuthEmailHandler, createSmtpDelivery, smtpConfigFromEnvironment } from './index.js'
+import { createAuthEmailHandler, createSmtpDelivery, smtpConfigFromEnvironment, standardAuthEmails } from './index.js'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -100,6 +100,36 @@ describe('auth email handlers', () => {
     }))
     await expect(handler({ user: { email: 'person@example.com' }, url: 'https://app.test/reset', token: 'reset-token' })).rejects.toBe(
       failure,
+    )
+  })
+})
+
+describe('standard auth emails', () => {
+  const user = { email: 'person@example.com' }
+
+  it('sends the reset message with a plain-text link and an HTML button', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    const { sendResetPassword } = standardAuthEmails({ send, verify: vi.fn() }, { productName: 'Example' })
+    await sendResetPassword({ user, url: 'https://app.test/reset?token=1&x=2', token: '1' })
+    expect(send).toHaveBeenCalledWith({
+      to: 'person@example.com',
+      subject: 'Reset your Example password',
+      text: 'Reset your Example password using this link: https://app.test/reset?token=1&x=2\n\nThis link expires in one hour.',
+      html: '<p>Reset your Example password using the link below.</p><p><a href="https://app.test/reset?token=1&amp;x=2">Reset password</a></p><p>This link expires in one hour.</p>',
+    })
+  })
+
+  it('sends the verification message and escapes the product name in HTML', async () => {
+    const send = vi.fn().mockResolvedValue(undefined)
+    const { sendVerificationEmail } = standardAuthEmails({ send, verify: vi.fn() }, { productName: 'A <B>' })
+    await sendVerificationEmail({ user, url: 'https://app.test/verify', token: '1' })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Verify your A <B> email address',
+        html: expect.stringContaining(
+          '<p>Verify your A &lt;B&gt; email address using the link below.</p><p><a href="https://app.test/verify">Verify email address</a></p>',
+        ),
+      }),
     )
   })
 })

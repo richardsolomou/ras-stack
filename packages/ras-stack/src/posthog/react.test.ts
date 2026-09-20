@@ -60,7 +60,7 @@ describe('PostHog React integration', () => {
       expect.objectContaining({
         apiKey: 'phc_test',
         options: expect.objectContaining({
-          api_host: '/ingest',
+          api_host: '/t',
           capture_exceptions: true,
           capture_pageview: 'history_change',
           person_profiles: 'identified_only',
