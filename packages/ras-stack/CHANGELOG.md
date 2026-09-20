@@ -1,5 +1,11 @@
 # ras-stack
 
+## 1.1.1
+
+### Patch Changes
+
+- 2db6ba6: Pass sensitive image build inputs through BuildKit secret mounts.
+
 ## 1.1.0
 
 ### Minor Changes

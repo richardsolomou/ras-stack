@@ -1,5 +1,12 @@
 # create-ras-app
 
+## 1.1.1
+
+### Patch Changes
+
+- Updated dependencies [2db6ba6]
+  - ras-stack@1.1.1
+
 ## 1.1.0
 
 ### Patch Changes
