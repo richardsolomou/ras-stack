@@ -125,10 +125,23 @@ jobs:
               sleep 5
             done
             test -n "$validation_run_id"
+            approval_run_ids=()
             if [ "$RELEASE_TOKEN_PRESENT" != "true" ]; then
-              gh run rerun "$validation_run_id" --repo "$GITHUB_REPOSITORY"
+              mapfile -t approval_run_ids < <(
+                gh run list --repo "$GITHUB_REPOSITORY" --branch "$release_branch" --event pull_request --limit 100 --json databaseId,headSha |
+                  jq -r --arg sha "$release_sha" '.[] | select(.headSha == $sha) | .databaseId'
+              )
+              printf '%s\n' "${approval_run_ids[@]}" | grep -Fxq "$validation_run_id"
+              for action_run_id in "${approval_run_ids[@]}"; do
+                gh run rerun "$action_run_id" --repo "$GITHUB_REPOSITORY"
+              done
             fi
             gh run watch "$validation_run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+            for action_run_id in "${approval_run_ids[@]}"; do
+              if [ "$action_run_id" != "$validation_run_id" ]; then
+                gh run watch "$action_run_id" --repo "$GITHUB_REPOSITORY"
+              fi
+            done
             gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --auto --merge --delete-branch --match-head-commit "$release_sha"
             release_state=""
             for _ in $(seq 1 12); do
