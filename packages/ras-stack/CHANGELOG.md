@@ -1,5 +1,11 @@
 # ras-stack
 
+## 2.0.1
+
+### Patch Changes
+
+- 8e3482c: Rerun every approval-gated workflow for tokenless release pull requests.
+
 ## 2.0.0
 
 ### Major Changes
