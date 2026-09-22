@@ -158,6 +158,40 @@ describe('changeset release workflow', () => {
     expect(merge).not.toContain('--admin')
   })
 
+  it('discovers approval-gated runs independently of the validation workflow', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+    const approvalBin = join(fixture.work, 'approval-bin')
+    const approvalGh = join(approvalBin, 'gh')
+    await mkdir(approvalBin)
+    await writeFile(
+      approvalGh,
+      '#!/bin/sh\nif [ "$1 $2" = "run list" ] && echo "$*" | grep -q -- \'--event pull_request\' && ! echo "$*" | grep -q -- \'--workflow\'; then\n  printf \'%s\\n\' "$*" >> "$GH_LOG"\n  sha="$(git rev-parse HEAD)"\n  printf \'[{"databaseId":123,"headSha":"%s"},{"databaseId":456,"headSha":"%s"}]\\n\' "$sha" "$sha"\n  exit 0\nfi\nPATH="${PATH#*:}" exec gh "$@"\n',
+    )
+    await chmod(approvalGh, 0o755)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${approvalBin}:${fake.bin}:${process.env.PATH ?? ''}`,
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+
+    expect(
+      calls.some((call) => call.startsWith('run list ') && call.includes('--event pull_request') && !call.includes('--workflow')),
+    ).toBe(true)
+    expect(calls.some((call) => call.startsWith('run rerun 456 '))).toBe(true)
+    expect(calls.findIndex((call) => call.startsWith('run watch 456 '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('pr merge ')),
+    )
+  })
+
   it('leaves the protected branch unchanged when release validation fails', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
