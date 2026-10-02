@@ -1,5 +1,11 @@
 # ras-stack
 
+## 2.0.2
+
+### Patch Changes
+
+- 7e521f5: Stop the PostHog ingest proxy forwarding the application's session cookie and bearer token to PostHog.
+
 ## 2.0.1
 
 ### Patch Changes
