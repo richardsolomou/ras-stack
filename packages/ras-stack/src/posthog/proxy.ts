@@ -1,10 +1,20 @@
 import { postHogHttpUrl } from './config.js'
 import type { PostHogEnvironment } from './config.js'
 
+/**
+ * A same-origin proxy receives the application's session cookie and any bearer token with every
+ * request. PostHog reads neither, and forwarding them would hand a credential to a third party.
+ */
+const PRIVATE_HEADERS = ['cookie', 'authorization'] as const
+
+type ProxyRequest = { removeHeader(name: string): void }
+type ViteProxyServer = { on(event: 'proxyReq', listener: (request: ProxyRequest) => void): unknown }
+
 type ViteProxyTarget = {
   target: string
   changeOrigin: true
   rewrite: (path: string) => string
+  configure: (proxy: ViteProxyServer) => void
 }
 
 function viteTarget(host: string, ingestPath: string): ViteProxyTarget {
@@ -13,7 +23,15 @@ function viteTarget(host: string, ingestPath: string): ViteProxyTarget {
     target: host,
     changeOrigin: true,
     rewrite: (path) => path.replace(prefix, ''),
+    configure: (proxy) =>
+      proxy.on('proxyReq', (request) => {
+        for (const name of PRIVATE_HEADERS) request.removeHeader(name)
+      }),
   }
+}
+
+function nitroTarget(to: string) {
+  return { proxy: { to, filterHeaders: [...PRIVATE_HEADERS] } }
 }
 
 function escapeRegExp(value: string) {
@@ -44,9 +62,9 @@ export function postHogIngestProxy(input: Pick<PostHogEnvironment, 'host' | 'ass
       [`${segment}(?:/|$)`]: viteTarget(ingestionHost, path),
     },
     nitro: {
-      [`${path}/static/**`]: { proxy: `${assetsHost}/static/**` },
-      [`${path}/array/**`]: { proxy: `${assetsHost}/array/**` },
-      [`${path}/**`]: { proxy: `${ingestionHost}/**` },
+      [`${path}/static/**`]: nitroTarget(`${assetsHost}/static/**`),
+      [`${path}/array/**`]: nitroTarget(`${assetsHost}/array/**`),
+      [`${path}/**`]: nitroTarget(`${ingestionHost}/**`),
     },
   }
 }
