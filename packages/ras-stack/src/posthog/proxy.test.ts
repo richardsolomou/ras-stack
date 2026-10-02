@@ -9,8 +9,8 @@ describe('PostHog ingest proxy', () => {
     expect(proxy.path).toBe('/t')
     expect(proxy.vite['^/t(?:/|$)']).toMatchObject({ target: 'https://us.i.posthog.com', changeOrigin: true })
     expect(proxy.vite['^/t/static']).toMatchObject({ target: 'https://us-assets.i.posthog.com', changeOrigin: true })
-    expect(proxy.nitro['/t/**']).toEqual({ proxy: 'https://us.i.posthog.com/**' })
-    expect(proxy.nitro['/t/array/**']).toEqual({ proxy: 'https://us-assets.i.posthog.com/array/**' })
+    expect(proxy.nitro['/t/**']?.proxy.to).toBe('https://us.i.posthog.com/**')
+    expect(proxy.nitro['/t/array/**']?.proxy.to).toBe('https://us-assets.i.posthog.com/array/**')
   })
 
   it('binds the Vite routes to the whole path segment so application routes sharing the prefix stay local', () => {
@@ -26,8 +26,22 @@ describe('PostHog ingest proxy', () => {
     expect(proxy.vite['^/relay(?:/|$)']).toMatchObject({ target: 'https://us.i.posthog.com', changeOrigin: true })
     expect(proxy.vite['^/relay(?:/|$)']?.rewrite('/relay/e')).toBe('/e')
     expect(proxy.vite['^/relay/static']).toMatchObject({ target: 'https://us-assets.i.posthog.com', changeOrigin: true })
-    expect(proxy.nitro['/relay/**']).toEqual({ proxy: 'https://us.i.posthog.com/**' })
-    expect(proxy.nitro['/relay/array/**']).toEqual({ proxy: 'https://us-assets.i.posthog.com/array/**' })
+    expect(proxy.nitro['/relay/**']?.proxy.to).toBe('https://us.i.posthog.com/**')
+    expect(proxy.nitro['/relay/array/**']?.proxy.to).toBe('https://us-assets.i.posthog.com/array/**')
+  })
+
+  it('keeps the session cookie and bearer token out of every Nitro proxy route', () => {
+    const routes = Object.values(postHogIngestProxy(environment).nitro)
+    expect(routes.map((route) => route.proxy.filterHeaders)).toEqual(routes.map(() => ['cookie', 'authorization']))
+  })
+
+  it('removes the session cookie and bearer token from every Vite proxy request', () => {
+    const removed = Object.values(postHogIngestProxy(environment).vite).map((target) => {
+      const names: string[] = []
+      target.configure({ on: (_event, listener) => listener({ removeHeader: (name) => names.push(name) }) })
+      return names
+    })
+    expect(removed).toEqual(removed.map(() => ['cookie', 'authorization']))
   })
 
   it('rejects a path missing a leading slash, a trailing slash, or carrying a query or fragment', () => {

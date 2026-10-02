@@ -221,7 +221,7 @@ export default defineConfig({
 })
 ```
 
-The proxy mounts at `/t` by default (exported as `POSTHOG_DEFAULT_INGEST_PATH`), because ad-blocker lists block the literal `/ingest` segment regardless of host. The Vite keys are regular expressions bound to that whole segment, so an application route such as `/teams` stays local. Keep the `static` and `array` entries ahead of the ingest entry when composing these objects with local routes.
+The proxy mounts at `/t` by default (exported as `POSTHOG_DEFAULT_INGEST_PATH`), because ad-blocker lists block the literal `/ingest` segment regardless of host. Both proxies drop the `cookie` and `authorization` headers, because a same-origin request carries the application's session and PostHog reads neither. They forward `X-Forwarded-For` as received, and PostHog records its first address as the client's. An edge that rewrites that header to its own address therefore gives every event the same location; have the edge put the client address first before the request reaches the application. The Vite keys are regular expressions bound to that whole segment, so an application route such as `/teams` stays local. Keep the `static` and `array` entries ahead of the ingest entry when composing these objects with local routes.
 
 Pass a custom `path` to move the proxy elsewhere, and pass the same value as `ingestPath` to `PostHogIntegration` so the browser client requests it:
 
