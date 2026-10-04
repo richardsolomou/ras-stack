@@ -80,7 +80,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: richardsolomou/ras-stack/.github/workflows/build-preview-image.yml@v2
+    uses: ./.github/workflows/build-preview-image.yml
     with:
       published-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
       fork-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.pull_request.number }}-sha-${{ github.event.pull_request.head.sha }}
