@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tanstack/react-router": "^1.170.18",
-    "@tanstack/react-start": "^1.168.32",
+    "@tanstack/react-router": "^1.170.40",
+    "@tanstack/react-start": "^1.168.59",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -22,7 +22,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.5",
     "oxlint": "^1.74.0",
-    "oxlint-tsgolint": "^7.0.2001",
+    "oxlint-tsgolint": "^7.0.2003",
     "ras-stack": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
