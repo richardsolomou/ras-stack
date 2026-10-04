@@ -1,5 +1,11 @@
 # ras-stack
 
+## 3.0.1
+
+### Patch Changes
+
+- 12cafc7: Support Nodemailer 10 so applications can install patched SMTP dependencies. Preserve Nodemailer 9 compatibility.
+
 ## 3.0.0
 
 ### Major Changes
