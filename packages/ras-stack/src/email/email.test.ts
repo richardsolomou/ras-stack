@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ sendMail: vi.fn(), verify: vi.fn(), createTransport: vi.fn() }))
 
 vi.mock('nodemailer', () => ({
-  default: { createTransport: mocks.createTransport },
+  createTransport: mocks.createTransport,
 }))
 
 import { createAuthEmailHandler, createSmtpDelivery, smtpConfigFromEnvironment, standardAuthEmails } from './index.js'
