@@ -34,11 +34,11 @@
     "package:check": "node scripts/checkPackedPackage.mjs"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
-    "oxlint": "^1.74.0",
+    "@types/node": "^26.6.3",
+    "oxlint": "^1.85.0",
     "ras-stack-config": "workspace:*",
     "typescript": "^7.0.2",
-    "vite": "8.2.1",
+    "vite": "8.3.1",
     "vitest": "^4.1.10"
   }
 }
