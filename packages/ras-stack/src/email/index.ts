@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer'
+import { createTransport } from 'nodemailer'
 
 export type EmailMessage = { to: string; subject: string; text: string; html?: string }
 
@@ -81,7 +81,7 @@ export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
 }
 
 export function createSmtpTransport(config: SmtpConfig) {
-  return nodemailer.createTransport({
+  return createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
