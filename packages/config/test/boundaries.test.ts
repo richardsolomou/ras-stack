@@ -19,7 +19,7 @@ async function lint(file: string, specifier: string) {
   await writeFile(
     config,
     JSON.stringify({
-      extends: ['domain', 'layers'].map((name) => fileURLToPath(new URL(`../../config/oxlint/${name}.json`, import.meta.url))),
+      extends: ['domain', 'layers'].map((name) => fileURLToPath(new URL(`../config/oxlint/${name}.json`, import.meta.url))),
     }),
   )
   try {

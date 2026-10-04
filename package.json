@@ -4,16 +4,16 @@
   "type": "module",
   "scripts": {
     "build": "pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build",
-    "config:check": "pnpm --filter ras-stack config:check",
+    "config:check": "pnpm --filter ras-stack-config check && pnpm --filter ras-stack-config test",
     "typecheck": "pnpm --filter ras-stack build && pnpm --filter ras-stack typecheck && pnpm --filter @ras-stack/example-full-stack typecheck && pnpm --filter @ras-stack/web typecheck",
     "lint": "pnpm --filter ras-stack lint && pnpm --filter @ras-stack/example-full-stack lint && pnpm --filter @ras-stack/web lint && oxlint --type-aware --deny-warnings actions",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "pnpm --filter ras-stack test && pnpm --filter @ras-stack/example-full-stack test",
-    "package:check": "pnpm --filter ras-stack package:check",
+    "package:check": "pnpm --filter ras-stack package:check && pnpm --filter ras-stack-config package:check",
     "peer:floor": "pnpm --filter ras-stack peer:floor",
     "runtime:pin": "pnpm --filter ras-stack runtime:pin",
-    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build && pnpm package:check && node packages/ras-stack/dist/cli.js policy check",
+    "check": "pnpm format:check && pnpm lint && pnpm config:check && pnpm typecheck && pnpm test && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build && pnpm package:check && node packages/ras-stack/dist/cli.js changesets check",
     "version-packages": "changeset version"
   },
   "devDependencies": {

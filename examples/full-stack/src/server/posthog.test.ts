@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { postHogEnvironment, postHogRequestContext } from 'ras-stack/posthog'
 import { createManagedPostHogServerTelemetry, createPostHogServerClient } from 'ras-stack/posthog/server'
-import { postHogCoverage } from '../posthog'
 
 describe('PostHog integration boundary', () => {
   it('stays disabled without deployment configuration', async () => {
     expect(await createPostHogServerClient(postHogEnvironment({}))).toBeUndefined()
-    expect(postHogCoverage.browser.errorTracking).toBe(true)
   })
 
   it('propagates a browser session only with the authenticated identity', () => {
@@ -27,8 +25,5 @@ describe('PostHog integration boundary', () => {
     await telemetry.metrics.count('request.completed')
     expect(await telemetry.withSpan('request', () => 'completed')).toBe('completed')
     await telemetry.shutdown()
-    expect(postHogCoverage.server.logs).toBe(true)
-    expect(postHogCoverage.server.metrics).toBe(true)
-    expect(postHogCoverage.server.tracing).toBe(true)
   })
 })

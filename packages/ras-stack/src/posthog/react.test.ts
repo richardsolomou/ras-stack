@@ -74,7 +74,7 @@ describe('PostHog React integration', () => {
     expect(boundary).toHaveBeenCalledOnce()
   })
 
-  it('routes through a custom ingest path when configured', async () => {
+  it.each(['/relay', 'https://eu.i.posthog.com'])('routes browser ingestion to %s when configured', async (ingestPath) => {
     const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await act(async () => {
       create(
@@ -87,14 +87,14 @@ describe('PostHog React integration', () => {
               uiHost: 'https://us.posthog.com',
               assetsHost: 'https://us-assets.i.posthog.com',
             },
-            ingestPath: '/relay',
+            ingestPath,
           },
           'application',
         ),
       )
     })
     warning.mockRestore()
-    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ api_host: '/relay' }) }))
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ api_host: ingestPath }) }))
   })
 
   it('reconciles identity after the provider loads', async () => {

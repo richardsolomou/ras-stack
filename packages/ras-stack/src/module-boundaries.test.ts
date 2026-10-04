@@ -1,9 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
-// Repository tooling ships in the same package as the application modules, so only this boundary keeps an
-// application from pulling `yaml` and the CI-only code in through an import it never meant to make.
-const tooling = ['build', 'create', 'policy', 'preview']
+const tooling = ['build', 'changesets', 'preview']
 const application = ['auth', 'conformance', 'database', 'email', 'posthog', 'realtime', 'runtime', 'server', 'tanstack', 'uploads']
 
 describe('module boundaries', () => {

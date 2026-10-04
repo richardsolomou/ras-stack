@@ -275,11 +275,11 @@ describe('npm publication dispatch', () => {
     expect(calls.at(-1)).toBe('run watch 123 --repo richardsolomou/ras-stack --exit-status')
   })
 
-  it('exempts the creator and its runtime dependency from the release-age gate', async () => {
+  it('exempts independently released workspace packages from the release-age gate', async () => {
     const source = await readFile(new URL('../../../../pnpm-workspace.yaml', import.meta.url), 'utf8')
     const workspace = parse(source) as { minimumReleaseAgeExclude?: string[] }
 
-    expect(workspace.minimumReleaseAgeExclude).toEqual(expect.arrayContaining(['create-ras-app', 'ras-stack']))
+    expect(workspace.minimumReleaseAgeExclude).toEqual(expect.arrayContaining(['ras-stack-config', 'ras-stack']))
   })
 
   it('moves the compatibility tag forward without letting an older release roll it back', async () => {
@@ -299,6 +299,23 @@ describe('npm publication dispatch', () => {
     const releaseTag = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
 
     expect(compatibilityTag).toBe(releaseTag)
+  })
+
+  it('keeps the action contract at v1 across runtime package majors', async () => {
+    const fixture = await compatibilityRepository()
+    const script = await compatibilityTagScript()
+    await exec('bash', ['-c', script], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'v3.0.0' } })
+    await exec('bash', ['-c', script], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'v1.2.3' } })
+    const compatibilityTag = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseTag = (await exec('git', ['rev-parse', 'refs/tags/v3.0.0'], { cwd: fixture.work })).stdout.trim()
+    expect(compatibilityTag).toBe(releaseTag)
+  })
+
+  it('leaves the action compatibility tag unchanged after a configuration-only release', async () => {
+    const fixture = await compatibilityRepository()
+    const before = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout
+    await exec('bash', ['-c', await compatibilityTagScript()], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'config-v1.0.0' } })
+    expect((await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout).toBe(before)
   })
 })
 
@@ -392,9 +409,9 @@ async function releaseGh(work: string) {
 async function publicationRepository(): Promise<PublicationFixture> {
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
   await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
-  await mkdir(join(work, 'packages/create-ras-app'), { recursive: true })
+  await mkdir(join(work, 'packages/config'), { recursive: true })
   await writeFile(join(work, 'packages/ras-stack/package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
-  await writeFile(join(work, 'packages/create-ras-app/package.json'), JSON.stringify({ name: 'create-ras-app', version: '1.2.3' }))
+  await writeFile(join(work, 'packages/config/package.json'), JSON.stringify({ name: 'ras-stack-config', version: '1.0.0' }))
   await exec('git', ['init', '--initial-branch=main'], { cwd: work })
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
   await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
@@ -420,7 +437,10 @@ async function compatibilityRepository() {
   await writeFile(join(work, 'release.txt'), 'new')
   await exec('git', ['commit', '-am', 'new release'], { cwd: work })
   await exec('git', ['tag', 'v1.2.3'], { cwd: work })
-  await exec('git', ['push', 'origin', 'main', 'v1', 'v1.1.0', 'v1.2.3'], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'new major')
+  await exec('git', ['commit', '-am', 'major release'], { cwd: work })
+  await exec('git', ['tag', 'v3.0.0'], { cwd: work })
+  await exec('git', ['push', 'origin', 'main', 'v1', 'v1.1.0', 'v1.2.3', 'v3.0.0'], { cwd: work })
   return { work }
 }
 

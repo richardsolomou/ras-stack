@@ -1,0 +1,29 @@
+name: Set up SpacetimeDB
+description: Install checksum-pinned official SpacetimeDB binaries on Linux.
+
+inputs:
+  version:
+    description: Exact release version without the leading v.
+    required: true
+  sha256:
+    description: SHA-256 of the Linux archive for this runner architecture.
+    required: true
+
+outputs:
+  cli-path:
+    description: Absolute path to spacetimedb-cli, also available as spacetime on PATH.
+    value: ${{ steps.install.outputs.cli-path }}
+  standalone-path:
+    description: Absolute path to spacetimedb-standalone.
+    value: ${{ steps.install.outputs.standalone-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned binaries
+      id: install
+      shell: bash
+      env:
+        SPACETIME_VERSION: ${{ inputs.version }}
+        SPACETIME_SHA256: ${{ inputs.sha256 }}
+      run: bash "$GITHUB_ACTION_PATH/install.sh"
