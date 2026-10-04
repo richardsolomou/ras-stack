@@ -1,16 +1,12 @@
 #!/usr/bin/env node
 import { runAssetsCli } from './build/cli.js'
-import { runCreateCli } from './create/index.js'
-import { runInitCli } from './policy/init-cli.js'
-import { runPolicyCli } from './policy/cli.js'
+import { runChangesetsCli } from './changesets/cli.js'
 import { runPreviewCli } from './preview/cli.js'
 import { runRealtimeCli } from './runtime/dev-cli.js'
 
 const commands = {
   assets: runAssetsCli,
-  create: runCreateCli,
-  init: runInitCli,
-  policy: runPolicyCli,
+  changesets: runChangesetsCli,
   preview: runPreviewCli,
   realtime: runRealtimeCli,
 } as const
@@ -26,7 +22,7 @@ export function parseRasCommand(arguments_: string[]): { arguments: string[]; co
 export async function runRasCli(arguments_: string[]): Promise<void> {
   const parsed = parseRasCommand(arguments_)
   if (!parsed) {
-    console.error('usage: ras <assets|create|init|policy|preview|realtime> [arguments]')
+    console.error('usage: ras <assets|changesets|preview|realtime> [arguments]')
     process.exitCode = 2
     return
   }

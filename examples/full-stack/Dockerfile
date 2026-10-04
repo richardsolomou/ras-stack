@@ -6,11 +6,12 @@ RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack install --global pnpm@11.15.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ras-stack/package.json ./packages/ras-stack/package.json
-COPY packages/create-ras-app/package.json ./packages/create-ras-app/package.json
+COPY packages/config/package.json ./packages/config/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY examples/full-stack/package.json ./examples/full-stack/package.json
 RUN pnpm fetch --frozen-lockfile
 COPY packages/ras-stack ./packages/ras-stack
+COPY packages/config ./packages/config
 COPY examples/full-stack ./examples/full-stack
 RUN pnpm install --offline --frozen-lockfile
 RUN pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack build
@@ -34,4 +35,4 @@ ENV NODE_ENV=production DATA_DIR=/data TRUST_PROXY=false CENTRIFUGO_CONFIG=/app/
 EXPOSE 3100
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=3 CMD wget -q --spider http://127.0.0.1:3100/api/ready || exit 1
 USER node
-ENTRYPOINT ["/sbin/tini", "-g", "--", "node", ".output/server/containerRuntime.mjs"]
+ENTRYPOINT ["/sbin/tini", "--", "node", ".output/server/containerRuntime.mjs"]

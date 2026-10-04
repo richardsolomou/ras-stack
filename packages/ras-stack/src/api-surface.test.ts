@@ -6,12 +6,11 @@ import * as authClient from './auth/client.js'
 import * as authReact from './auth/react.js'
 import * as build from './build/index.js'
 import * as conformance from './conformance/index.js'
-import * as create from './create/index.js'
 import * as database from './database/index.js'
 import * as databasePostgres from './database/postgres.js'
 import * as databaseSqlite from './database/sqlite.js'
 import * as email from './email/index.js'
-import * as policy from './policy/index.js'
+import * as changesets from './changesets/index.js'
 import * as posthog from './posthog/index.js'
 import * as posthogClient from './posthog/client.js'
 import * as posthogProxy from './posthog/proxy.js'
@@ -24,7 +23,6 @@ import * as realtimeClient from './realtime/client.js'
 import * as realtimeReact from './realtime/react.js'
 import * as runtime from './runtime/index.js'
 import * as server from './server/index.js'
-import * as tanstackQuery from './tanstack/query.js'
 import * as tanstackMiddleware from './tanstack/middleware.js'
 import * as tanstackServer from './tanstack/server.js'
 import * as uploads from './uploads/index.js'
@@ -81,7 +79,6 @@ const surface = {
     'assertSmtpConfigConformance',
     'assertSqliteConformance',
   ],
-  './create': ['runCreateCli'],
   './database': ['bundledDirectory', 'databaseTarget'],
   './database/postgres': [
     'closeDrizzlePostgres',
@@ -92,15 +89,8 @@ const surface = {
   ],
   './database/sqlite': ['closeDrizzleSqlite', 'configureSqlite', 'openDrizzleSqlite', 'openSqliteClient', 'sqliteRateLimitStore'],
   './email': ['createAuthEmailHandler', 'createSmtpDelivery', 'createSmtpTransport', 'smtpConfigFromEnvironment', 'standardAuthEmails'],
-  './policy': ['checkRepositoryPolicy', 'renderedPolicyFiles', 'syncRepositoryPolicy'],
-  './posthog': [
-    'POSTHOG_DISTINCT_ID_HEADER',
-    'POSTHOG_SESSION_ID_HEADER',
-    'definePostHogCoverage',
-    'postHogEnvironment',
-    'postHogHttpUrl',
-    'postHogRequestContext',
-  ],
+  './changesets': ['checkChangesets'],
+  './posthog': ['POSTHOG_DISTINCT_ID_HEADER', 'POSTHOG_SESSION_ID_HEADER', 'postHogEnvironment', 'postHogHttpUrl', 'postHogRequestContext'],
   './posthog/client': [
     'POSTHOG_BROWSER_DEFAULTS',
     'POSTHOG_DISTINCT_ID_HEADER',
@@ -177,7 +167,6 @@ const surface = {
     'rateLimitTable',
     'safeInfrastructureError',
   ],
-  './tanstack/query': ['createStackQueryClient', 'queryErrorMessage'],
   './tanstack/middleware': ['canonicalHostMiddleware', 'canonicalHostRequest'],
   './tanstack/server': [
     'betterAuthHandlers',
@@ -196,12 +185,11 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './auth/react': authReact,
   './build': build,
   './conformance': conformance,
-  './create': create,
   './database': database,
   './database/postgres': databasePostgres,
   './database/sqlite': databaseSqlite,
   './email': email,
-  './policy': policy,
+  './changesets': changesets,
   './posthog': posthog,
   './posthog/client': posthogClient,
   './posthog/proxy': posthogProxy,
@@ -214,7 +202,6 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './realtime/react': realtimeReact,
   './runtime': runtime,
   './server': server,
-  './tanstack/query': tanstackQuery,
   './tanstack/middleware': tanstackMiddleware,
   './tanstack/server': tanstackServer,
   './uploads': uploads,

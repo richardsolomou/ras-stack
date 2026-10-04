@@ -65,10 +65,10 @@ Provider credentials normally use names such as `GOOGLE_CLIENT_ID`. Applications
 const google = providerCredentials('google', process.env, { prefix: 'AUTH_' })
 ```
 
-The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and provide the common Query client default:
+The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and leave Query client configuration with the application:
 
 ```ts
-import { createStackQueryClient } from 'ras-stack/tanstack/query'
+import { QueryClient } from '@tanstack/react-query'
 import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
 import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from 'ras-stack/tanstack/server'
 
@@ -83,7 +83,7 @@ export const { rpc, mutationRpc } = createTanStackRpc({
     ),
 })
 
-export const queryClient = createStackQueryClient()
+export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 1000 } } })
 
 export const authHandlers = betterAuthHandlers(() => app().auth)
 export const healthHandler = tanStackHealthHandler(() => app().database.get(sql`SELECT 1`))

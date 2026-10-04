@@ -19,7 +19,6 @@ try {
     '@opentelemetry/resources': '2.10.0',
     '@opentelemetry/sdk-logs': '0.221.0',
     '@posthog/react': '1.1.0',
-    '@tanstack/react-query': '5.62.8',
     '@tanstack/react-start': '1.168.10',
     'better-sqlite3': '12.0.0',
     centrifuge: '5.0.0',

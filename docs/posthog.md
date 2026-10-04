@@ -237,37 +237,45 @@ const proxy = postHogIngestProxy(posthog, { path: '/relay' })
 
 Both default to `POSTHOG_DEFAULT_INGEST_PATH` when omitted.
 
-## Coverage declaration
+## Direct browser ingestion
 
-Make every major product surface enabled or intentionally absent:
+Applications without an ingest proxy must pass the upstream URL explicitly. An absent environment renders children without initializing the SDK:
+
+```tsx
+<PostHogIntegration environment={posthog} ingestPath={posthog?.host} options={{ defaults: '2025-05-24' }}>
+  {children}
+</PostHogIntegration>
+```
+
+Use `options` to preserve application consent, replay and capture settings. Tests should exercise the application's provider and assert the actual SDK initialization host, token and options, including missing credentials; a declaration of intended coverage does not prove instrumentation runs.
+
+## Source maps
+
+Source-map upload remains an application build concern. Use the native PostHog Rollup plugin or CLI against the final browser assets and, where present, the worker/server output before assembling the deployment artifact. Keep the personal API key in the build environment, never in public Vite variables. If the key or project ID is absent, explicitly skip upload; the application build should still succeed. A deployment that requires error symbolication should fail its own release gate when those credentials are missing.
+
+For Vite with the native `@posthog/rollup-plugin`, create a plugin instance for each browser/worker build. The plugin generates source maps for its output and can delete them after upload:
 
 ```ts
-import { definePostHogCoverage } from 'ras-stack/posthog'
+import posthog from '@posthog/rollup-plugin'
+import { defineConfig } from 'vite'
 
-export const postHogCoverage = definePostHogCoverage({
-  browser: {
-    analytics: true,
-    errorTracking: true,
-    featureFlags: { disabled: 'This application has no staged rollouts' },
-    identity: true,
-    logs: true,
-    metrics: true,
-    sessionReplay: true,
-  },
-  server: {
-    analytics: true,
-    errorTracking: true,
-    logs: { disabled: 'Logs are exported through another provider' },
-    metrics: true,
-    tracing: true,
-  },
-  sourceMaps: true,
+function sourceMapUpload() {
+  if (!process.env.POSTHOG_API_KEY || !process.env.POSTHOG_PROJECT_ID) return undefined
+  return posthog({
+    personalApiKey: process.env.POSTHOG_API_KEY,
+    projectId: process.env.POSTHOG_PROJECT_ID,
+    host: process.env.POSTHOG_HOST,
+    sourcemaps: { enabled: true, deleteAfterUpload: true },
+  })
+}
+
+export default defineConfig({
+  plugins: [sourceMapUpload()],
+  worker: { plugins: () => [sourceMapUpload()] },
 })
 ```
 
-`assertPostHogBrowserConformance()` checks pinned browser defaults, exception capture, and personal-data URL masking. `assertPostHogRequestConformance()` verifies authenticated identity correlation, bounded sessions, and spoof rejection. Consumer tests should run both alongside their coverage declaration.
-
-Source-map upload stays in the application build: run the PostHog CLI against the final browser assets, after the build and before the container or artifact is assembled, and keep the personal API key in that deployment step. Declare the decision in `sourceMaps`, including a reason when it is disabled.
+Keep hosting/release conditions in the application. For server output built by another bundler, configure that bundler's native plugin or run the PostHog CLI over its final assets as a separate build step. An upload to the configured project is only verified after an actual exception resolves to its original source; successful local compilation with credentials absent verifies the skip path only.
 
 ## What remains local
 

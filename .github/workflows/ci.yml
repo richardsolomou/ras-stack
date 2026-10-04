@@ -246,7 +246,7 @@ jobs:
     uses: ./.github/workflows/release-changesets.yml
     with:
       validation-workflow: ci.yml
-      version-file: packages/ras-stack/package.json
+      tag-command: node packages/ras-stack/scripts/releaseTag.mjs
     secrets: inherit
 
   publish:
@@ -284,11 +284,14 @@ jobs:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           set -euo pipefail
+          if [[ "$RELEASE_TAG" =~ ^config-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            exit 0
+          fi
           if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
-          compatibility_tag="v${BASH_REMATCH[1]}"
+          compatibility_tag="v1"
           version_key() {
             local major minor patch
             IFS=. read -r major minor patch <<< "${1#v}"
@@ -296,7 +299,7 @@ jobs:
           }
           current_sha="$(git ls-remote --tags origin "refs/tags/$compatibility_tag" | awk '{print $1}')"
           if [ -n "$current_sha" ]; then
-            current_release="$(git tag --points-at "$current_sha" --list "$compatibility_tag.*" --sort=-version:refname | head -n1)"
+            current_release="$(git tag --points-at "$current_sha" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n1)"
             if [[ ! "$current_release" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
               echo "Cannot resolve the release behind $compatibility_tag" >&2
               exit 1

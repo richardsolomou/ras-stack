@@ -10,7 +10,7 @@ Extend the supplied configuration and override anything specific to the applicat
 
 ```json
 {
-  "extends": ["./node_modules/ras-stack/config/oxlint.json"],
+  "extends": ["./node_modules/ras-stack-config/config/oxlint.json"],
   "rules": {
     "application-specific-rule": "off"
   }
@@ -19,12 +19,12 @@ Extend the supplied configuration and override anything specific to the applicat
 
 ```json
 {
-  "extends": "ras-stack/config/typescript/tanstack",
+  "extends": "ras-stack-config/config/typescript/tanstack",
   "include": ["src", "vite.config.ts"]
 }
 ```
 
-TypeScript bases are also available at `ras-stack/config/typescript/browser` and `ras-stack/config/typescript/library`.
+TypeScript bases are also available at `ras-stack-config/config/typescript/browser` and `ras-stack-config/config/typescript/library`.
 
 The TypeScript configs compose by runtime role:
 
@@ -39,7 +39,10 @@ Oxlint applications can extend the strict default plus independent layers for sh
 
 ```json
 {
-  "extends": ["./node_modules/ras-stack/config/oxlint/application.json", "./node_modules/ras-stack/config/oxlint/tanstack.json"],
+  "extends": [
+    "./node_modules/ras-stack-config/config/oxlint/application.json",
+    "./node_modules/ras-stack-config/config/oxlint/tanstack.json"
+  ],
   "rules": {
     "application-specific-rule": "off"
   }
@@ -50,61 +53,18 @@ These configs do not set include paths, aliases, generated directories outside T
 
 Two opt-in import-boundary presets can be added to the same `extends` list:
 
-- `./node_modules/ras-stack/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**` and `src/geometry/**`. Pure libraries such as Zod and Manifold remain available.
-- `./node_modules/ras-stack/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
+- `./node_modules/ras-stack-config/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**` and `src/geometry/**`. Pure libraries such as Zod and Manifold remain available.
+- `./node_modules/ras-stack-config/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
 
 Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither preset is enabled by `application` or `tanstack` automatically.
 
 ## Adopting the tooling
 
-`ras init` lays down the shared tooling a repository wants:
+Install `ras-stack-config` as a development dependency and extend only the presets the repository needs. The examples above are complete inheritance contracts. Application aliases, includes, toolchain versions, exceptions, and committed release/dependency policies remain repository-owned. Configuration releases are independent of `ras-stack` runtime releases.
 
-```sh
-pnpm exec ras init
-```
+## Changeset validation
 
-It offers the repository policy and its generated files, the declared Node and pnpm versions, a `tsconfig.json` extending a shared preset, an `.oxlintrc.json`, a CI workflow calling the shared check workflow, and a justfile. Every step is a separate question, so a repository can take the parts that fit and decline the rest. A file that already exists is never replaced without a separate answer for that file, and the generated workflow follows the stable `v1` compatibility tag.
-
-`--dry-run` reports the plan without writing anything. The questions need a terminal, so `--yes` accepts every step for a non-interactive run.
-
-This lays down tooling; it is not an application starter. [`examples/full-stack`](../examples/full-stack) remains an integration contract rather than something to copy.
-
-## Repository policy
-
-When Changesets policy is enabled, `ras policy check` also validates every existing `.changeset/*.md` file except `README.md`. It accepts empty changesets and CRLF frontmatter, rejects malformed entries and unknown package names, and discovers packages through the repository's workspace configuration. It does not require a changeset when no release is intended. `ras policy sync` only updates generated policy files; it never repairs or rewrites release notes.
-
-The tooling uses `@changesets/parse` for the upstream frontmatter contract and `@manypkg/get-packages` for workspace discovery, avoiding a second parser or package-glob implementation.
-
-Policy files which cannot inherit can stay committed while being checked against the shared source. Select only the policies a repository wants in `ras-stack.policy.json`:
-
-```json
-{
-  "changesets": true,
-  "dependabot": true,
-  "pnpm": {}
-}
-```
-
-Then generate or verify the effective files:
-
-```sh
-pnpm exec ras policy sync
-pnpm exec ras policy check
-```
-
-`changesets` and `dependabot` produce deterministic complete files, with optional deep overrides. The Changesets policy is shaped for private application packages: restricted access, and private packages versioned and tagged. A published library overrides `access` and `privatePackages` instead. The Dependabot policy creates separate patch and minor version update groups, leaves routine major upgrades to planned work, and still permits security updates. It applies a seven-day cooldown and ignores major ras-stack workflow upgrades, which require an intentional compatibility migration. The pnpm policy changes only `minimumReleaseAge` in the existing `pnpm-workspace.yaml`, preserving local package layout, build approvals, dependency overrides, exclusions, and comments. Its default is seven days; set `"minimumReleaseAge": 0` only as an explicit repository exception. Commit both the selection and generated files so policy changes remain visible in review.
-
-The package does not police which ras-stack version a repository is on. Pick the version you want to ship; if it lacks something you use, the type checker and the failing import say so more precisely than a declared floor ever could.
-
-`ras-stack/policy` exposes the same operations to a repository that needs them in its own script rather than through the command line:
-
-```ts
-import { checkRepositoryPolicy, syncRepositoryPolicy } from 'ras-stack/policy'
-
-const drift = await checkRepositoryPolicy(process.cwd())
-if (drift.length > 0) throw new Error(`policy drift: ${drift.join(', ')}`)
-await syncRepositoryPolicy(process.cwd(), 'write')
-```
+Committed Changesets, Dependabot and pnpm configuration belong to the repository. `ras changesets check` validates existing changeset syntax and workspace package names without requiring a release note for every change. The `ras-stack/changesets` entrypoint exposes `checkChangesets(root)` for programmatic validation. It uses upstream parsing and package discovery and never rewrites files. Empty changesets and CRLF frontmatter are accepted; malformed entries and unknown names fail the check.
 
 ## Production server assets
 
@@ -123,6 +83,20 @@ pnpm exec ras assets check
 ```
 
 `sync` copies each declared source into the output, and `check` fails when the output drifts from the source, so a stale build cannot ship. Both refuse paths that escape the repository or the output directory, overlapping destinations, and symbolic links. `ras-stack/build` exposes `loadServerAssetsConfig`, `syncServerAssets`, and `checkServerAssets` for a repository that drives them from its own build script.
+
+## Pinned SpacetimeDB setup
+
+The optional Linux setup action installs official binaries without choosing database names, servers or deployment behavior. Supply the release version and the SHA-256 of its archive for the runner architecture. Read the digest from the corresponding official release asset and verify it when changing the version:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/setup-spacetime@v1
+  id: spacetime
+  with:
+    version: '2.6.0'
+    sha256: 24f5c011a1c5b14e9458f230f67f4700f2c89ce1d26bfee35c1f4d3570dc1ac8
+```
+
+This checksum is for Linux X64. Linux ARM64 needs the matching archive checksum; other runner platforms fail explicitly. `spacetime` becomes available on PATH only after checksum validation, extraction and the CLI version probe succeed. `steps.spacetime.outputs.cli-path` and `standalone-path` expose the native executables. Downloads have bounded retries and timeouts, failed/cancelled setup removes its temporary installation, and concurrent setups use separate directories. Credentials, module generation, publishing and database cleanup remain local workflow steps.
 
 ## GitHub Actions
 
@@ -287,7 +261,7 @@ await runRealtimeStack({
 })
 ```
 
-`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Lower-level configuration and supervision functions remain available when a topology differs. Applications retain base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
+`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Forward container signals to the supervisor itself, for example with `tini -- node runtime.mjs`; group-wide forwarding (`tini -g`) bypasses its dependency-ordered shutdown. Lower-level configuration and supervision functions remain available when a topology differs. Applications retain base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
 
 The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. Copy the binaries from an immutable release and pin its digest:
 
@@ -310,13 +284,13 @@ ras realtime \
 
 The foreground command follows terminal signals and leaves an existing named container alone. Add `--detach` to replace that named development container and return after startup. The host binding defaults to `127.0.0.1`; container-based callers that must reach Centrifugo through the Docker host can explicitly pass `--bind-address 0.0.0.0`. Applications with a Centrifugo connect proxy can pass its Docker-reachable URL through `--connect-proxy-endpoint`; channel definitions, proxy authorization, application environment, and Vite configuration remain in the application.
 
-`runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created. Land and publish a changed runtime version before advancing application, starter, development, or documentation references; those consumers must continue using the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned.
+`runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created. Land and publish a changed runtime version before advancing application, development, or documentation references; those consumers must continue using the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned.
 
 Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
 
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
-Consumer repositories follow the stable major compatibility tag, such as `v1`. Each exact release tag remains immutable, while the release pipeline advances the major tag only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
+Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Configuration-only releases leave it unchanged. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 
 Reusable workflows refer to ras-stack actions and nested workflows through the stable major compatibility tag. GitHub requires remote actions and reusable workflows to use an `owner/repository/path@ref` reference, including calls made from another reusable workflow.
 

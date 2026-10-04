@@ -18,10 +18,11 @@ A helper belongs here when it removes a repeated decision or failure mode withou
 
 ## What you get 📦
 
-It ships in four forms:
+It ships as independently versioned packages and deployment tooling:
 
 - **TypeScript modules** under narrow import paths such as `ras-stack/database/sqlite`, `ras-stack/realtime/react`, and `ras-stack/tanstack/server`.
-- **Command-line tools** for generated policy, production assets, preview status, and a local Centrifugo container.
+- **Configuration presets** in the dependency-free `ras-stack-config` package for TypeScript and Oxlint.
+- **Command-line tools** for changeset validation, production assets, preview status, and a local Centrifugo container.
 - **GitHub Actions and reusable workflows** for toolchain setup, checks, browser tests, previews, and Changesets releases.
 - **A separate OCI image** containing verified Caddy and Centrifugo binaries for production images.
 
@@ -48,46 +49,18 @@ Applications still configure every upstream library directly. This table describ
 
 The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
 
-The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration contract and the canonical source for the generated starter; once generated, the application owns its copied code and normal semver dependency.
+The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration fixture; applications own their integration code and dependency versions.
 
-## Pick what you need 🧩
+## Installation
 
-`ras-stack` requires Node 24.
+`ras-stack` requires Node 24. Install the runtime package for application helpers and the configuration package for compiler/linter presets:
 
 ```sh
 pnpm add ras-stack
+pnpm add -D ras-stack-config
 ```
 
-Nodemailer, Centrifuge, `better-sqlite3`, Drizzle, Postgres.js, and `tus-js-client` are optional peer dependencies. Install them only when using their integrations:
-
-```sh
-pnpm add nodemailer
-pnpm add centrifuge
-pnpm add tus-js-client
-pnpm add better-auth @better-auth/drizzle-adapter better-sqlite3 drizzle-orm
-pnpm add postgres drizzle-orm
-```
-
-Start with the narrowest public entrypoint that owns the repeated mechanic:
-
-| Need                                                      | Entrypoint or command                                                            | The application still owns                                     |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Authentication defaults and browser action state          | `ras-stack/auth`, `ras-stack/auth/client`, `ras-stack/auth/react`                | Better Auth configuration, forms, policy, and navigation       |
-| RPC, mutation-origin, health, and canonical-host handling | `ras-stack/server`, `ras-stack/tanstack/server`, `ras-stack/tanstack/middleware` | Routes, authorization, logging, and health work                |
-| SQLite or PostgreSQL lifecycle                            | `ras-stack/database/*`                                                           | Schemas, migrations, repositories, and transactions            |
-| Realtime publication and browser lifecycle                | `ras-stack/realtime/*`                                                           | Channels, tickets, payloads, presence models, and invalidation |
-| Email, uploads, and production assets                     | `ras-stack/email`, `ras-stack/uploads`, `ras assets`                             | Templates, metadata, quotas, storage, and asset contents       |
-| Production or development realtime runtime                | `ras-stack/runtime`, `ras realtime`                                              | Images, ports, secrets, volumes, and distributed policy        |
-| Compiler, lint, CI, release, and preview mechanics        | `ras-stack/config/*`, `actions/*`, `.github/workflows/*`, `ras-stack/preview/*`  | Triggers, permissions, services, deployment, and verification  |
-| Generated repository policy files                         | `ras policy`                                                                     | Which policies apply and every declared override               |
-
-To start from the production reference instead of assembling entrypoints individually:
-
-```sh
-pnpm create ras-app my-app
-```
-
-The `create-ras-app` command delegates to the same scaffold implementation available through `pnpm dlx ras-stack create my-app`. The scaffold includes Better Auth, checked-in migrations, durable uploads, SMTP flows, a transactional realtime outbox, production health/lifecycle behavior, and its tests. It remains ordinary application code rather than a second framework API.
+Import helpers from their narrow entrypoints and install the upstream peer libraries required by the integrations you use. Configuration-only repositories need just `ras-stack-config`.
 
 ## Dokploy previews 🚀
 
@@ -101,13 +74,13 @@ Applications supply only their package, application prefix, port, environment te
 
 ## Guides 📚
 
-| Guide                                                                                                                  | What it covers                                                                                                                          |
-| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                       |
-| [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, generated policy, GitHub Actions, previews, releases, and production runtime composition           |
-| [PostHog integration](https://github.com/richardsolomou/ras-stack/blob/main/docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown, coverage declarations, and source-map responsibility |
-| [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                                |
-| [Production operations](https://github.com/richardsolomou/ras-stack/blob/main/docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                        |
+| Guide                                                                                                                  | What it covers                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                 |
+| [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, changeset validation, GitHub Actions, previews, releases, and production runtime composition |
+| [PostHog integration](https://github.com/richardsolomou/ras-stack/blob/main/docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown and source-map responsibility                   |
+| [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                          |
+| [Production operations](https://github.com/richardsolomou/ras-stack/blob/main/docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                  |
 
 ## Development 🛠️
 

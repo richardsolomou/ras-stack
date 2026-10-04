@@ -1,5 +1,5 @@
 {
-  "extends": "ras-stack/config/typescript/library",
+  "extends": "ras-stack-config/config/typescript/library",
   "compilerOptions": {
     "noEmit": true
   },

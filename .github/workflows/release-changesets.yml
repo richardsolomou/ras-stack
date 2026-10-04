@@ -25,6 +25,10 @@ on:
         description: Workflow to validate the release commit before updating the protected branch.
         type: string
         default: ''
+      tag-command:
+        description: Optional command printing the release tag after versioning; overrides version-file and tag-prefix.
+        type: string
+        default: ''
       version-file:
         description: Package manifest whose version is used for the release tag.
         type: string
@@ -56,6 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CHANGESETS_TOKEN || github.token }}
           RELEASE_TOKEN_PRESENT: ${{ secrets.CHANGESETS_TOKEN != '' }}
+          TAG_COMMAND: ${{ inputs.tag-command }}
           TAG_PREFIX: ${{ inputs.tag-prefix }}
           VALIDATION_WORKFLOW: ${{ inputs.validation-workflow }}
           VERSION_FILE: ${{ inputs.version-file }}
@@ -88,7 +93,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           bash -euo pipefail -c "$VERSION_COMMAND"
-          tag="${TAG_PREFIX}$(node -p "require('./' + process.env.VERSION_FILE).version")"
+          if [ -n "${TAG_COMMAND:-}" ]; then
+            tag="$(bash -euo pipefail -c "$TAG_COMMAND")"
+            git check-ref-format "refs/tags/$tag"
+          else
+            tag="${TAG_PREFIX}$(node -p "require('./' + process.env.VERSION_FILE).version")"
+          fi
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "Tag $tag already exists"
             exit 1

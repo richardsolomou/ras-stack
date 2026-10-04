@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { parseRasCommand, runRasCli } from './cli.js'
 
 describe('parseRasCommand', () => {
-  it.each(['assets', 'create', 'init', 'policy', 'preview', 'realtime'] as const)('routes the %s command', (command) => {
+  it.each(['assets', 'changesets', 'preview', 'realtime'] as const)('routes the %s command', (command) => {
     expect(parseRasCommand([command, 'argument'])).toEqual({ command, arguments: ['argument'] })
   })
 
-  it.each(['unknown', 'toString'])('rejects the %s command', (command) => {
+  it.each(['unknown', 'toString', 'create', 'init'])('rejects the %s command', (command) => {
     expect(parseRasCommand([command])).toBeUndefined()
   })
 })
@@ -22,16 +22,16 @@ describe('runRasCli', () => {
 
     await runRasCli(['deploy'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras <assets|create|init|policy|preview|realtime> [arguments]')
+    expect(error).toHaveBeenCalledWith('usage: ras <assets|changesets|preview|realtime> [arguments]')
     expect(process.exitCode).toBe(2)
   })
 
   it('forwards the remaining arguments to the selected command', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
-    await runRasCli(['policy', 'fleet'])
+    await runRasCli(['changesets', 'fleet'])
 
-    expect(error).toHaveBeenCalledWith('usage: ras policy <check|sync>')
+    expect(error).toHaveBeenCalledWith('usage: ras changesets check')
     expect(process.exitCode).toBe(2)
   })
 })
