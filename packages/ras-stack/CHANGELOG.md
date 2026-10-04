@@ -1,5 +1,11 @@
 # ras-stack
 
+## 3.0.0
+
+### Major Changes
+
+- e0490a1: Remove distributed application scaffolding, coverage declarations, the Query convenience wrapper and configuration exports. Install ras-stack-config for TypeScript/Oxlint presets, configure native QueryClient in the application, and test actual telemetry wiring. Replace generated policy synchronization with repository-owned files and ras changesets check.
+
 ## 2.0.2
 
 ### Patch Changes
