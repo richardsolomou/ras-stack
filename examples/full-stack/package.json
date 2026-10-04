@@ -17,21 +17,21 @@
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@better-auth/core": "1.7.1",
-    "@better-auth/drizzle-adapter": "1.7.1",
+    "@better-auth/core": "1.7.6",
+    "@better-auth/drizzle-adapter": "1.7.6",
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.221.0",
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-logs": "^0.221.0",
     "@posthog/react": "^1.10.6",
     "@tanstack/react-query": "^5.101.4",
-    "@tanstack/react-router": "^1.170.18",
-    "@tanstack/react-router-ssr-query": "^1.167.1",
-    "@tanstack/react-start": "^1.168.32",
-    "better-auth": "1.7.1",
+    "@tanstack/react-router": "^1.170.40",
+    "@tanstack/react-router-ssr-query": "^1.167.3",
+    "@tanstack/react-start": "^1.168.59",
+    "better-auth": "1.7.6",
     "better-sqlite3": "12.11.1",
-    "centrifuge": "5.7.1",
-    "drizzle-orm": "0.45.2",
+    "centrifuge": "5.7.4",
+    "drizzle-orm": "0.45.3",
     "nodemailer": "^10.0.11",
     "posthog-js": "^1.430.3",
     "posthog-node": "^5.52.1",
@@ -52,10 +52,10 @@
     "nitro": "3.0.260610-beta",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.74.0",
-    "oxlint-tsgolint": "^7.0.2001",
+    "oxlint-tsgolint": "^7.0.2003",
     "ras-stack-config": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
