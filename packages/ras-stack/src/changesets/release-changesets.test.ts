@@ -134,6 +134,30 @@ describe('changeset release workflow', () => {
     )
   })
 
+  it('merges an already mergeable release pull request directly when GitHub refuses auto-merge', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_AUTO_MERGE_CLEAN: '1',
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      RELEASE_TOKEN_PRESENT: 'true',
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const merges = (await readFile(fake.log, 'utf8'))
+      .trim()
+      .split('\n')
+      .filter((call) => call.startsWith('pr merge '))
+    expect(merges.map((call) => call.includes('--auto'))).toEqual([true, false])
+  })
+
   it('reruns pull-request validation when the release token is absent', async () => {
     const fixture = await repository({ changesets: true })
     const fake = await releaseGh(fixture.work)
@@ -399,7 +423,7 @@ async function releaseGh(work: string) {
   await mkdir(bin)
   await writeFile(
     gh,
-    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  if [ "${GH_WATCH_EXIT:-0}" = "0" ]; then\n    touch "$GH_LOG.watched"\n  fi\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  touch "$GH_LOG.auto"\nfi\nif [ "$1 $2" = "pr view" ]; then\n  if [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.viewed" ]; then\n    touch "$GH_LOG.viewed"\n  elif [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.merged" ]; then\n    touch "$GH_LOG.merged"\n    release_sha="$(git rev-parse HEAD)"\n    release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n    git fetch origin main >/dev/null 2>&1\n    git checkout -B release-merge origin/main >/dev/null 2>&1\n    git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n    git push origin HEAD:main >/dev/null 2>&1\n    git push origin --delete "$release_branch" >/dev/null 2>&1\n  fi\n  if [ -e "$GH_LOG.merged" ]; then\n    printf \'%s\\n\' \'MERGED\'\n  else\n    printf \'%s\\n\' \'OPEN\'\n  fi\nfi\n',
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  if [ "${GH_WATCH_EXIT:-0}" = "0" ]; then\n    touch "$GH_LOG.watched"\n  fi\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  if [ "${GH_AUTO_MERGE_CLEAN:-}" = "1" ] && echo "$*" | grep -q -- \'--auto\'; then\n    echo \'Pull request is in clean status (enablePullRequestAutoMerge)\' >&2\n    exit 1\n  fi\n  touch "$GH_LOG.auto"\nfi\nif [ "$1 $2" = "pr view" ]; then\n  if [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.viewed" ]; then\n    touch "$GH_LOG.viewed"\n  elif [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.merged" ]; then\n    touch "$GH_LOG.merged"\n    release_sha="$(git rev-parse HEAD)"\n    release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n    git fetch origin main >/dev/null 2>&1\n    git checkout -B release-merge origin/main >/dev/null 2>&1\n    git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n    git push origin HEAD:main >/dev/null 2>&1\n    git push origin --delete "$release_branch" >/dev/null 2>&1\n  fi\n  if [ -e "$GH_LOG.merged" ]; then\n    printf \'%s\\n\' \'MERGED\'\n  else\n    printf \'%s\\n\' \'OPEN\'\n  fi\nfi\n',
   )
   await writeFile(sleep, '#!/bin/sh\nexit 0\n')
   await Promise.all([chmod(gh, 0o755), chmod(sleep, 0o755)])

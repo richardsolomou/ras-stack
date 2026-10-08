@@ -139,7 +139,7 @@ Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Acti
 
 `CHANGESETS_TOKEN` is optional. When it is absent, the release workflow reruns the pull request validation run that GitHub records without executing for pull requests created by `GITHUB_TOKEN`. This gives protected branches the required pull-request checks without a long-lived token. When supplied, use a fine-grained personal access token with Actions read, Contents read/write, and Pull requests read/write permissions, limited to the repository.
 
-The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. The release tag points to the protected branch's merge commit.
+The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. A candidate that is already mergeable is merged directly, because GitHub refuses auto-merge for it. The release tag points to the protected branch's merge commit.
 
 Browser jobs can cache the pinned Playwright payload through `actions/setup-playwright`. It installs system dependencies by default; set `install-dependencies: 'false'` only for runner images that already provide the browser libraries. Production-container E2E stays a repository job: the image build, cache strategy, sharding, and PR-versus-main topology differ per application, and the check workflow above supplies the toolchain steps.
 
