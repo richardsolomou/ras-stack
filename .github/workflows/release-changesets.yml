@@ -152,7 +152,9 @@ jobs:
                 gh run watch "$action_run_id" --repo "$GITHUB_REPOSITORY"
               fi
             done
-            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --auto --merge --delete-branch --match-head-commit "$release_sha"
+            # GitHub refuses auto-merge for a pull request that is already mergeable, so merge it directly then.
+            gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --auto --merge --delete-branch --match-head-commit "$release_sha" ||
+              gh pr merge "$release_pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch --match-head-commit "$release_sha"
             release_state=""
             for _ in $(seq 1 12); do
               release_state="$(gh pr view "$release_pr" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
