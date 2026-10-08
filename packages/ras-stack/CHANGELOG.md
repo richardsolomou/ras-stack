@@ -1,5 +1,11 @@
 # ras-stack
 
+## 3.0.2
+
+### Patch Changes
+
+- 6304b25: Merge an already mergeable release pull request directly when GitHub refuses auto-merge.
+
 ## 3.0.1
 
 ### Patch Changes
