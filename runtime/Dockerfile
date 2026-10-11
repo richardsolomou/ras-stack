@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS centrifugo
+FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS centrifugo
 ARG TARGETOS
 ARG TARGETARCH
 ARG CENTRIFUGO_VERSION=6.9.6
@@ -10,11 +10,11 @@ RUN wget -q "https://github.com/centrifugal/centrifugo/archive/${CENTRIFUGO_COMM
     && echo "${CENTRIFUGO_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "centrifugo-${CENTRIFUGO_COMMIT}" \
-    && go get google.golang.org/grpc@v1.83.2 golang.org/x/crypto@v0.56.0 \
+    && go get google.golang.org/grpc@v1.83.2 golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.60.0 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/centrifugal/centrifugo/v6/internal/build.Version=${CENTRIFUGO_VERSION}" -o /out/centrifugo . \
     && cp LICENSE /out/CENTRIFUGO-LICENSE
 
-FROM --platform=$BUILDPLATFORM golang:1.26-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS caddy
+FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS caddy
 ARG TARGETOS
 ARG TARGETARCH
 ARG CADDY_VERSION=2.11.4
@@ -24,12 +24,12 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && echo "${CADDY_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "caddy-${CADDY_VERSION}" \
-    && go get google.golang.org/grpc@v1.83.2 golang.org/x/text@v0.41.0 golang.org/x/crypto@v0.56.0 \
+    && go get google.golang.org/grpc@v1.83.2 golang.org/x/text@v0.42.0 golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.60.0 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/caddyserver/caddy/v2.CustomVersion=v${CADDY_VERSION}" -o /out/caddy ./cmd/caddy \
     && cp LICENSE /out/CADDY-LICENSE
 
 FROM scratch
-ARG RUNTIME_VERSION=1.0.4
+ARG RUNTIME_VERSION=1.0.5
 ARG CADDY_VERSION=2.11.4
 ARG CENTRIFUGO_VERSION=6.9.6
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
