@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { withServerFunction } from '../server/server-function.js'
 import {
   createManagedPostHogServerTelemetry,
   createPostHogRpcLogger,
@@ -310,6 +311,28 @@ describe('PostHog server integration', () => {
     })
     expect(histogram).toHaveBeenCalledWith('server_function.duration', expect.any(Number), { unit: 'ms', attributes: { method: 'POST' } })
     expect(JSON.stringify([...count.mock.calls, ...histogram.mock.calls])).not.toContain('secret')
+  })
+
+  it('names the server function it observes on its span and metrics', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const observer = createPostHogRpcObserver(telemetry)
+    const span = { setAttribute: vi.fn() }
+    withSpan.mockImplementationOnce((_name: string, _options: unknown, work?: (value: unknown) => unknown) => work?.(span))
+    const identity = { name: 'savedRosters', filename: 'src/server/functions/rosters.ts' }
+
+    await withServerFunction(identity, () =>
+      observer(new Request('https://example.com/_serverFn/abc', { method: 'GET' }), async () => 'done'),
+    )
+
+    expect([span.setAttribute.mock.calls, count.mock.calls.at(-1)]).toEqual([
+      [
+        ['http.request.method', 'GET'],
+        ['code.function.name', 'savedRosters'],
+        ['code.file.path', 'src/server/functions/rosters.ts'],
+        ['server.function.outcome', 'success'],
+      ],
+      ['server_function.requests', 1, { attributes: { method: 'GET', function: 'savedRosters', outcome: 'success' } }],
+    ])
   })
 
   it('preserves failed server function work after observing it', async () => {
