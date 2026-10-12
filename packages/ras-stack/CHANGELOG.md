@@ -1,5 +1,11 @@
 # ras-stack
 
+## 3.1.0
+
+### Minor Changes
+
+- 9109f84: Name server functions on RPC observer spans and metrics through `serverFunctionIdentityMiddleware`.
+
 ## 3.0.2
 
 ### Patch Changes
