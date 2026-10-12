@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { canonicalHostRequest } from './middleware.js'
+import { currentServerFunction } from '../server/server-function.js'
+import { canonicalHostRequest, serverFunctionIdentityMiddleware } from './middleware.js'
 import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
 
 describe('TanStack RPC integration', () => {
@@ -55,5 +56,20 @@ describe('TanStack RPC integration', () => {
       pathsServedOnAnyHost: new Set(['/api/health']),
     })
     expect(await response.text()).toBe('healthy')
+  })
+})
+
+describe('server function identity middleware', () => {
+  it('names the server function while its handler runs', async () => {
+    const serverFnMeta = { id: 'abc', name: 'savedRosters', filename: 'src/server/functions/rosters.ts' }
+    const server = serverFunctionIdentityMiddleware().options.server as (context: {
+      serverFnMeta: typeof serverFnMeta
+      next: () => unknown
+    }) => unknown
+
+    await expect(server({ serverFnMeta, next: async () => currentServerFunction() })).resolves.toEqual({
+      name: 'savedRosters',
+      filename: 'src/server/functions/rosters.ts',
+    })
   })
 })

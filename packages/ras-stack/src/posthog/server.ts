@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import type { CaptureMetricOptions, PostHog, PostHogOptions, Span, StartSpanOptions } from 'posthog-node'
 import type { RpcErrorContext, RpcLogger, RpcObserver } from '../server/rpc.js'
+import { currentServerFunction } from '../server/server-function.js'
 import type { PostHogEnvironment } from './config.js'
 import { postHogRequestContext, type PostHogRequestContextOptions } from './request.js'
 
@@ -307,12 +308,18 @@ export function createPostHogRpcObserver(
   return async function observe<T>(request: Request | undefined, work: () => Promise<T>) {
     if (!request) return work()
     const method = request.method.toUpperCase()
-    const attributes = { method }
+    const identity = currentServerFunction()
+    // A function name is bounded by the application's code, unlike its URL or caller.
+    const attributes = identity ? { method, function: identity.name } : { method }
     const parent = request.headers.get('traceparent')
     return telemetry.withRequestContext(request, {}, () =>
       telemetry.withSpan(spanName, { kind: 'server', ...(parent ? { parent } : {}) }, async (span) => {
         const startedAt = performance.now()
         span?.setAttribute('http.request.method', method)
+        if (identity) {
+          span?.setAttribute('code.function.name', identity.name)
+          span?.setAttribute('code.file.path', identity.filename)
+        }
         let outcome = 'error'
         try {
           const result = await work()
