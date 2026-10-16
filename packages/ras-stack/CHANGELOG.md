@@ -1,5 +1,11 @@
 # ras-stack
 
+## 3.1.1
+
+### Patch Changes
+
+- 49970ec: Accept OpenTelemetry log packages 0.222 and 0.223 so applications can install the current releases. Preserve 0.221 compatibility.
+
 ## 3.1.0
 
 ### Minor Changes
