@@ -4,13 +4,9 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { rateLimitTable, type RateLimitStore } from '../server/rate-limit.js'
+import { resolveSqlitePragmas, type SqlitePragmas } from './pragmas.js'
 
-export type SqlitePragmas = {
-  journalMode?: 'DELETE' | 'TRUNCATE' | 'PERSIST' | 'MEMORY' | 'WAL' | 'OFF'
-  synchronous?: 'OFF' | 'NORMAL' | 'FULL' | 'EXTRA'
-  busyTimeout?: number
-  foreignKeys?: boolean
-}
+export type { SqlitePragmas } from './pragmas.js'
 
 export type OpenSqliteOptions = {
   database?: Database.Options
@@ -30,11 +26,7 @@ export function openSqliteClient(file: string, options: OpenSqliteOptions = {}):
 }
 
 export function configureSqlite(client: Database.Database, pragmas: SqlitePragmas = {}): Database.Database {
-  const journalMode = pragmas.journalMode ?? 'WAL'
-  const synchronous = pragmas.synchronous ?? 'FULL'
-  const busyTimeout = pragmas.busyTimeout ?? 5000
-  const foreignKeys = pragmas.foreignKeys ?? true
-  if (!Number.isInteger(busyTimeout) || busyTimeout < 0) throw new Error('busyTimeout must be a non-negative integer')
+  const { journalMode, synchronous, busyTimeout, foreignKeys } = resolveSqlitePragmas(pragmas)
   client.pragma(`journal_mode = ${journalMode}`)
   client.pragma(`synchronous = ${synchronous}`)
   client.pragma(`busy_timeout = ${busyTimeout}`)

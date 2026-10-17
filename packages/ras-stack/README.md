@@ -30,16 +30,16 @@ An application can use one surface without adopting the others. The npm package 
 
 ## The stack 🧰
 
-| Layer               | Supported technology                        | What `ras-stack` centralizes                                                                          |
-| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint    | Setup actions and version synchronization                                                             |
-| Web application     | TanStack Start, React                       | Request binding, mutation-origin checks, canonical hosts, health handlers                             |
-| Authentication      | Better Auth                                 | Secure option builders, origins, secrets, redirects, failure classification, and React action state   |
-| Data                | Drizzle, `better-sqlite3`, Postgres.js      | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
-| Realtime            | Centrifuge, Centrifugo, Caddy               | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
-| Email and uploads   | Nodemailer 9/10, `tus-js-client`            | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                      |
-| Observability       | PostHog JS, React, Node, and OpenTelemetry  | Analytics, replay, errors, logs, metrics, tracing, correlation, proxying, and shutdown                |
-| Delivery            | GitHub Actions, Changesets, Dokploy, Docker | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
+| Layer               | Supported technology                           | What `ras-stack` centralizes                                                                          |
+| ------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint       | Setup actions and version synchronization                                                             |
+| Web application     | TanStack Start, React                          | Request binding, mutation-origin checks, canonical hosts, health handlers                             |
+| Authentication      | Better Auth                                    | Secure option builders, origins, secrets, redirects, failure classification, and React action state   |
+| Data                | Drizzle, `better-sqlite3`, libsql, Postgres.js | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks           |
+| Realtime            | Centrifuge, Centrifugo, Caddy                  | Publishing, tokens, browser/React lifecycle, presence, proxy configuration, binaries, and supervision |
+| Email and uploads   | Nodemailer 9/10, `tus-js-client`               | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                      |
+| Observability       | PostHog JS, React, Node, and OpenTelemetry     | Analytics, replay, errors, logs, metrics, tracing, correlation, proxying, and shutdown                |
+| Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                   |
 
 Applications still configure every upstream library directly. This table describes what is tested together, not a replacement API.
 
