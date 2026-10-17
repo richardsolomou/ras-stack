@@ -1,5 +1,11 @@
 # ras-stack-config
 
+## 3.0.0
+
+### Major Changes
+
+- 3c229b4: Remove the `typescript/node-bundler` preset, which no consuming repository extends. Extend `typescript/bundler` and set the `target`, `lib`, and `types` a bundled Node script needs locally.
+
 ## 2.0.0
 
 ### Major Changes
