@@ -1,5 +1,12 @@
 # ras-stack
 
+## 4.2.0
+
+### Minor Changes
+
+- d48bc77: Add `deleteSpacetimeDatabase` to `ras-stack/spacetime`, which treats a missing database as already deleted.
+- 6d51c88: Add `ras-stack/spacetime` for server-side SpacetimeDB HTTP calls and module publishing through the migration planner.
+
 ## 4.1.0
 
 ### Minor Changes
