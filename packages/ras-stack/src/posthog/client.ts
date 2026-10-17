@@ -12,6 +12,7 @@ export function postHogBrowserOptions(input: {
   service?: PostHogBrowserService
   options?: Partial<PostHogConfig>
 }): Partial<PostHogConfig> {
+  const { session_recording: sessionRecording, ...options } = input.options ?? {}
   const service = input.service
     ? {
         serviceName: required(input.service.name, 'service.name'),
@@ -30,10 +31,10 @@ export function postHogBrowserOptions(input: {
     custom_personal_data_properties: ['token'],
     mask_personal_data_properties: true,
     person_profiles: 'identified_only',
-    session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture' },
+    session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture', ...sessionRecording },
     ...(service ? { logs: service, metrics: service } : {}),
     ...(input.tracingHostnames ? { tracing_headers: input.tracingHostnames } : {}),
-    ...input.options,
+    ...options,
   }
 }
 

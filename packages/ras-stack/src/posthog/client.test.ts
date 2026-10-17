@@ -24,6 +24,16 @@ describe('PostHog browser integration', () => {
     ).toMatchObject({ autocapture: false, capture_exceptions: false, mask_personal_data_properties: false })
   })
 
+  it('keeps replay privacy defaults when an application overrides one recording option', () => {
+    expect(
+      postHogBrowserOptions({
+        apiHost: '/ingest',
+        uiHost: 'https://us.posthog.com',
+        options: { session_recording: { captureCanvas: { recordCanvas: true } } },
+      }).session_recording,
+    ).toEqual({ maskAllInputs: true, blockSelector: '.ph-no-capture', captureCanvas: { recordCanvas: true } })
+  })
+
   it('adds request correlation for the current application host', () => {
     expect(
       postHogBrowserOptions({ apiHost: '/ingest', uiHost: 'https://us.posthog.com', tracingHostnames: ['app.example'] }),
