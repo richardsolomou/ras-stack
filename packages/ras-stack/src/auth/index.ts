@@ -1,12 +1,4 @@
-export {
-  acceptedOrigins,
-  forwardedOrigin,
-  parseOrigin,
-  publicOrigin,
-  requireSameOrigin,
-  trustedOrigins,
-  validSameOriginRequest,
-} from './origins.js'
+export { forwardedOrigin, parseOrigin, publicOrigin, trustedOrigins, validSameOriginRequest } from './origins.js'
 export type { OriginOptions } from './origins.js'
 export { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
 export type { ProviderCredentials, ProviderEnvironmentOptions } from './providers.js'

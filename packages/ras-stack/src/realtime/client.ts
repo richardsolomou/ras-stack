@@ -1,17 +1,8 @@
-import {
-  Centrifuge,
-  UnauthorizedError,
-  type ClientInfo,
-  type Options,
-  type ServerPublicationContext,
-  type ServerSubscribedContext,
-  type Subscription,
-  type SubscriptionOptions,
-} from 'centrifuge'
+import { Centrifuge, UnauthorizedError, type Options, type ServerPublicationContext, type ServerSubscribedContext } from 'centrifuge'
 
 type BrowserLocation = Pick<Location, 'host' | 'protocol'>
 
-export function sameOriginWebSocketUrl(location: BrowserLocation, path = '/connection/websocket') {
+function sameOriginWebSocketUrl(location: BrowserLocation, path = '/connection/websocket') {
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error('WebSocket path must be same-origin')
   const url = new URL(path, `${location.protocol}//${location.host}`)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -39,46 +30,6 @@ export function createSameOriginRealtimeClient(options: Partial<Options>, config
   return new Centrifuge(sameOriginWebSocketUrl(location, config.path), options)
 }
 
-export function connectRealtimeClient(client: Centrifuge) {
-  client.connect()
-  return () => client.disconnect()
-}
-
-export type RealtimeSubscription = {
-  subscription: Subscription
-  close: () => void
-}
-
-export function openRealtimeSubscription(
-  client: Centrifuge,
-  channel: string,
-  options: SubscriptionOptions = {},
-  configure?: (subscription: Subscription) => void | (() => void),
-): RealtimeSubscription {
-  const subscription = client.newSubscription(channel, options)
-  let cleanup: void | (() => void)
-  try {
-    cleanup = configure?.(subscription)
-    subscription.subscribe()
-  } catch (error) {
-    client.removeSubscription(subscription)
-    throw error
-  }
-  let closed = false
-  return {
-    subscription,
-    close: () => {
-      if (closed) return
-      closed = true
-      try {
-        cleanup?.()
-      } finally {
-        client.removeSubscription(subscription)
-      }
-    },
-  }
-}
-
 export function watchServerChannel(
   client: Centrifuge,
   channel: string,
@@ -95,67 +46,5 @@ export function watchServerChannel(
   return () => {
     client.off('publication', publication)
     client.off('subscribed', subscribed)
-  }
-}
-
-export function watchSubscriptionPresence(
-  subscription: Subscription,
-  update: (clients: Record<string, ClientInfo>) => void,
-  options: { onError?: (error: unknown) => void } = {},
-) {
-  const clients = new Map<string, ClientInfo>()
-  let active = true
-  let revision = 0
-  let refreshing: Promise<void> | undefined
-  const render = () => update(Object.fromEntries(clients))
-  const sync = async (): Promise<void> => {
-    const requestedAt = revision
-    try {
-      const snapshot = await subscription.presence()
-      if (!active) return
-      if (revision !== requestedAt) return sync()
-      clients.clear()
-      for (const [id, info] of Object.entries(snapshot.clients)) clients.set(id, info)
-      render()
-    } catch (error) {
-      if (!active) return
-      if (revision !== requestedAt) return sync()
-      clients.clear()
-      render()
-      options.onError?.(error)
-    }
-  }
-  const refresh = () => {
-    if (refreshing) return refreshing
-    refreshing = sync().finally(() => {
-      refreshing = undefined
-    })
-    return refreshing
-  }
-  const subscribed = () => {
-    revision++
-    void refresh()
-  }
-  const join = ({ info }: { info: ClientInfo }) => {
-    revision++
-    clients.set(info.client, info)
-    render()
-  }
-  const leave = ({ info }: { info: ClientInfo }) => {
-    revision++
-    clients.delete(info.client)
-    render()
-  }
-  subscription.on('subscribed', subscribed)
-  subscription.on('join', join)
-  subscription.on('leave', leave)
-  return () => {
-    if (!active) return
-    active = false
-    subscription.off('subscribed', subscribed)
-    subscription.off('join', join)
-    subscription.off('leave', leave)
-    clients.clear()
-    render()
   }
 }

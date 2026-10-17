@@ -25,7 +25,7 @@ try {
   )
   cpSync(join(root, 'test/consumer'), consumer, { recursive: true })
   execFileSync('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: consumer, stdio: 'inherit' })
-  for (const file of ['tsconfig.json', 'tsconfig-bundler.json', 'tsconfig-node-bundler.json', 'tsconfig-library.json']) {
+  for (const file of ['tsconfig.json', 'tsconfig-bundler.json', 'tsconfig-library.json']) {
     execFileSync('npx', ['tsc', '-p', file], { cwd: consumer, stdio: 'inherit' })
   }
   for (const name of ['oxlint', 'oxlint/application', 'oxlint/tanstack', 'oxlint/domain', 'oxlint/layers']) {

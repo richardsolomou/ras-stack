@@ -32,7 +32,6 @@ The TypeScript configs compose by runtime role:
 - `bundler` adds ESM bundler resolution without assuming DOM or Node globals.
 - `browser` adds DOM, JSX, and no-emit defaults.
 - `tanstack` adds Vite and Node types to the browser role.
-- `node-bundler` targets bundled Node 24 workers and scripts.
 - `library` uses NodeNext resolution and declaration-friendly strictness.
 
 Oxlint applications can extend the strict default plus independent layers for shared application preferences and generated TanStack files:
@@ -64,7 +63,7 @@ Install `ras-stack-config` as a development dependency and extend only the prese
 
 ## Changeset validation
 
-Committed Changesets, Dependabot and pnpm configuration belong to the repository. `ras changesets check` validates existing changeset syntax and workspace package names without requiring a release note for every change. The `ras-stack/changesets` entrypoint exposes `checkChangesets(root)` for programmatic validation. It uses upstream parsing and package discovery and never rewrites files. Empty changesets and CRLF frontmatter are accepted; malformed entries and unknown names fail the check.
+Committed Changesets, Dependabot and pnpm configuration belong to the repository. `ras changesets check` validates existing changeset syntax and workspace package names without requiring a release note for every change. It uses upstream parsing and package discovery and never rewrites files. Empty changesets and CRLF frontmatter are accepted; malformed entries and unknown names fail the check.
 
 ## Production server assets
 
@@ -82,7 +81,7 @@ pnpm exec ras assets sync
 pnpm exec ras assets check
 ```
 
-`sync` copies each declared source into the output, and `check` fails when the output drifts from the source, so a stale build cannot ship. Both refuse paths that escape the repository or the output directory, overlapping destinations, and symbolic links. `ras-stack/build` exposes `loadServerAssetsConfig`, `syncServerAssets`, and `checkServerAssets` for a repository that drives them from its own build script.
+`sync` copies each declared source into the output, and `check` fails when the output drifts from the source, so a stale build cannot ship. Both refuse paths that escape the repository or the output directory, overlapping destinations, and symbolic links.
 
 ## Pinned SpacetimeDB setup
 
@@ -180,7 +179,7 @@ Origins restricted to Cloudflare can set `cloudflare-zone-id` and inherit a `CLO
 
 Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the script reads product secrets through `loadPreviewAppSecrets(allowedNames)`, which copies only the allowlisted keys of the `PREVIEW_APP_SECRETS` JSON secret into the environment; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
 
-`dokployPreviewFromEnvironment` reads the same variables the commands use and returns the resolved configuration alongside a `DokployPreviewManager`, so a script only writes the part that differs:
+`dokployPreviewFromEnvironment` reads the same variables the commands use and returns the resolved configuration alongside a preview manager, so a script only writes the part that differs:
 
 ```ts
 import { dokployPreviewFromEnvironment } from 'ras-stack/preview/dokploy'
@@ -206,39 +205,7 @@ All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMEN
 | `delete` | `PR_NUMBER`                                                                  |
 | `prune`  | Space-separated `OPEN_PR_NUMBERS` (empty means no previews remain open)      |
 
-Preview comments and commit checks can use the same state transition without carrying a GitHub API client in every repository:
-
-```ts
-import { reportPreviewStatus } from 'ras-stack/preview/github'
-
-await reportPreviewStatus(
-  { repository, token, marker: '<!-- app-preview -->', note: 'Preview data is disposable.' },
-  { state: 'ready', prNumber, sha, previewUrl, runUrl },
-)
-```
-
-The reporter keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Building and failed states may omit the URL while Dokploy resolves a generated domain; ready states always require it. Applications retain their preview access note, seed credentials, and product cleanup hooks.
-
-The lower-level status workflow remains available when an application needs to report a transition outside the standard lifecycle:
-
-```yaml
-mark-preview-ready:
-  permissions:
-    contents: read
-    checks: write
-    issues: write
-  uses: richardsolomou/ras-stack/.github/workflows/report-preview-status.yml@v1
-  with:
-    state: ready
-    pr-number: ${{ github.event.workflow_run.pull_requests[0].number }}
-    sha: ${{ github.event.workflow_run.head_sha }}
-    preview-url: https://pr-${{ github.event.workflow_run.pull_requests[0].number }}.example.com
-    run-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-    marker: <!-- app-preview -->
-    note: Preview data is disposable.
-  secrets:
-    token: ${{ secrets.GITHUB_TOKEN }}
-```
+The workflows report each transition through `ras preview <state>`, which keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Building and failed states may omit the URL while Dokploy resolves a generated domain; ready states always require it. Applications retain their preview access note, seed credentials, and product cleanup hooks.
 
 The standard Dokploy workflows compose this reporter with the lower-level image actions. Their `workflow_run` boundary ensures fork code receives neither deployment secrets nor a writable package token: a fork creates a one-day image artifact, and trusted default-branch workflow code publishes and deploys it after approval.
 
@@ -261,7 +228,7 @@ await runRealtimeStack({
 })
 ```
 
-`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Forward container signals to the supervisor itself, for example with `tini -- node runtime.mjs`; group-wide forwarding (`tini -g`) bypasses its dependency-ordered shutdown. Lower-level configuration and supervision functions remain available when a topology differs. Applications retain base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
+`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Forward container signals to the supervisor itself, for example with `tini -- node runtime.mjs`; group-wide forwarding (`tini -g`) bypasses its dependency-ordered shutdown. `caddyRealtimeProxy()` returns the same Caddyfile on its own when a topology differs. Applications retain base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
 
 The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. Copy the binaries from an immutable release and pin its digest:
 
@@ -286,7 +253,7 @@ The foreground command follows terminal signals and leaves an existing named con
 
 `runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created. Land and publish a changed runtime version before advancing application, development, or documentation references; those consumers must continue using the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned.
 
-Read-only containers can pass writable `configHome` and `dataHome` paths to `caddyRuntimeEnvironment()`; both default to isolated directories under `/tmp`.
+Read-only containers can pass writable `configHome` and `dataHome` paths through `caddy.runtime`; both default to isolated directories under `/tmp`.
 
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 

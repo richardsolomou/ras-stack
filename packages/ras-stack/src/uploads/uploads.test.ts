@@ -42,7 +42,7 @@ vi.mock('tus-js-client', () => ({
   },
 }))
 
-import { createTusUpload, startTusUpload, tusResponse, tusResponseMessage, uploadWithTus } from './index.js'
+import { createTusUpload, startTusUpload } from './index.js'
 
 beforeEach(() => {
   mocks.instances.length = 0
@@ -52,12 +52,14 @@ beforeEach(() => {
 describe('tus uploads', () => {
   it('resumes a previous upload and returns the server response', async () => {
     const progress = vi.fn()
-    const result = await uploadWithTus({
-      endpoint: '/api/upload',
-      file: new File(['data'], 'asset.bin'),
-      metadata: { kind: 'asset' },
-      onProgress: progress,
-    })
+    const result = await startTusUpload(
+      createTusUpload({
+        endpoint: '/api/upload',
+        file: new File(['data'], 'asset.bin'),
+        metadata: { kind: 'asset' },
+        onProgress: progress,
+      }),
+    )
     const upload = mocks.instances[0]!
     expect(upload.resumeFromPreviousUpload).toHaveBeenCalledWith({ uploadUrl: 'previous' })
     expect(result).toEqual({ responseBody: '{"id":"asset-1"}', responseStatus: 200, uploadUrl: 'https://uploads.example.com/one' })
@@ -67,7 +69,7 @@ describe('tus uploads', () => {
 
   it('lets applications block retries for meaningful statuses', async () => {
     const shouldRetry = vi.fn(() => false)
-    await uploadWithTus({ endpoint: '/api/upload', file: new File([], 'asset.bin'), metadata: {}, shouldRetry })
+    await startTusUpload(createTusUpload({ endpoint: '/api/upload', file: new File([], 'asset.bin'), metadata: {}, shouldRetry }))
     const upload = mocks.instances[0]!
     const error = { originalResponse: { getStatus: () => 423 } }
     expect(upload.options.onShouldRetry?.(error, 2, {})).toBe(false)
@@ -139,17 +141,5 @@ describe('tus uploads', () => {
 
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
     expect(mockedUpload.abort).toHaveBeenCalledWith(true)
-  })
-})
-
-describe('tus errors', () => {
-  it('reads a structured response from a tus error', () => {
-    const error = { originalResponse: { getStatus: () => 413, getBody: () => 'storage full' } }
-    expect(tusResponse(error)).toEqual({ status: 413, body: 'storage full' })
-    expect(tusResponseMessage(error)).toBe('storage full')
-  })
-
-  it('falls back to the response text embedded by tus', () => {
-    expect(tusResponseMessage(new Error('request failed, response text: not allowed, request id: one'))).toBe('not allowed')
   })
 })

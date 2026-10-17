@@ -18,4 +18,4 @@ pnpm add -D ras-stack-config
 }
 ```
 
-Available TypeScript presets: base, bundler, browser, node-bundler, library and tanstack. Oxlint provides base rules, application and tanstack presets, and optional domain/layer import restrictions. Applications own aliases, includes and exceptions. See [repository tooling](../../docs/repository-tooling.md) for their contracts.
+Available TypeScript presets: base, bundler, browser, library and tanstack. Oxlint provides base rules, application and tanstack presets, and optional domain/layer import restrictions. Applications own aliases, includes and exceptions. See [repository tooling](../../docs/repository-tooling.md) for their contracts.

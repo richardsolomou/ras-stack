@@ -1,9 +1,7 @@
 import type { PostHogConfig } from 'posthog-js'
 import type { PostHogBrowserService } from './config.js'
-import { POSTHOG_DISTINCT_ID_HEADER, POSTHOG_SESSION_ID_HEADER, postHogIdentifier } from './request.js'
 
-export { POSTHOG_DISTINCT_ID_HEADER, POSTHOG_SESSION_ID_HEADER } from './request.js'
-export const POSTHOG_BROWSER_DEFAULTS = '2026-05-30'
+const POSTHOG_BROWSER_DEFAULTS = '2026-05-30'
 
 export function postHogBrowserOptions(input: {
   apiHost: string
@@ -35,15 +33,6 @@ export function postHogBrowserOptions(input: {
     ...(service ? { logs: service, metrics: service } : {}),
     ...(input.tracingHostnames ? { tracing_headers: input.tracingHostnames } : {}),
     ...options,
-  }
-}
-
-export function postHogBrowserHeaders(client: { get_distinct_id(): string; get_session_id(): string | undefined }): Record<string, string> {
-  const distinctId = postHogIdentifier(client.get_distinct_id())
-  const sessionId = postHogIdentifier(client.get_session_id())
-  return {
-    ...(distinctId ? { [POSTHOG_DISTINCT_ID_HEADER]: distinctId } : {}),
-    ...(sessionId ? { [POSTHOG_SESSION_ID_HEADER]: sessionId } : {}),
   }
 }
 

@@ -12,6 +12,9 @@ export type PostHogBrowserService = {
   resourceAttributes?: Record<string, string>
 }
 
+// Ad-blocker lists match the literal `/ingest` segment on any host, so the default avoids it.
+export const POSTHOG_DEFAULT_INGEST_PATH = '/t'
+
 export function postHogEnvironment(input: { projectToken?: string; host?: string; assetsHost?: string }): PostHogEnvironment | undefined {
   const projectToken = input.projectToken?.trim()
   const host = input.host?.trim()

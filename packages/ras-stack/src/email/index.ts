@@ -31,12 +31,12 @@ export type AuthEmailInput<User extends { email: string } = { email: string }> =
   token: string
 }
 
-export type AuthEmailMessageFactory<User extends { email: string } = { email: string }> = (
+type AuthEmailMessageFactory<User extends { email: string } = { email: string }> = (
   input: AuthEmailInput<User>,
   request?: Request,
 ) => EmailMessage | Promise<EmailMessage>
 
-export function createAuthEmailHandler<User extends { email: string } = { email: string }>(
+function createAuthEmailHandler<User extends { email: string } = { email: string }>(
   delivery: EmailDelivery,
   message: AuthEmailMessageFactory<User>,
 ) {
@@ -73,20 +73,16 @@ export function smtpConfigFromEnvironment(
 }
 
 export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
-  const transport = createSmtpTransport(config)
-  return {
-    send: async (message) => transport.sendMail({ from: config.from, ...message }).then(() => undefined),
-    verify: async () => transport.verify().then(() => undefined),
-  }
-}
-
-export function createSmtpTransport(config: SmtpConfig) {
-  return createTransport({
+  const transport = createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
   })
+  return {
+    send: async (message) => transport.sendMail({ from: config.from, ...message }).then(() => undefined),
+    verify: async () => transport.verify().then(() => undefined),
+  }
 }
 
 export type StandardAuthEmailOptions = { productName: string }

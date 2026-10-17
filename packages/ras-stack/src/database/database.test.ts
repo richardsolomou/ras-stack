@@ -5,8 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { mkdtemp } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { bundledDirectory, databaseTarget } from './index.js'
-import { closeDrizzlePostgres, openDrizzlePostgres, redactedPostgresUrl } from './postgres.js'
-import { closeDrizzleSqlite, configureSqlite, openDrizzleSqlite, openSqliteClient } from './sqlite.js'
+import { openDrizzlePostgres } from './postgres.js'
+import { closeDrizzleSqlite, openDrizzleSqlite, openSqliteClient } from './sqlite.js'
 
 describe('database lifecycle', () => {
   it('configures the standard SQLite safety settings', () => {
@@ -19,10 +19,8 @@ describe('database lifecycle', () => {
     client.close()
   })
 
-  it('rejects an invalid busy timeout before changing the client', () => {
-    const client = openSqliteClient(':memory:', { pragmas: false })
-    expect(() => configureSqlite(client, { busyTimeout: -1 })).toThrow('busyTimeout must be a non-negative integer')
-    client.close()
+  it('rejects an invalid busy timeout before returning a client', () => {
+    expect(() => openSqliteClient(':memory:', { pragmas: { busyTimeout: -1 } })).toThrow('busyTimeout must be a non-negative integer')
   })
 
   it('creates the database directory and runs bundled migrations', async () => {
@@ -77,12 +75,6 @@ describe('database lifecycle', () => {
       client: { connect_timeout: 1, max: 3 },
     })
     expect({ max: connection.client.options.max, select: typeof connection.database.select }).toEqual({ max: 3, select: 'function' })
-    await closeDrizzlePostgres(connection)
-  })
-
-  it('removes PostgreSQL credentials from display URLs', () => {
-    expect(redactedPostgresUrl('postgres://user:secret@database.example:5432/app?sslmode=require')).toBe(
-      'postgres://database.example:5432/app?sslmode=require',
-    )
+    await connection.client.end({ timeout: 5 })
   })
 })

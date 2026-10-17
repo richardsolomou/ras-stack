@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { currentServerFunction } from '../server/server-function.js'
-import { canonicalHostRequest, serverFunctionIdentityMiddleware, staleServerFunctionMiddleware } from './middleware.js'
-import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
+import { canonicalHostMiddleware, serverFunctionIdentityMiddleware, staleServerFunctionMiddleware } from './middleware.js'
+import { createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
 
 describe('TanStack RPC integration', () => {
   it('uses the ambient request for mutation policy', async () => {
@@ -22,27 +22,21 @@ describe('TanStack RPC integration', () => {
     expect(() => requireTanStackMutationOrigin({}, request)).not.toThrow()
   })
 
-  it('delegates both Better Auth methods to the resolved application', async () => {
-    const handler = vi.fn(() => Response.json({ ok: true }))
-    const handlers = betterAuthHandlers(() => ({ handler }))
-    const request = new Request('https://example.com/api/auth/session')
-    await handlers.GET({ request })
-    await handlers.POST({ request })
-    expect(handler).toHaveBeenCalledTimes(2)
-  })
-
   it('builds a health handler around an application-owned check', async () => {
     const handler = tanStackHealthHandler(() => {
       throw new Error('offline')
     })
     expect((await handler()).status).toBe(503)
   })
+})
 
+describe('canonical host middleware', () => {
   it('redirects a non-canonical request without calling the application', () => {
     const next = vi.fn(() => new Response('application'))
-    const response = canonicalHostRequest(new Request('https://old.example/path?q=1'), next, {
-      canonicalUrl: 'https://example.com',
-    })
+    const response = canonicalHost({ canonicalUrl: 'https://example.com' })({
+      request: new Request('https://old.example/path?q=1'),
+      next,
+    }) as Response
     expect({ location: response.headers.get('location'), nextCalls: next.mock.calls.length, status: response.status }).toEqual({
       location: 'https://example.com/path?q=1',
       nextCalls: 0,
@@ -51,10 +45,10 @@ describe('TanStack RPC integration', () => {
   })
 
   it('continues requests already served on an allowed host', async () => {
-    const response = canonicalHostRequest(new Request('https://old.example/api/health'), () => new Response('healthy'), {
-      canonicalUrl: 'https://example.com',
-      pathsServedOnAnyHost: new Set(['/api/health']),
-    })
+    const response = canonicalHost({ canonicalUrl: 'https://example.com', pathsServedOnAnyHost: new Set(['/api/health']) })({
+      request: new Request('https://old.example/api/health'),
+      next: () => new Response('healthy'),
+    }) as Response
     expect(await response.text()).toBe('healthy')
   })
 })
@@ -108,3 +102,7 @@ describe('stale server function middleware', () => {
     await expect(server({ handlerType: 'router', next: removed })).rejects.toThrow('Server function info not found')
   })
 })
+
+function canonicalHost(options: { canonicalUrl: string; pathsServedOnAnyHost?: ReadonlySet<string> }) {
+  return canonicalHostMiddleware(() => options).options.server as (context: { request: Request; next: () => unknown }) => unknown
+}

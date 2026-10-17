@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
 import { app } from '../../server/app'
-import { limitAuthenticatedRequest } from '../../server/rate-limit'
 import { requireCurrentUser } from '../../server/session'
 
 export const Route = createFileRoute('/api/uploads/$id')({
@@ -18,7 +17,6 @@ export const Route = createFileRoute('/api/uploads/$id')({
           request,
         )
         const user = await requireCurrentUser(request)
-        await limitAuthenticatedRequest(request, 'upload-chunk', user.id, { window: 60, max: 120 })
         const declaredLength = Number(request.headers.get('content-length'))
         if (!Number.isSafeInteger(declaredLength) || declaredLength < 1 || declaredLength > app().environment.uploadMaxBytes) {
           return new Response('Invalid content length', { status: 400 })

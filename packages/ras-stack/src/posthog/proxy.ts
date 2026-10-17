@@ -1,4 +1,4 @@
-import { postHogHttpUrl } from './config.js'
+import { POSTHOG_DEFAULT_INGEST_PATH, postHogHttpUrl } from './config.js'
 import type { PostHogEnvironment } from './config.js'
 
 /**
@@ -37,9 +37,6 @@ function nitroTarget(to: string) {
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
-
-// Ad-blocker lists match the literal `/ingest` segment on any host, so the default avoids it.
-export const POSTHOG_DEFAULT_INGEST_PATH = '/t'
 
 function normalizedIngestPath(path: string): string {
   if (!path.startsWith('/') || path.endsWith('/') || path.includes('?') || path.includes('#')) {

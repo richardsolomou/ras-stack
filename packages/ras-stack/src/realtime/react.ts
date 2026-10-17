@@ -1,6 +1,5 @@
-import type { Centrifuge, ClientInfo, Subscription, SubscriptionOptions } from 'centrifuge'
+import type { Centrifuge, Subscription, SubscriptionOptions } from 'centrifuge'
 import { useEffect, useState } from 'react'
-import { connectRealtimeClient, openRealtimeSubscription, watchSubscriptionPresence } from './client.js'
 
 export function useConnectedRealtimeClient(
   create: () => Centrifuge | Promise<Centrifuge>,
@@ -17,7 +16,7 @@ export function useConnectedRealtimeClient(
     }
     let active = true
     let cleanup: (() => void) | undefined
-    let disconnect: (() => void) | undefined
+    let connected: Centrifuge | undefined
     const connect = (next: Centrifuge) => {
       if (!active) {
         next.disconnect()
@@ -31,7 +30,8 @@ export function useConnectedRealtimeClient(
         return
       }
       setClient(next)
-      disconnect = connectRealtimeClient(next)
+      next.connect()
+      connected = next
     }
     try {
       const created = create()
@@ -43,7 +43,7 @@ export function useConnectedRealtimeClient(
     return () => {
       active = false
       cleanup?.()
-      disconnect?.()
+      connected?.disconnect()
     }
   }, [configure, create, enabled, onError])
   return client
@@ -65,33 +65,23 @@ export function useRealtimeSubscription(options: RealtimeSubscriptionHookOptions
       setSubscription(undefined)
       return undefined
     }
-    const opened = openRealtimeSubscription(client, channel, subscriptionOptions, configure)
-    setSubscription(opened.subscription)
-    return opened.close
+    const next = client.newSubscription(channel, subscriptionOptions)
+    let cleanup: void | (() => void)
+    try {
+      cleanup = configure?.(next)
+      next.subscribe()
+    } catch (error) {
+      client.removeSubscription(next)
+      throw error
+    }
+    setSubscription(next)
+    return () => {
+      try {
+        cleanup?.()
+      } finally {
+        client.removeSubscription(next)
+      }
+    }
   }, [channel, client, configure, enabled, subscriptionOptions])
   return subscription
-}
-
-export function useRealtimePresence(subscription: Subscription | undefined, options: { onError?: (error: unknown) => void } = {}) {
-  const [clients, setClients] = useState<Record<string, ClientInfo>>({})
-  const onError = options.onError
-  useEffect(() => {
-    if (!subscription) {
-      setClients({})
-      return undefined
-    }
-    let active = true
-    const stop = watchSubscriptionPresence(
-      subscription,
-      (next) => {
-        if (active) setClients(next)
-      },
-      onError ? { onError } : {},
-    )
-    return () => {
-      active = false
-      stop()
-    }
-  }, [onError, subscription])
-  return clients
 }

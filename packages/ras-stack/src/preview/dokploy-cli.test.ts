@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { dokployPreviewFromEnvironment } from './dokploy.js'
+import { dokployPreviewFromEnvironment } from './dokploy-preview.js'
 import { renderPreviewEnvironment, runDokployPreviewCli } from './dokploy-cli.js'
 
 const environment = {

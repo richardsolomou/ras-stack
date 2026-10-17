@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { canonicalRedirect } from './canonical-host.js'
 import { healthResponse } from './health.js'
-import { errorHasCode, InfrastructureError, infrastructureDiagnostic, infrastructureFailure, safeInfrastructureError } from './errors.js'
+import { errorHasCode, InfrastructureError, infrastructureFailure } from './errors.js'
 import { createRpc, type RpcObserver } from './rpc.js'
 import { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'
 
@@ -172,24 +172,9 @@ describe('infrastructure errors', () => {
     )
   })
 
-  it('wraps unknown failures without replacing their diagnostic cause', () => {
-    const cause = new Error('connection refused')
-    const error = safeInfrastructureError(cause, { code: 'service_unavailable', message: 'service unavailable', retryable: true })
-    expect({ cause: error.cause, code: error.code, message: error.message, retryable: error.retryable }).toEqual({
-      cause,
-      code: 'service_unavailable',
-      message: 'service unavailable',
-      retryable: true,
-    })
-  })
-
-  it('extracts bounded diagnostics and nested driver codes', () => {
-    const cause = Object.assign(new Error('duplicate'), { code: '23505', status: 409 })
-    const error = new Error('write failed', { cause })
-    expect({ diagnostic: infrastructureDiagnostic(error), matching: errorHasCode(error, '23505') }).toEqual({
-      diagnostic: { name: 'Error', message: 'write failed', code: '23505', status: 409 },
-      matching: true,
-    })
+  it('matches nested driver codes', () => {
+    const error = new Error('write failed', { cause: Object.assign(new Error('duplicate'), { code: '23505' }) })
+    expect(errorHasCode(error, '23505')).toBe(true)
   })
 
   it('stops traversing cyclic causes', () => {

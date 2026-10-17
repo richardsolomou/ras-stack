@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { postHogEnvironment, postHogRequestContext } from 'ras-stack/posthog'
-import { createManagedPostHogServerTelemetry, createPostHogServerClient } from 'ras-stack/posthog/server'
+import { createManagedPostHogServerTelemetry } from 'ras-stack/posthog/server'
 
 describe('PostHog integration boundary', () => {
-  it('stays disabled without deployment configuration', async () => {
-    expect(await createPostHogServerClient(postHogEnvironment({}))).toBeUndefined()
-  })
-
   it('propagates a browser session only with the authenticated identity', () => {
     const request = new Request('https://example.test/action', {
       headers: { 'x-posthog-distinct-id': 'person-123', 'x-posthog-session-id': 'session-456' },

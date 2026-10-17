@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
 import { describe, expect, it, vi } from 'vitest'
-import { DokployClient, DokployPreviewManager } from './dokploy.js'
+import { DokployClient, DokployPreviewManager } from './dokploy-preview.js'
 
 const exec = promisify(execFile)
 const script = new URL('../../../../actions/deploy-dokploy-image/deploy.sh', import.meta.url).pathname

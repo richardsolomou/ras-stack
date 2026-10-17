@@ -1,9 +1,0 @@
-{
-  "extends": "./bundler.json",
-  "compilerOptions": {
-    "target": "ES2024",
-    "lib": ["ES2024"],
-    "types": ["node"],
-    "noEmit": true
-  }
-}
