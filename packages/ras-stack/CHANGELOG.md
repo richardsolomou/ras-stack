@@ -1,5 +1,14 @@
 # ras-stack
 
+## 3.2.0
+
+### Minor Changes
+
+- 69b21d5: Add `ras-stack/database/libsql` with `openDrizzleLibsql`, which opens a `@libsql/client` database with the standard SQLite safety settings and optional Drizzle migrations. `@libsql/client` 0.18 or later is an optional peer dependency.
+- 10271ee: Add `staleServerFunctionMiddleware` to `ras-stack/tanstack/middleware` and `chunkRecoveryScript` to the new `ras-stack/tanstack/client` entrypoint, so tabs opened before a deploy fail cleanly or reload instead of breaking silently.
+- 65fc163: Merge `session_recording` overrides into the replay privacy defaults in `postHogBrowserOptions` and `PostHogIntegration`, so overriding one recording option no longer drops input masking or `.ph-no-capture` blocking.
+- 9aaebc4: Add `publicOrigin` to `ras-stack/auth`, which resolves the address users reach the application at from the configured origins, a trusted forwarded origin, or the request.
+
 ## 3.1.1
 
 ### Patch Changes
