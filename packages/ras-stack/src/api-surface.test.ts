@@ -23,6 +23,7 @@ import * as realtimeClient from './realtime/client.js'
 import * as realtimeReact from './realtime/react.js'
 import * as runtime from './runtime/index.js'
 import * as server from './server/index.js'
+import * as tanstackClient from './tanstack/client.js'
 import * as tanstackMiddleware from './tanstack/middleware.js'
 import * as tanstackServer from './tanstack/server.js'
 import * as uploads from './uploads/index.js'
@@ -169,7 +170,13 @@ const surface = {
     'safeInfrastructureError',
     'withServerFunction',
   ],
-  './tanstack/middleware': ['canonicalHostMiddleware', 'canonicalHostRequest', 'serverFunctionIdentityMiddleware'],
+  './tanstack/client': ['chunkRecoveryScript'],
+  './tanstack/middleware': [
+    'canonicalHostMiddleware',
+    'canonicalHostRequest',
+    'serverFunctionIdentityMiddleware',
+    'staleServerFunctionMiddleware',
+  ],
   './tanstack/server': [
     'betterAuthHandlers',
     'canonicalHostMiddleware',
@@ -205,6 +212,7 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './realtime/react': realtimeReact,
   './runtime': runtime,
   './server': server,
+  './tanstack/client': tanstackClient,
   './tanstack/middleware': tanstackMiddleware,
   './tanstack/server': tanstackServer,
   './uploads': uploads,

@@ -182,6 +182,28 @@ await assertAuthSecretConformance((environment) => persistedSecret({ directory, 
 
 It checks that the secret is long and random-looking, that repeated calls return the same value, and that `AUTH_SECRET` takes precedence over a generated one.
 
+## Surviving deploys
+
+A tab opened before a deploy keeps running the old build. Two failures follow, and neither recovers on its own:
+
+```tsx
+import { createStart } from '@tanstack/react-start'
+import { chunkRecoveryScript } from 'ras-stack/tanstack/client'
+import { staleServerFunctionMiddleware } from 'ras-stack/tanstack/middleware'
+
+export const startInstance = createStart(() => ({
+  requestMiddleware: [staleServerFunctionMiddleware('The app has been updated. Refresh the page to continue.')],
+}))
+
+// In the root route's head():
+scripts: [{ children: chunkRecoveryScript({ storageKey: 'app:chunk-reload', noticeId: 'update-notice' }) }]
+```
+
+- A call to a server function the deploy removed reaches TanStack's resolver, whose JSON 500 the client treats as a successful result. `staleServerFunctionMiddleware` answers with a plain-text 404 instead, so the call fails with the application's message.
+- An entry module that no longer exists leaves the server-rendered HTML inert. The inline script reloads the page, at most once per retry window (10 seconds by default), and then reveals the optional `noticeId` element. TanStack Router already reloads for lazy route chunks; the script covers the entry graph the router never reaches. It ignores module scripts from other origins, such as those browser extensions inject.
+
+Applications own the message copy, the notice element, and the storage key.
+
 ## Database lifecycle
 
 The SQLite entrypoint owns the native client lifecycle, standard safety PRAGMAs, and optional Drizzle migrations while returning the upstream typed database:

@@ -110,6 +110,10 @@
       "types": "./dist/runtime/index.d.ts",
       "default": "./dist/runtime/index.js"
     },
+    "./tanstack/client": {
+      "types": "./dist/tanstack/client.d.ts",
+      "default": "./dist/tanstack/client.js"
+    },
     "./tanstack/middleware": {
       "types": "./dist/tanstack/middleware.d.ts",
       "default": "./dist/tanstack/middleware.js"
