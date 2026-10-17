@@ -1,6 +1,5 @@
-export { errorHasCode, infrastructureFailure } from './errors.js'
-export type { InfrastructureFailure } from './errors.js'
+export { errorHasCode } from './errors.js'
 export { databaseHealthFailure, healthResponse } from './health.js'
-export type { HealthResponseOptions } from './health.js'
+export type { HealthFailure, HealthResponseOptions } from './health.js'
 export type { RpcErrorContext, RpcLogger, RpcObserver, RpcOptions } from './rpc.js'
 export { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'

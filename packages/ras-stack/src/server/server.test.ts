@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { canonicalRedirect } from './canonical-host.js'
-import { healthResponse } from './health.js'
-import { errorHasCode, InfrastructureError, infrastructureFailure } from './errors.js'
+import { databaseHealthFailure, healthResponse } from './health.js'
+import { errorHasCode } from './errors.js'
 import { createRpc, type RpcObserver } from './rpc.js'
 import { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'
 
@@ -135,43 +135,13 @@ describe('health responses', () => {
     expect(await response.json()).toEqual({ ok: false, error: 'health check failed' })
   })
 
-  it('allows an application to expose a safe failure classification', async () => {
-    const response = await healthResponse(() => Promise.reject(new Error('database unavailable')), {
-      errorMessage: () => 'database unavailable',
-    })
-    expect(await response.json()).toEqual({ ok: false, error: 'database unavailable' })
-  })
-
-  it('returns a stable infrastructure code without exposing the cause', async () => {
-    const response = await healthResponse(() => Promise.reject(new Error('password=secret')), {
-      failure: (error) => infrastructureFailure(error, { code: 'database_unavailable', message: 'database unavailable', retryable: true }),
-    })
+  it('returns a stable failure code without exposing the cause', async () => {
+    const response = await healthResponse(() => Promise.reject(new Error('password=secret')), { failure: databaseHealthFailure })
     expect(await response.json()).toEqual({ ok: false, error: 'database unavailable', code: 'database_unavailable' })
   })
 })
 
-describe('infrastructure errors', () => {
-  it('preserves an explicitly public failure through wrapped causes', () => {
-    const error = new Error('request failed', {
-      cause: new InfrastructureError('smtp_unavailable', 'email is temporarily unavailable', { retryable: true }),
-    })
-    expect(infrastructureFailure(error, { code: 'internal_error', message: 'try again', retryable: false })).toEqual({
-      code: 'smtp_unavailable',
-      message: 'email is temporarily unavailable',
-      retryable: true,
-    })
-  })
-
-  it('collapses unknown failures to the approved fallback', () => {
-    expect(infrastructureFailure(new Error('password=secret'), { code: 'internal_error', message: 'try again', retryable: false })).toEqual(
-      {
-        code: 'internal_error',
-        message: 'try again',
-        retryable: false,
-      },
-    )
-  })
-
+describe('driver error codes', () => {
   it('matches nested driver codes', () => {
     const error = new Error('write failed', { cause: Object.assign(new Error('duplicate'), { code: '23505' }) })
     expect(errorHasCode(error, '23505')).toBe(true)

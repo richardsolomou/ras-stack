@@ -88,7 +88,6 @@ const surface = {
     'globalAsyncSingleton',
     'globalSingleton',
     'healthResponse',
-    'infrastructureFailure',
     'peekGlobalSingleton',
   ],
   './tanstack/client': ['chunkRecoveryScript'],

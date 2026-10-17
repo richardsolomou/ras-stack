@@ -22,6 +22,7 @@ Remove exports no consuming application imports. The `ras` commands and reusable
 - `ras-stack/realtime/client`: `connectRealtimeClient`, `openRealtimeSubscription`, `sameOriginWebSocketUrl`. Use the native Centrifuge client, `useConnectedRealtimeClient`, `useRealtimeSubscription`, or `createSameOriginRealtimeClient`.
 - `ras-stack/runtime`: `caddyRuntimeEnvironment`, `centrifugoEnvironment`, `superviseProcesses`, `runRealtimeDev`. Use `runRealtimeStack` and `ras realtime`.
 - `ras-stack/server`: `InfrastructureError`, `canonicalRedirect`, `createRpc`, `currentServerFunction`, `infrastructureDiagnostic`, `safeInfrastructureError`, `withServerFunction`. Use `canonicalHostMiddleware`, `createTanStackRpc`, and `serverFunctionIdentityMiddleware`.
+- `ras-stack/server`: `infrastructureFailure` and `healthResponse`'s `errorMessage` option. Nothing produced a classified failure any more, so pass the exposed `{ code, message }` from the `failure` callback directly; `databaseHealthFailure` still does this for database checks.
 - `ras-stack/tanstack/middleware`: `canonicalHostRequest`. Use `canonicalHostMiddleware`.
 - `ras-stack/tanstack/server`: `betterAuthHandlers` and the middleware re-exports. Import middleware from `ras-stack/tanstack/middleware`.
 - `ras-stack/uploads`: `uploadWithTus`, `tusResponse`, `tusResponseMessage`. Use `startTusUpload(createTusUpload(options))`.

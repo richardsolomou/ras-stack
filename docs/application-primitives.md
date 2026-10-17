@@ -103,20 +103,6 @@ import { publicOrigin } from 'ras-stack/auth'
 const link = new URL(`/invite/${token}`, publicOrigin(request, { configured: [process.env.APP_URL], trustForwardedHeaders: true }))
 ```
 
-Infrastructure boundaries can keep approved client output separate from private causes:
-
-```ts
-import { infrastructureFailure } from 'ras-stack/server'
-
-const publicFailure = infrastructureFailure(error, {
-  code: 'internal_error',
-  message: 'something went wrong',
-  retryable: false,
-})
-```
-
-Unknown failures use the caller's fallback, so a private cause never reaches the response. Logging the cause stays with the application.
-
 Browser auth flows can share failure classification, safe local return destinations, and pending/error state without sharing forms or navigation:
 
 ```tsx
