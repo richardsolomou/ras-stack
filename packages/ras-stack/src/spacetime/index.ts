@@ -103,11 +103,21 @@ export async function publishSpacetimeModule(
   })
 }
 
+/** Deletes the database; one that does not exist counts as already deleted, so cleanup can run repeatedly. */
+export async function deleteSpacetimeDatabase(connection: SpacetimeConnection, options: { timeoutMs?: number } = {}) {
+  await request(connection, spacetimeDatabaseUrl(connection), 'delete', {
+    method: 'DELETE',
+    headers: {},
+    timeoutMs: options.timeoutMs ?? 15_000,
+    allowNotFound: true,
+  })
+}
+
 async function request(
   connection: SpacetimeConnection,
   url: URL,
   operation: string,
-  init: { method: string; headers: HeadersInit; body: BodyInit; timeoutMs: number; allowNotFound?: boolean },
+  init: { method: string; headers: HeadersInit; body?: BodyInit; timeoutMs: number; allowNotFound?: boolean },
 ) {
   const headers = new Headers(init.headers)
   for (const [name, value] of Object.entries(connection.headers ?? {})) headers.set(name, value)
@@ -115,7 +125,7 @@ async function request(
   const response = await (connection.fetch ?? fetch)(url, {
     method: init.method,
     headers,
-    body: init.body,
+    ...(init.body === undefined ? {} : { body: init.body }),
     // A redirect would resend the bearer token to wherever it points.
     redirect: 'manual',
     signal: AbortSignal.timeout(init.timeoutMs),
