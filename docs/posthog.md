@@ -253,7 +253,7 @@ Both default to `POSTHOG_DEFAULT_INGEST_PATH` when omitted.
 Applications without an ingest proxy must pass the upstream URL explicitly. An absent environment renders children without initializing the SDK:
 
 ```tsx
-<PostHogIntegration environment={posthog} ingestPath={posthog?.host} options={{ defaults: '2025-05-24' }}>
+<PostHogIntegration environment={posthog} ingestPath={posthog?.host}>
   {children}
 </PostHogIntegration>
 ```

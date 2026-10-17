@@ -36,7 +36,7 @@ describe('opt-in import boundaries', () => {
   it.each([
     ['src/core/model.ts', 'node:fs/promises'],
     ['src/core/nested/model.ts', 'fs/promises'],
-    ['src/geometry/mesh.ts', 'react'],
+    ['src/core/model.ts', 'react'],
     ['src/core/model.ts', '@tanstack/react-query'],
     ['src/core/model.ts', 'postgres'],
     ['src/core/model.ts', 'cheerio'],
@@ -61,8 +61,7 @@ describe('opt-in import boundaries', () => {
     ['src/core/model.ts', 'zod'],
     ['src/core/model.test.ts', 'node:fs'],
     ['src/client/page.spec.ts', '../server/app'],
-    ['src/geometry/mesh.ts', 'manifold-3d'],
-    ['src/geometry/mesh.ts', './types'],
+    ['src/core/model.ts', './types'],
     ['src/client/page.ts', '../server/functions'],
     ['src/client/page.ts', '../server/fns'],
     ['src/client/page.ts', '@/server/functions/accounts'],
@@ -70,6 +69,7 @@ describe('opt-in import boundaries', () => {
     ['src/server/handler.ts', '../core/model'],
     ['src/routes/index.ts', '../client/page'],
     ['src/other/module.ts', 'node:fs'],
+    ['src/geometry/mesh.ts', 'react'],
   ])('allows %s importing %s', async (file, specifier) => {
     expect(await lint(file, specifier)).toBe('')
   })
