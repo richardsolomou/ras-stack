@@ -280,6 +280,7 @@ const health = await callSpacetime({ ...spacetime, token: operatorToken }, 'oper
 - Every request validates the origin and database name, sends the bearer token plus any `headers` (such as Cloudflare Access service tokens), refuses redirects, and times out. Failures throw `SpacetimeRequestError` with the status and a bounded body.
 - `publishSpacetimeModule` asks the migration planner first. A missing database is created, an automatic migration is applied, and a migration that needs manual steps is refused before anything changes. One that would break existing clients is refused unless `breakClients` is set.
 - `environment` becomes `spacetime-environment` headers, which SpacetimeDB stores with the module across publishes. `moduleEnvironmentHeaders` validates the same values for other callers.
+- `deleteSpacetimeDatabase` treats a database that does not exist as already deleted, so preview cleanup can run repeatedly.
 - `spacetimeDatabaseUrl(connection, '/sql')` builds other database routes with the same validation. Plain HTTP is accepted only for loopback or the configured `internalHost`.
 
 Applications keep their client connections, reconnect policy, identity provider and token claims, and module code. CI can check committed client bindings with `actions/check-spacetime-bindings`.

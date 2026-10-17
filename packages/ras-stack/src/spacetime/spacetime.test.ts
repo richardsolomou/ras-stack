@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { callSpacetime, moduleEnvironmentHeaders, publishSpacetimeModule, spacetimeDatabaseUrl, SpacetimeRequestError } from './index.js'
+import {
+  callSpacetime,
+  deleteSpacetimeDatabase,
+  moduleEnvironmentHeaders,
+  publishSpacetimeModule,
+  spacetimeDatabaseUrl,
+  SpacetimeRequestError,
+} from './index.js'
 
 const connection = { url: 'https://spacetime.example', database: 'app-production', token: 'owner-token' }
 
@@ -131,5 +138,24 @@ describe('SpacetimeDB module publishing', () => {
   it('throws when the publish itself fails', async () => {
     const request = server(new Response(null, { status: 404 }), new Response('bad module', { status: 400 }))
     await expect(publishSpacetimeModule({ ...connection, fetch: request }, bundle)).rejects.toMatchObject({ status: 400 })
+  })
+})
+
+describe('SpacetimeDB database deletion', () => {
+  it('deletes the database with the bearer token', async () => {
+    const request = server(new Response(null, { status: 200 }))
+    await deleteSpacetimeDatabase({ ...connection, fetch: request })
+
+    expect(sent(request)).toMatchObject({ url: 'https://spacetime.example/v1/database/app-production', method: 'DELETE' })
+    expect(sent(request).headers.get('authorization')).toBe('Bearer owner-token')
+  })
+
+  it('treats a database that does not exist as already deleted', async () => {
+    await expect(deleteSpacetimeDatabase({ ...connection, fetch: server(new Response(null, { status: 404 })) })).resolves.toBeUndefined()
+  })
+
+  it('throws when the server refuses the deletion', async () => {
+    const request = server(new Response('Database is locked', { status: 403 }))
+    await expect(deleteSpacetimeDatabase({ ...connection, fetch: request })).rejects.toMatchObject({ status: 403 })
   })
 })
