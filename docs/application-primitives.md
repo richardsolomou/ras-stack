@@ -96,6 +96,14 @@ Import middleware used by `src/start.ts` from `ras-stack/tanstack/middleware`. T
 
 Only enable `trustForwardedHeaders` behind a proxy that replaces incoming forwarded headers. Otherwise a client could choose the origin used by the check.
 
+Absolute links, such as those in emails, discovery documents, and page metadata, need the address users reach rather than the one the container listens on. `publicOrigin` takes the same options as the origin check and returns the first valid configured origin, then the trusted forwarded origin, then the request's own:
+
+```ts
+import { publicOrigin } from 'ras-stack/auth'
+
+const link = new URL(`/invite/${token}`, publicOrigin(request, { configured: [process.env.APP_URL], trustForwardedHeaders: true }))
+```
+
 ### Rate limiting the application's own routes
 
 `standardRateLimitOptions` covers the Better Auth routes. The server functions and realtime token routes an application writes are its own, so `createRateLimit` composes into the same `requireMutation` hook the origin check already uses:

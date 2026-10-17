@@ -27,6 +27,15 @@ export function acceptedOrigins(request: Request, options: OriginOptions = {}) {
   ].filter((origin): origin is string => Boolean(origin))
 }
 
+/** Where users reach the application, for absolute links: the first configured origin, then a trusted forwarded origin, then the request's. */
+export function publicOrigin(request: Request, options: OriginOptions = {}) {
+  return (
+    options.configured?.map(parseOrigin).find(Boolean) ??
+    (options.trustForwardedHeaders ? forwardedOrigin(request) : undefined) ??
+    new URL(request.url).origin
+  )
+}
+
 export function validSameOriginRequest(request: Request, options: OriginOptions = {}) {
   const origin =
     request.headers.get('origin') || (options.allowReferer ? parseOrigin(request.headers.get('referer') ?? undefined) : undefined)
