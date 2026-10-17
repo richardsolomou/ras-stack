@@ -1,6 +1,6 @@
 {
   "name": "ras-stack-config",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Shared TypeScript and Oxlint presets with optional import boundaries.",
   "license": "MIT",
   "repository": {
