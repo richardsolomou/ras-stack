@@ -1,7 +1,7 @@
 {
   "overrides": [
     {
-      "files": ["src/core/**", "src/geometry/**"],
+      "files": ["src/core/**"],
       "rules": {
         "no-restricted-imports": [
           "error",

@@ -53,7 +53,7 @@ These configs do not set include paths, aliases, generated directories outside T
 
 Two opt-in import-boundary presets can be added to the same `extends` list:
 
-- `./node_modules/ras-stack-config/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**` and `src/geometry/**`. Pure libraries such as Zod and Manifold remain available.
+- `./node_modules/ras-stack-config/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**`. Pure libraries such as Zod remain available. Applications with other domain directories repeat the override for those paths in their own configuration.
 - `./node_modules/ras-stack-config/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
 
 Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither preset is enabled by `application` or `tanstack` automatically.
