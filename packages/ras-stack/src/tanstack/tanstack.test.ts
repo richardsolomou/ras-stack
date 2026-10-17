@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { currentServerFunction } from '../server/server-function.js'
-import { canonicalHostRequest, serverFunctionIdentityMiddleware } from './middleware.js'
+import { canonicalHostRequest, serverFunctionIdentityMiddleware, staleServerFunctionMiddleware } from './middleware.js'
 import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
 
 describe('TanStack RPC integration', () => {
@@ -71,5 +71,40 @@ describe('server function identity middleware', () => {
       name: 'savedRosters',
       filename: 'src/server/functions/rosters.ts',
     })
+  })
+})
+
+const removed = () => {
+  throw new Error('Server function info not found for 7ff295b7')
+}
+
+describe('stale server function middleware', () => {
+  const server = staleServerFunctionMiddleware('Refresh to continue.').options.server as (context: {
+    handlerType: 'serverFn' | 'router'
+    next: () => unknown
+  }) => Promise<unknown>
+
+  it('tells a tab calling a removed server function to refresh', async () => {
+    const response = (await server({ handlerType: 'serverFn', next: removed })) as Response
+    expect({ status: response.status, contentType: response.headers.get('content-type'), body: await response.text() }).toEqual({
+      status: 404,
+      contentType: 'text/plain; charset=utf-8',
+      body: 'Refresh to continue.',
+    })
+  })
+
+  it('leaves other server function failures to the framework', async () => {
+    await expect(
+      server({
+        handlerType: 'serverFn',
+        next: () => {
+          throw new Error('database unavailable')
+        },
+      }),
+    ).rejects.toThrow('database unavailable')
+  })
+
+  it('passes page requests through untouched', async () => {
+    await expect(server({ handlerType: 'router', next: removed })).rejects.toThrow('Server function info not found')
   })
 })

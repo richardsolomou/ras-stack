@@ -19,3 +19,19 @@ export function serverFunctionIdentityMiddleware() {
     withServerFunction({ name: serverFnMeta.name, filename: serverFnMeta.filename }, next),
   )
 }
+
+/**
+ * A tab opened before a deploy can call a server function the deploy removed. TanStack answers with a JSON 500 that
+ * its client returns as a successful result, so this replaces it with a plain-text 404 the client throws with `message`.
+ */
+export function staleServerFunctionMiddleware(message: string) {
+  return createMiddleware({ type: 'request' }).server(async ({ handlerType, next }) => {
+    if (handlerType !== 'serverFn') return next()
+    try {
+      return await next()
+    } catch (error) {
+      if (!(error instanceof Error && error.message.startsWith('Server function info not found for '))) throw error
+      return new Response(message, { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+    }
+  })
+}
