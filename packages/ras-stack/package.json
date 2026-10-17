@@ -102,6 +102,10 @@
       "types": "./dist/runtime/index.d.ts",
       "default": "./dist/runtime/index.js"
     },
+    "./spacetime": {
+      "types": "./dist/spacetime/index.d.ts",
+      "default": "./dist/spacetime/index.js"
+    },
     "./tanstack/client": {
       "types": "./dist/tanstack/client.d.ts",
       "default": "./dist/tanstack/client.js"

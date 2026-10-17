@@ -2,7 +2,19 @@ import { readdir, readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 
 const tooling = ['build', 'changesets', 'preview']
-const application = ['auth', 'conformance', 'database', 'email', 'posthog', 'realtime', 'runtime', 'server', 'tanstack', 'uploads']
+const application = [
+  'auth',
+  'conformance',
+  'database',
+  'email',
+  'posthog',
+  'realtime',
+  'runtime',
+  'server',
+  'spacetime',
+  'tanstack',
+  'uploads',
+]
 
 describe('module boundaries', () => {
   it('classifies every module directory as application or tooling', async () => {

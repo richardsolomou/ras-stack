@@ -261,6 +261,29 @@ The client factory may return a client or a promise, so applications can fetch a
 
 `realtimeEnvironment` reads `<prefix>REALTIME_API_URL`, `REALTIME_API_KEY`, and `REALTIME_SECRET` or `REALTIME_SECRET_FILE`, defaulting the API key to the secret and the API address to the local development container. It returns `undefined` when no secret is configured, except outside production when a `developmentSecret` is supplied; the container entrypoint pairs it with `persistedRealtimeSecret()` from `ras-stack/runtime`, which generates the secret once under `/data` and exports it to the supervised processes. The client helpers return the underlying Centrifuge client, and the React hooks return the native client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish; pass an `AbortSignal` when the surrounding process has a stricter shutdown deadline.
 
+## SpacetimeDB
+
+Applications that keep realtime state in SpacetimeDB talk to its HTTP API from the server. `ras-stack/spacetime` covers that boundary with plain `fetch` and returns native responses:
+
+```ts
+import { callSpacetime, publishSpacetimeModule } from 'ras-stack/spacetime'
+
+const spacetime = { url: process.env.SPACETIME_URL, database: 'app-production', token: ownerToken }
+
+await publishSpacetimeModule(spacetime, bundle, {
+  environment: { AUTH_ISSUER: `${appUrl}/api/auth`, AUTH_AUDIENCE: 'app-production' },
+  breakClients: true,
+})
+const health = await callSpacetime({ ...spacetime, token: operatorToken }, 'operator_health', [])
+```
+
+- Every request validates the origin and database name, sends the bearer token plus any `headers` (such as Cloudflare Access service tokens), refuses redirects, and times out. Failures throw `SpacetimeRequestError` with the status and a bounded body.
+- `publishSpacetimeModule` asks the migration planner first. A missing database is created, an automatic migration is applied, and a migration that needs manual steps is refused before anything changes. One that would break existing clients is refused unless `breakClients` is set.
+- `environment` becomes `spacetime-environment` headers, which SpacetimeDB stores with the module across publishes. `moduleEnvironmentHeaders` validates the same values for other callers.
+- `spacetimeDatabaseUrl(connection, '/sql')` builds other database routes with the same validation. Plain HTTP is accepted only for loopback or the configured `internalHost`.
+
+Applications keep their client connections, reconnect policy, identity provider and token claims, and module code. CI can check committed client bindings with `actions/check-spacetime-bindings`.
+
 ## Email and uploads
 
 The optional integrations return the underlying library objects when an application needs more control:

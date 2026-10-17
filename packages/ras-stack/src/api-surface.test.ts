@@ -20,6 +20,7 @@ import * as realtimeClient from './realtime/client.js'
 import * as realtimeReact from './realtime/react.js'
 import * as runtime from './runtime/index.js'
 import * as server from './server/index.js'
+import * as spacetime from './spacetime/index.js'
 import * as tanstackClient from './tanstack/client.js'
 import * as tanstackMiddleware from './tanstack/middleware.js'
 import * as tanstackServer from './tanstack/server.js'
@@ -90,6 +91,7 @@ const surface = {
     'healthResponse',
     'peekGlobalSingleton',
   ],
+  './spacetime': ['SpacetimeRequestError', 'callSpacetime', 'moduleEnvironmentHeaders', 'publishSpacetimeModule', 'spacetimeDatabaseUrl'],
   './tanstack/client': ['chunkRecoveryScript'],
   './tanstack/middleware': ['canonicalHostMiddleware', 'serverFunctionIdentityMiddleware', 'staleServerFunctionMiddleware'],
   './tanstack/server': ['createTanStackRpc', 'requireTanStackMutationOrigin', 'tanStackHealthHandler'],
@@ -116,6 +118,7 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './realtime/react': realtimeReact,
   './runtime': runtime,
   './server': server,
+  './spacetime': spacetime,
   './tanstack/client': tanstackClient,
   './tanstack/middleware': tanstackMiddleware,
   './tanstack/server': tanstackServer,
