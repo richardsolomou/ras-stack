@@ -1,5 +1,11 @@
 # ras-stack
 
+## 4.1.0
+
+### Minor Changes
+
+- 49fddec: Add the `check-spacetime-bindings` action, which regenerates SpacetimeDB client bindings and fails when the committed ones are stale.
+
 ## 4.0.0
 
 ### Major Changes
