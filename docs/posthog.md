@@ -47,7 +47,7 @@ import { PostHogIntegration } from 'ras-stack/posthog/react'
 </PostHogIntegration>
 ```
 
-This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, browser performance, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. The service identity configures browser logs and metrics with matching OpenTelemetry resource fields. Pass `options` or a custom `fallback` only where the product needs different behavior. Canvas capture, extra replay blocking, consent, console-log capture, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
+This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, browser performance, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. The service identity configures browser logs and metrics with matching OpenTelemetry resource fields. Pass `options` or a custom `fallback` only where the product needs different behavior. `session_recording` overrides merge into the replay defaults, so adding canvas capture keeps input masking and `.ph-no-capture` blocking. Canvas capture, extra replay blocking, consent, console-log capture, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
 
 Use the re-exported `usePostHog()` hook or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, structured logs, metrics, and manual exception context:
 
