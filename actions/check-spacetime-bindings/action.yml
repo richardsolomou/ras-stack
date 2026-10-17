@@ -1,0 +1,28 @@
+name: Check SpacetimeDB bindings
+description: Regenerate client bindings from the module and fail when the committed ones differ.
+
+inputs:
+  module-path:
+    description: Directory containing the SpacetimeDB module.
+    default: spacetimedb
+  out-dir:
+    description: Directory holding the committed generated bindings.
+    required: true
+  lang:
+    description: Language passed to spacetime generate.
+    default: typescript
+  format-command:
+    description: Shell command run after generation, for repositories that format their generated bindings.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Compare generated bindings
+      shell: bash
+      env:
+        BINDINGS_MODULE_PATH: ${{ inputs.module-path }}
+        BINDINGS_OUT_DIR: ${{ inputs.out-dir }}
+        BINDINGS_LANG: ${{ inputs.lang }}
+        BINDINGS_FORMAT_COMMAND: ${{ inputs.format-command }}
+      run: bash "$GITHUB_ACTION_PATH/check.sh"

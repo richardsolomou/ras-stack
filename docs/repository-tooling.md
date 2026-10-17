@@ -95,7 +95,19 @@ The optional Linux setup action installs official binaries without choosing data
     sha256: 24f5c011a1c5b14e9458f230f67f4700f2c89ce1d26bfee35c1f4d3570dc1ac8
 ```
 
-This checksum is for Linux X64. Linux ARM64 needs the matching archive checksum; other runner platforms fail explicitly. `spacetime` becomes available on PATH only after checksum validation, extraction and the CLI version probe succeed. `steps.spacetime.outputs.cli-path` and `standalone-path` expose the native executables. Downloads have bounded retries and timeouts, failed/cancelled setup removes its temporary installation, and concurrent setups use separate directories. Credentials, module generation, publishing and database cleanup remain local workflow steps.
+This checksum is for Linux X64. Linux ARM64 needs the matching archive checksum; other runner platforms fail explicitly. `spacetime` becomes available on PATH only after checksum validation, extraction and the CLI version probe succeed. `steps.spacetime.outputs.cli-path` and `standalone-path` expose the native executables. Downloads have bounded retries and timeouts, failed/cancelled setup removes its temporary installation, and concurrent setups use separate directories. Credentials, publishing and database cleanup remain local workflow steps.
+
+Committed client bindings drift silently when a module changes without regenerating them. `actions/check-spacetime-bindings` regenerates them with the CLI from `setup-spacetime` and fails when anything under `out-dir` differs or is missing, including new files:
+
+```yaml
+- uses: richardsolomou/ras-stack/actions/check-spacetime-bindings@v1
+  with:
+    module-path: spacetimedb
+    out-dir: src/spacetime/generated
+    format-command: pnpm exec oxfmt src/spacetime/generated
+```
+
+TypeScript modules build during generation, so install the module's dependencies first. `format-command` runs after generation for repositories that format their generated files; omit it when they commit the generator's output as is.
 
 ## GitHub Actions
 
