@@ -159,9 +159,9 @@ function Upload() {
         onChange={async (event) => {
           const file = event.target.files?.[0]
           if (!file) return
-          const { uploadWithTus } = await import('ras-stack/uploads')
-          const result = await uploadWithTus(
-            { endpoint: '/api/uploads', file, metadata: { filename: file.name, filetype: file.type } },
+          const { createTusUpload, startTusUpload } = await import('ras-stack/uploads')
+          const result = await startTusUpload(
+            createTusUpload({ endpoint: '/api/uploads', file, metadata: { filename: file.name, filetype: file.type } }),
             false,
           )
           setStatus(`Uploaded to ${result.uploadUrl}`)

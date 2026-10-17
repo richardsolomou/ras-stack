@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { DokployClient, DokployPreviewManager, loadPreviewAppSecrets, previewHostname, pullRequestNumber } from './dokploy.js'
+import { DokployClient, DokployPreviewManager, loadPreviewAppSecrets, previewHostname, pullRequestNumber } from './dokploy-preview.js'
 
 describe('Dokploy preview lifecycle', () => {
   it('creates, configures, deploys, and health-checks one preview', async () => {

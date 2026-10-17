@@ -4,9 +4,7 @@ import {
   createManagedPostHogServerTelemetry,
   createPostHogRpcLogger,
   createPostHogRpcObserver,
-  createPostHogServerClient,
   installPostHogServerTelemetryShutdown,
-  shutdownPostHogServerClient,
 } from './server.js'
 
 const {
@@ -105,43 +103,22 @@ const environment = {
 describe('PostHog server integration', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('does not load a client when telemetry is unconfigured', async () => {
-    expect(await createPostHogServerClient(undefined)).toBeUndefined()
-    expect(construct).not.toHaveBeenCalled()
-  })
-
   it('creates the native client with exception autocapture and explicit overrides', async () => {
-    const client = await createPostHogServerClient(
-      {
-        projectToken: 'phc_test',
-        host: 'https://us.i.posthog.com',
-        uiHost: 'https://us.posthog.com',
-        assetsHost: 'https://us-assets.i.posthog.com',
-      },
-      { flushAt: 1, flushInterval: 0 },
+    const telemetry = createManagedPostHogServerTelemetry({
+      environment,
+      serviceName: 'test',
+      clientOptions: { flushAt: 1, flushInterval: 0 },
+    })
+    await telemetry.start()
+    expect(construct).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({ host: 'https://us.i.posthog.com', enableExceptionAutocapture: true, flushAt: 1, flushInterval: 0 }),
     )
-    expect(client).toBeDefined()
-    expect(construct).toHaveBeenCalledWith('phc_test', {
-      host: 'https://us.i.posthog.com',
-      enableExceptionAutocapture: true,
-      flushAt: 1,
-      flushInterval: 0,
-    })
-  })
-
-  it('awaits the SDK shutdown boundary', async () => {
-    const client = await createPostHogServerClient({
-      projectToken: 'phc_test',
-      host: 'https://us.i.posthog.com',
-      uiHost: 'https://us.posthog.com',
-      assetsHost: 'https://us-assets.i.posthog.com',
-    })
-    await shutdownPostHogServerClient(client, 5_000)
-    expect(shutdown).toHaveBeenCalledWith(5_000)
   })
 
   it('rejects an invalid shutdown timeout', async () => {
-    await expect(shutdownPostHogServerClient(undefined, -1)).rejects.toThrow('timeoutMs must be a non-negative integer')
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    await expect(telemetry.shutdown(-1)).rejects.toThrow('timeoutMs must be a non-negative integer')
   })
 
   it('keeps managed telemetry disabled without loading optional SDKs', async () => {

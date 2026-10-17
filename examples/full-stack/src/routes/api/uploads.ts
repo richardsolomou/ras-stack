@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
 import { app } from '../../server/app'
-import { limitAuthenticatedRequest } from '../../server/rate-limit'
 import { requireCurrentUser } from '../../server/session'
 
 export const Route = createFileRoute('/api/uploads')({
@@ -13,7 +12,6 @@ export const Route = createFileRoute('/api/uploads')({
           request,
         )
         const user = await requireCurrentUser(request)
-        await limitAuthenticatedRequest(request, 'upload-create', user.id, { window: 60, max: 10 })
         const id = app().uploadStore.create(user.id, Number(request.headers.get('upload-length')), request.headers.get('upload-metadata'))
         return new Response(null, {
           status: 201,

@@ -1,5 +1,5 @@
 import { isIP } from 'node:net'
-import { previewHostname } from './dokploy.js'
+import { previewHostname } from './dokploy-preview.js'
 
 type CloudflareDnsRecord = {
   id: string

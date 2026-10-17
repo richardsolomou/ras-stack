@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { CloudflarePreviewDns } from './cloudflare.js'
-import { dokployPreviewFromEnvironment, pullRequestNumber } from './dokploy.js'
+import { dokployPreviewFromEnvironment, pullRequestNumber } from './dokploy-preview.js'
 
 export async function runDokployPreviewCli(arguments_: string[], environment: NodeJS.ProcessEnv = process.env) {
   const command = arguments_[0]

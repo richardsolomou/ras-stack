@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { postHogBrowserHeaders, postHogBrowserOptions } from './client.js'
+import { postHogBrowserOptions } from './client.js'
 
 describe('PostHog browser integration', () => {
   it('applies current SDK and exception defaults while preserving overrides', () => {
@@ -66,23 +66,5 @@ describe('PostHog browser integration', () => {
         resourceAttributes: { region: 'eu' },
       },
     })
-  })
-
-  it('propagates bounded distinct and session identifiers', () => {
-    expect(
-      postHogBrowserHeaders({
-        get_distinct_id: () => 'person-123',
-        get_session_id: () => 'session-456',
-      }),
-    ).toEqual({ 'x-posthog-distinct-id': 'person-123', 'x-posthog-session-id': 'session-456' })
-  })
-
-  it('drops unsafe identifiers instead of creating headers', () => {
-    expect(
-      postHogBrowserHeaders({
-        get_distinct_id: () => 'person\nspoofed',
-        get_session_id: () => 'x'.repeat(129),
-      }),
-    ).toEqual({})
   })
 })

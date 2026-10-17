@@ -7,7 +7,6 @@ import { writeMessage } from './messages'
 import { messages } from './schema'
 import { currentUser } from './session'
 import { mutationRpc, rpc } from './rpc'
-import { limitAuthenticatedRequest } from './rate-limit'
 
 export const snapshot = createServerFn({ method: 'GET' }).handler(() =>
   rpc(async () => ({
@@ -25,7 +24,6 @@ export const addMessage = createServerFn({ method: 'POST' })
       const request = getRequest()
       const user = await currentUser(request)
       if (!user) throw new Response('Sign in first', { status: 401 })
-      await limitAuthenticatedRequest(request, 'messages', user.id, { window: 60, max: 30 })
       const now = new Date()
       const application = app()
       return writeMessage(application.database, application.environment.realtimeEnabled, {

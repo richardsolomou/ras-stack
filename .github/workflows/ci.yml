@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./actions/setup-js
-      - name: Exercise the published PostgreSQL statements
+      - name: Exercise the published PostgreSQL connection
         env:
           RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
         run: pnpm --filter ras-stack exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false

@@ -11,7 +11,7 @@ The reference proves one production-shaped vertical slice:
 - SQLite messages, user-owned upload metadata, and a durable transactional outbox.
 - Filesystem-backed TUS content with metadata validation, per-user and deployment-wide limits, offset recovery after a partial write, completed-file retention, and bounded stale-upload cleanup.
 - SMTP delivery through Nodemailer when configured, with Mailpit as the deterministic CI sink.
-- Centrifugo publication from a bounded, ordered outbox with dead-letter diagnostics, separate liveness/readiness endpoints, security headers, mutation-origin checks, route rate limits, and coordinated application shutdown.
+- Centrifugo publication from a bounded, ordered outbox with dead-letter diagnostics, separate liveness/readiness endpoints, security headers, mutation-origin checks, and coordinated application shutdown.
 - A read-only production container whose writable `/data` volume survives restart.
 
 ## Local development

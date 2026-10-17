@@ -70,7 +70,7 @@ The optional TanStack entrypoints bind the shared primitives to TanStack Start's
 ```ts
 import { QueryClient } from '@tanstack/react-query'
 import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
-import { betterAuthHandlers, createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from 'ras-stack/tanstack/server'
+import { createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from 'ras-stack/tanstack/server'
 
 export const { rpc, mutationRpc } = createTanStackRpc({
   requireMutation: (request) =>
@@ -85,7 +85,6 @@ export const { rpc, mutationRpc } = createTanStackRpc({
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 1000 } } })
 
-export const authHandlers = betterAuthHandlers(() => app().auth)
 export const healthHandler = tanStackHealthHandler(() => app().database.get(sql`SELECT 1`))
 export const canonicalHost = canonicalHostMiddleware(() => ({ canonicalUrl: process.env.APP_URL }))
 ```
@@ -104,65 +103,6 @@ import { publicOrigin } from 'ras-stack/auth'
 const link = new URL(`/invite/${token}`, publicOrigin(request, { configured: [process.env.APP_URL], trustForwardedHeaders: true }))
 ```
 
-### Rate limiting the application's own routes
-
-`standardRateLimitOptions` covers the Better Auth routes. The server functions and realtime token routes an application writes are its own, so `createRateLimit` composes into the same `requireMutation` hook the origin check already uses:
-
-```ts
-import { createRateLimit, forwardedClientAddress } from 'ras-stack/server'
-import { sqliteRateLimitStore } from 'ras-stack/database/sqlite'
-
-const limitMutations = createRateLimit({
-  store: sqliteRateLimitStore(database.$client),
-  rule: { window: 60, max: 60 },
-  scope: 'mutations',
-  identify: (request) => sessionUserId(request) ?? forwardedClientAddress(request, { trustForwardedHeaders: true }),
-})
-
-export const { rpc, mutationRpc } = createTanStackRpc({
-  requireMutation: async (request) => {
-    requireTanStackMutationOrigin({ configured: [process.env.APP_URL], trustForwardedHeaders: true }, request)
-    await limitMutations(request)
-  },
-})
-```
-
-Counters are shared rather than per-process, so replicas enforce one budget between them. Use `postgresRateLimitStore(client)` when the deployment runs more than one replica; `memoryRateLimitStore()` is for development and tests, where each process keeps its own count. Applications own the table, as they own every other schema:
-
-```sql
-CREATE TABLE rate_limit (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at BIGINT NOT NULL);
-```
-
-Requests over the limit are rejected with a `429` carrying `Retry-After`. A client the application cannot identify is rejected with a `403`, and a store outage raises a retryable `InfrastructureError` rather than blaming the client, so it classifies with every other infrastructure failure. Both defaults fail closed; `onUnidentified` and `onUnavailable` accept `'allow'` where availability matters more.
-
-Because the store is the part that has to be correct under concurrent replicas, it has its own conformance suite. Run it against the real database rather than trusting the wiring:
-
-```ts
-import { assertRateLimitStoreConformance } from 'ras-stack/conformance'
-
-await assertRateLimitStoreConformance(postgresRateLimitStore(client))
-```
-
-Infrastructure boundaries can keep approved client output separate from private causes:
-
-```ts
-import { InfrastructureError, infrastructureDiagnostic, infrastructureFailure } from 'ras-stack/server'
-
-throw new InfrastructureError('smtp_unavailable', 'email is temporarily unavailable', {
-  cause: transportError,
-  retryable: true,
-})
-
-const publicFailure = infrastructureFailure(error, {
-  code: 'internal_error',
-  message: 'something went wrong',
-  retryable: false,
-})
-logger.error(infrastructureDiagnostic(error), 'infrastructure request failed')
-```
-
-Only `InfrastructureError.publicMessage` is treated as approved for clients. Unknown failures use the caller's fallback; diagnostics are for application-owned logging and telemetry, never response serialization.
-
 Browser auth flows can share failure classification, safe local return destinations, and pending/error state without sharing forms or navigation:
 
 ```tsx
@@ -179,16 +119,6 @@ const callbackMessage = messageFor(classifyAuthCallbackFailure(search.error))
 The callback classifier normalizes the redirect codes emitted by Better Auth 1.6 and 1.7, including their two spellings of an OAuth email mismatch. Applications still choose the user-facing message.
 
 Applications retain field models, validation, password-reset disclosure policy, two-factor transitions, telemetry, copy, and success navigation.
-
-The auth secret is worth checking in a consumer test, because a secret that changes between restarts signs out every session and a short one is guessable, and neither shows up until production:
-
-```ts
-import { assertAuthSecretConformance } from 'ras-stack/conformance'
-
-await assertAuthSecretConformance((environment) => persistedSecret({ directory, environment }))
-```
-
-It checks that the secret is long and random-looking, that repeated calls return the same value, and that `AUTH_SECRET` takes precedence over a generated one.
 
 ## Surviving deploys
 
@@ -231,7 +161,7 @@ const database = openDrizzleSqlite({
 })
 ```
 
-Applications retain their schema, migrations, database path, repositories, transactions, and driver selection. Dual-database applications can use `openSqliteClient()` and `configureSqlite()` beneath their own wrapper without forcing PostgreSQL through a shared database interface.
+Applications retain their schema, migrations, database path, repositories, transactions, and driver selection. Dual-database applications can use `openSqliteClient()` beneath their own wrapper without forcing PostgreSQL through a shared database interface.
 
 The libsql entrypoint does the same for `@libsql/client`, asynchronously:
 
@@ -246,18 +176,19 @@ The libsql client pools connections and opens each one with its own defaults, so
 The PostgreSQL entrypoint applies the same boundary to Postgres.js and Drizzle while returning both native objects:
 
 ```ts
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { databaseTarget } from 'ras-stack/database'
-import { closeDrizzlePostgres, migrateDrizzlePostgres, openDrizzlePostgres } from 'ras-stack/database/postgres'
+import { openDrizzlePostgres } from 'ras-stack/database/postgres'
 
 const target = databaseTarget({ databaseUrl: process.env.DATABASE_URL, sqliteFile })
 if (target.provider === 'postgres') {
   const connection = openDrizzlePostgres({ url: target.url, schema })
-  await migrateDrizzlePostgres(connection, postgresMigrationsFolder)
-  await closeDrizzlePostgres(connection)
+  await migrate(connection.database, { migrationsFolder: postgresMigrationsFolder })
+  await connection.client.end({ timeout: 5 })
 }
 ```
 
-The package does not make SQLite and PostgreSQL queries look identical. Applications keep driver-specific transaction and compatibility behavior while sharing target validation, pool defaults, numeric parsing, migrations, credential-safe display URLs, and shutdown.
+The package does not make SQLite and PostgreSQL queries look identical. Applications keep driver-specific transaction and compatibility behavior while sharing target validation, pool defaults, and numeric parsing. Migrations and shutdown go through the returned Drizzle database and Postgres.js client.
 
 Consumer tests can verify the real provider selection and provider-specific safety settings without sharing a schema or repository:
 
@@ -280,13 +211,7 @@ Applications choose their channel names, authorize subscriptions, and define pay
 
 ```ts
 import { CentrifugoPublisher, realtimeEnvironment, signRealtimeToken } from 'ras-stack/realtime'
-import {
-  connectRealtimeClient,
-  createSameOriginRealtimeClient,
-  openRealtimeSubscription,
-  requestRealtimeTicket,
-  watchSubscriptionPresence,
-} from 'ras-stack/realtime/client'
+import { createSameOriginRealtimeClient, requestRealtimeTicket } from 'ras-stack/realtime/client'
 
 const realtime = realtimeEnvironment(process.env, { prefix: 'APP_', developmentSecret: 'app-development-realtime-secret' })
 if (!realtime) throw new Error('Realtime secret is not configured')
@@ -301,7 +226,7 @@ const publisher = new CentrifugoPublisher({
 
 publisher.publish(`battle:${battle.id}`, { type: 'change' })
 
-const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: presence }, { secret: realtime.secret })
+const token = signRealtimeToken(user.id, { channel: `battle:${battle.id}`, info: { name: user.name } }, { secret: realtime.secret })
 
 await publisher.close()
 
@@ -313,72 +238,41 @@ const channelToken = (channel: string) =>
     init: { method: 'POST', body: JSON.stringify({ channel }) },
     parse: (value) => (value as { token: string }).token,
   })
-const disconnect = connectRealtimeClient(client)
-const live = openRealtimeSubscription(client, channel, { getToken: ({ channel }) => channelToken(channel) }, (subscription) =>
-  watchSubscriptionPresence(subscription, setClients),
-)
+const subscription = client.newSubscription(channel, { getToken: ({ channel }) => channelToken(channel) })
+subscription.subscribe()
+client.connect()
 
-live.close()
-disconnect()
+client.removeSubscription(subscription)
+client.disconnect()
 ```
 
 React applications can keep transport ownership equally small while retaining the native client and subscription:
 
 ```tsx
 import { useCallback } from 'react'
-import { useConnectedRealtimeClient, useRealtimePresence, useRealtimeSubscription } from 'ras-stack/realtime/react'
+import { useConnectedRealtimeClient, useRealtimeSubscription } from 'ras-stack/realtime/react'
 
 const createClient = useCallback(() => createSameOriginRealtimeClient({ getToken }), [workspaceId])
 const client = useConnectedRealtimeClient(createClient)
 const subscription = useRealtimeSubscription({ client, channel, options, configure })
-const clients = useRealtimePresence(subscription)
 ```
 
 The client factory may return a client or a promise, so applications can fetch and validate an initial ticket before connecting. Pass `onError` as the third argument to handle asynchronous ticket failures. A client that resolves after unmount is disconnected without ever connecting. The factory, error handler, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
 
-A publisher that accepts every channel turns a burst into unbounded memory, and one that accepts work after `close()` loses publications during shutdown. Both appear only under load, so the contract is checkable:
-
-```ts
-import { assertRealtimePublisherConformance } from 'ras-stack/conformance'
-
-await assertRealtimePublisherConformance(() => new CentrifugoPublisher({ ...options, fetch: stubFetch }))
-```
-
-Pass a publisher whose `fetch` does not reach a real Centrifugo; the suite fills it past capacity and then closes it.
-
-`realtimeEnvironment` reads `<prefix>REALTIME_API_URL`, `REALTIME_API_KEY`, and `REALTIME_SECRET` or `REALTIME_SECRET_FILE`, defaulting the API key to the secret and the API address to the local development container. It returns `undefined` when no secret is configured, except outside production when a `developmentSecret` is supplied; the container entrypoint pairs it with `persistedRealtimeSecret()` from `ras-stack/runtime`, which generates the secret once under `/data` and exports it to the supervised processes. The client helpers return the underlying Centrifuge client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish; pass an `AbortSignal` when the surrounding process has a stricter shutdown deadline.
-
-Because the application owns the route that mints tokens, a mistake there is only visible once Centrifugo rejects a connection or, worse, accepts one it should not. Consumer tests can check the route's signer against the shared secret instead:
-
-```ts
-import { assertRealtimeTokenConformance } from 'ras-stack/conformance'
-
-await assertRealtimeTokenConformance((subject, claims) => mintRealtimeToken(subject, claims), { secret })
-```
-
-It verifies the token is HS256, binds the subject it was asked for, carries its claims, expires within an hour, and is signed with the secret Centrifugo shares. Pass `maxTtlSeconds` to hold a shorter deadline.
+`realtimeEnvironment` reads `<prefix>REALTIME_API_URL`, `REALTIME_API_KEY`, and `REALTIME_SECRET` or `REALTIME_SECRET_FILE`, defaulting the API key to the secret and the API address to the local development container. It returns `undefined` when no secret is configured, except outside production when a `developmentSecret` is supplied; the container entrypoint pairs it with `persistedRealtimeSecret()` from `ras-stack/runtime`, which generates the secret once under `/data` and exports it to the supervised processes. The client helpers return the underlying Centrifuge client, and the React hooks return the native client and subscription. React ownership, channel conventions, ticket validation, event parsing, presence models, and query invalidation remain application code. `publish()` returns `false` when the publisher is closed, disabled, or at capacity. `close()` rejects new work and waits for accepted publications and their bounded retries to finish; pass an `AbortSignal` when the surrounding process has a stricter shutdown deadline.
 
 ## Email and uploads
 
 The optional integrations return the underlying library objects when an application needs more control:
 
 ```ts
-import {
-  createAuthEmailHandler,
-  createSmtpDelivery,
-  createSmtpTransport,
-  smtpConfigFromEnvironment,
-  standardAuthEmails,
-} from 'ras-stack/email'
+import { createSmtpDelivery, smtpConfigFromEnvironment, standardAuthEmails } from 'ras-stack/email'
 import { createTusUpload, startTusUpload } from 'ras-stack/uploads'
 
 const smtp = smtpConfigFromEnvironment()
 const email = smtp ? createSmtpDelivery(smtp) : undefined
 
 const authEmails = email ? standardAuthEmails(email, { productName: 'Example' }) : undefined
-const sendVerificationEmail = email
-  ? createAuthEmailHandler(email, ({ user, url }) => ({ to: user.email, subject: 'Verify your email', text: url }))
-  : undefined
 
 const upload = createTusUpload({
   endpoint: '/api/upload',
@@ -391,17 +285,7 @@ const upload = createTusUpload({
 await startTusUpload(upload, { signal, terminateOnAbort: true })
 ```
 
-`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. `createAuthEmailHandler` adapts one application-owned message to a Better Auth callback and waits for delivery before returning. Use it independently for verification or password reset, and pass the callback only when delivery is configured. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
-
-Half-configured SMTP is the failure that reaches production, because nothing sends mail until something needs to:
-
-```ts
-import { assertSmtpConfigConformance } from 'ras-stack/conformance'
-
-expect(() => assertSmtpConfigConformance(smtpConfigFromEnvironment)).not.toThrow()
-```
-
-It checks that an unset environment yields no configuration, that a host and sender produce the default port, and that a host without a sender, a sender without a host, an out-of-range port, and a user without a password are each rejected.
+`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. Each callback waits for delivery before returning; pass them only when delivery is configured. An application with its own copy writes its own callbacks around `EmailDelivery.send`. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
 
 Applications retain ownership of email templates, whether email is required, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 

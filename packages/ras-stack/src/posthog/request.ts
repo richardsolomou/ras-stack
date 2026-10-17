@@ -1,5 +1,5 @@
-export const POSTHOG_DISTINCT_ID_HEADER = 'x-posthog-distinct-id'
-export const POSTHOG_SESSION_ID_HEADER = 'x-posthog-session-id'
+const POSTHOG_DISTINCT_ID_HEADER = 'x-posthog-distinct-id'
+const POSTHOG_SESSION_ID_HEADER = 'x-posthog-session-id'
 
 export type PostHogRequestContext = {
   distinctId?: string
@@ -29,6 +29,6 @@ export function postHogRequestContext(request: Request, options: PostHogRequestC
   }
 }
 
-export function postHogIdentifier(value: string | null | undefined) {
+function postHogIdentifier(value: string | null | undefined) {
   return value && /^[A-Za-z0-9._:@|+-]{1,128}$/.test(value) ? value : undefined
 }

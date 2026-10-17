@@ -102,31 +102,6 @@ export async function startTusUpload(upload: Upload, options: boolean | TusUploa
   }
 }
 
-export function uploadWithTus(options: TusUploadOptions, startOptions: boolean | TusUploadStartOptions = true) {
-  return startTusUpload(createTusUpload(options), startOptions)
-}
-
-export function tusResponseMessage(error: unknown) {
-  const response = responseFromError(error)
-  if (response) return response.body
-  const message = error instanceof Error ? error.message : undefined
-  return message ? /response text: ([^,]+)/.exec(message)?.[1]?.trim() : undefined
-}
-
-export function tusResponse(error: unknown) {
-  return responseFromError(error)
-}
-
-function responseFromError(error: unknown) {
-  if (!error || typeof error !== 'object' || !('originalResponse' in error)) return undefined
-  const response = error.originalResponse
-  if (!response || typeof response !== 'object' || !('getStatus' in response) || !('getBody' in response)) return undefined
-  if (typeof response.getStatus !== 'function' || typeof response.getBody !== 'function') return undefined
-  const status: unknown = response.getStatus()
-  const body: unknown = response.getBody()
-  return { status: typeof status === 'number' ? status : undefined, body: typeof body === 'string' ? body : '' }
-}
-
 function tusAbortError() {
   return new DOMException('Upload cancelled', 'AbortError')
 }

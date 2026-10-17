@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { sql } from 'drizzle-orm'
-import { infrastructureFailure } from 'ras-stack/server'
 import { tanStackHealthHandler } from 'ras-stack/tanstack/server'
 import { app } from '../../server/app'
 import { outboxStatus } from '../../server/outbox'
@@ -17,10 +16,7 @@ export const readinessHandler = tanStackHealthHandler(
       throw error
     }
   },
-  {
-    failure: (error) =>
-      infrastructureFailure(error, { code: 'dependency_unavailable', message: 'required dependency unavailable', retryable: true }),
-  },
+  { failure: () => ({ code: 'dependency_unavailable', message: 'required dependency unavailable' }) },
 )
 
 export const Route = createFileRoute('/api/ready')({

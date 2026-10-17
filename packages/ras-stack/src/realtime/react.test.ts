@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events'
-import type { Centrifuge, ClientInfo, Subscription } from 'centrifuge'
+import type { Centrifuge, Subscription } from 'centrifuge'
 import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
-import { useConnectedRealtimeClient, useRealtimePresence, useRealtimeSubscription } from './react.js'
+import { useConnectedRealtimeClient, useRealtimeSubscription } from './react.js'
 
 ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -135,27 +135,38 @@ describe('React realtime lifecycle', () => {
     })
   })
 
-  it('renders subscription presence snapshots', async () => {
+  it('runs the subscription cleanup before removing it', async () => {
+    const { client } = eventClient()
     const subscription = new EventEmitter() as unknown as Subscription
-    const present = { one: { client: 'one', user: 'player-one' } satisfies ClientInfo }
-    subscription.presence = vi.fn().mockResolvedValue({ clients: present })
-    let observed: Record<string, ClientInfo> = {}
+    const order: string[] = []
+    subscription.subscribe = vi.fn()
+    client.newSubscription = vi.fn(() => subscription)
+    client.removeSubscription = vi.fn(() => order.push('remove'))
+    const configure = () => () => order.push('cleanup')
     let rendered: ReturnType<typeof create>
     const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
     await act(async () => {
-      rendered = create(createElement(() => ((observed = useRealtimePresence(subscription)), null)))
+      rendered = create(createElement(() => (useRealtimeSubscription({ channel: 'battle:one', client, configure }), null)))
     })
-    await act(async () => {
-      subscription.emit('subscribed', subscribedContext())
-      await Promise.resolve()
-    })
-    const warnings = warning.mock.calls.map(([message]) => String(message))
     await act(async () => rendered.unmount())
     warning.mockRestore()
-    expect({ observed, warnings }).toEqual({
-      observed: present,
-      warnings: ['react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer'],
-    })
+    expect(order).toEqual(['cleanup', 'remove'])
+  })
+
+  it('removes a subscription when configuration fails', async () => {
+    const { client } = eventClient()
+    const subscription = new EventEmitter() as unknown as Subscription
+    const remove = vi.fn()
+    client.newSubscription = vi.fn(() => subscription)
+    client.removeSubscription = remove
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await expect(
+      act(async () => {
+        create(createElement(() => (useRealtimeSubscription({ channel: 'battle:one', client, configure: failingConfigure }), null)))
+      }),
+    ).rejects.toThrow('invalid setup')
+    warning.mockRestore()
+    expect(remove).toHaveBeenCalledWith(subscription)
   })
 })
 
@@ -168,13 +179,6 @@ function eventClient() {
   return { client, connect, disconnect }
 }
 
-function subscribedContext() {
-  return {
-    channel: 'battle:one',
-    recoverable: true,
-    positioned: true,
-    wasRecovering: false,
-    recovered: false,
-    hasRecoveredPublications: false,
-  }
+function failingConfigure(): never {
+  throw new Error('invalid setup')
 }

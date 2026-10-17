@@ -42,10 +42,6 @@
       "types": "./dist/email/index.d.ts",
       "default": "./dist/email/index.js"
     },
-    "./build": {
-      "types": "./dist/build/index.d.ts",
-      "default": "./dist/build/index.js"
-    },
     "./database": {
       "types": "./dist/database/index.d.ts",
       "default": "./dist/database/index.js"
@@ -70,10 +66,6 @@
       "types": "./dist/posthog/index.d.ts",
       "default": "./dist/posthog/index.js"
     },
-    "./posthog/client": {
-      "types": "./dist/posthog/client.d.ts",
-      "default": "./dist/posthog/client.js"
-    },
     "./posthog/proxy": {
       "types": "./dist/posthog/proxy.d.ts",
       "default": "./dist/posthog/proxy.js"
@@ -89,10 +81,6 @@
     "./preview/dokploy": {
       "types": "./dist/preview/dokploy.d.ts",
       "default": "./dist/preview/dokploy.js"
-    },
-    "./preview/github": {
-      "types": "./dist/preview/github.d.ts",
-      "default": "./dist/preview/github.js"
     },
     "./realtime": {
       "types": "./dist/realtime/index.d.ts",
@@ -129,10 +117,6 @@
     "./uploads": {
       "types": "./dist/uploads/index.d.ts",
       "default": "./dist/uploads/index.js"
-    },
-    "./changesets": {
-      "types": "./dist/changesets/index.d.ts",
-      "default": "./dist/changesets/index.js"
     }
   },
   "publishConfig": {

@@ -2,10 +2,7 @@ import { PostHogErrorBoundary, PostHogProvider, usePostHog } from '@posthog/reac
 import { createContext, createElement, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import type { PostHogConfig, Properties } from 'posthog-js'
 import { postHogBrowserOptions } from './client.js'
-import type { PostHogBrowserService, PostHogEnvironment } from './config.js'
-import { POSTHOG_DEFAULT_INGEST_PATH } from './proxy.js'
-
-export { usePostHog } from '@posthog/react'
+import { POSTHOG_DEFAULT_INGEST_PATH, type PostHogBrowserService, type PostHogEnvironment } from './config.js'
 
 const PostHogLoadedContext = createContext(true)
 

@@ -55,7 +55,7 @@ type PostHogShutdownProcess = {
   kill(pid: number, signal: 'SIGINT' | 'SIGTERM'): void
 }
 
-export async function createPostHogServerClient(
+async function createPostHogServerClient(
   environment: PostHogEnvironment | undefined,
   options: Omit<PostHogOptions, 'host'> = {},
 ): Promise<PostHog | undefined> {
@@ -68,7 +68,7 @@ export async function createPostHogServerClient(
   })
 }
 
-export async function shutdownPostHogServerClient(client: PostHog | undefined, timeoutMs = 10_000) {
+async function shutdownPostHogServerClient(client: PostHog | undefined, timeoutMs = 10_000) {
   assertShutdownTimeout(timeoutMs)
   // oxlint-disable-next-line no-underscore-dangle -- posthog-node's async shutdown API is named `_shutdown`.
   await client?._shutdown(timeoutMs)

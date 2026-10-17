@@ -11,7 +11,7 @@ import {
   persistedRealtimeSecret,
   runRealtimeStack,
   superviseProcesses,
-} from './index.js'
+} from './stack.js'
 
 describe('self-hosted runtime configuration', () => {
   it('builds standard token and Redis Centrifugo environment', () => {

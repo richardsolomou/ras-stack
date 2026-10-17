@@ -49,10 +49,10 @@ import { PostHogIntegration } from 'ras-stack/posthog/react'
 
 This pins the current SDK defaults and enables SPA pageviews, autocapture, identified-only person profiles, exception capture, a React error boundary, browser performance, personal-data URL masking including `token` query parameters, privacy-safe replay masking, and same-origin request correlation. The service identity configures browser logs and metrics with matching OpenTelemetry resource fields. Pass `options` or a custom `fallback` only where the product needs different behavior. `session_recording` overrides merge into the replay defaults, so adding canvas capture keeps input masking and `.ph-no-capture` blocking. Canvas capture, extra replay blocking, consent, console-log capture, and debug behavior remain explicit because the correct choice depends on what the application renders and stores.
 
-Use the re-exported `usePostHog()` hook or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, structured logs, metrics, and manual exception context:
+Use the `usePostHog()` hook from `@posthog/react` or the native `posthog-js` export for custom events, feature flags, surveys, experiments, groups, structured logs, metrics, and manual exception context:
 
 ```tsx
-import { usePostHog } from 'ras-stack/posthog/react'
+import { usePostHog } from '@posthog/react'
 
 const posthog = usePostHog()
 posthog.logger.info('checkout completed', { plan: 'pro' })
@@ -86,13 +86,7 @@ The browser adapter does not make client identity authoritative. Server captures
 
 ## Browser and server correlation
 
-`PostHogIntegration` configures the SDK's tracing headers for same-origin fetch and XHR requests. For a custom transport, attach them explicitly:
-
-```ts
-import { postHogBrowserHeaders } from 'ras-stack/posthog/client'
-
-await fetch('/api/action', { headers: postHogBrowserHeaders(posthog) })
-```
+`PostHogIntegration` configures the SDK's tracing headers for same-origin fetch and XHR requests, which carry the PostHog person and session to the server.
 
 The server must not trust a client-claimed authenticated identity. Parse it only after application authentication has produced the expected ID:
 
@@ -199,24 +193,6 @@ export const startInstance = createStart(() => ({ functionMiddleware: [serverFun
 
 The identity comes from TanStack Start's compiled server function metadata, so the function name stays bounded by the application's code. Without the middleware, spans and metrics keep their method-only attributes.
 
-The lower-level helper remains available when an application already owns its telemetry lifecycle.
-
-The server helper returns the native `posthog-node` client with exception autocapture enabled:
-
-```ts
-import { createPostHogServerClient, shutdownPostHogServerClient } from 'ras-stack/posthog/server'
-
-const client = await createPostHogServerClient(posthog, {
-  flushAt: 20,
-  flushInterval: 10_000,
-})
-
-client?.capture({ distinctId: user.id, event: 'action_completed' })
-await shutdownPostHogServerClient(client)
-```
-
-Create one client per process, using the application's existing singleton during development reloads. Call shutdown from the application lifecycle boundary. Event delivery remains best-effort unless the product flow explicitly needs `captureImmediate()`.
-
 ## First-party ingest proxy
 
 PostHog ingestion and static assets use different upstreams. Generate matching Vite and Nitro routes without duplicating their ordering and rewrites:
@@ -232,7 +208,7 @@ export default defineConfig({
 })
 ```
 
-The proxy mounts at `/t` by default (exported as `POSTHOG_DEFAULT_INGEST_PATH`), because ad-blocker lists block the literal `/ingest` segment regardless of host. Both proxies drop the `cookie` and `authorization` headers, because a same-origin request carries the application's session and PostHog reads neither. They forward `X-Forwarded-For` as received, and PostHog records its first address as the client's. An edge that rewrites that header to its own address therefore gives every event the same location; have the edge put the client address first before the request reaches the application. The Vite keys are regular expressions bound to that whole segment, so an application route such as `/teams` stays local. Keep the `static` and `array` entries ahead of the ingest entry when composing these objects with local routes.
+The proxy mounts at `/t` by default, because ad-blocker lists block the literal `/ingest` segment regardless of host. Both proxies drop the `cookie` and `authorization` headers, because a same-origin request carries the application's session and PostHog reads neither. They forward `X-Forwarded-For` as received, and PostHog records its first address as the client's. An edge that rewrites that header to its own address therefore gives every event the same location; have the edge put the client address first before the request reaches the application. The Vite keys are regular expressions bound to that whole segment, so an application route such as `/teams` stays local. Keep the `static` and `array` entries ahead of the ingest entry when composing these objects with local routes.
 
 Pass a custom `path` to move the proxy elsewhere, and pass the same value as `ingestPath` to `PostHogIntegration` so the browser client requests it:
 
@@ -246,7 +222,7 @@ const proxy = postHogIngestProxy(posthog, { path: '/relay' })
 </PostHogIntegration>
 ```
 
-Both default to `POSTHOG_DEFAULT_INGEST_PATH` when omitted.
+Both default to `/t` when omitted.
 
 ## Direct browser ingestion
 

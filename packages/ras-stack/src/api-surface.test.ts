@@ -4,21 +4,17 @@ import * as auth from './auth/index.js'
 import type { ProviderEnvironmentOptions, SessionOptions, StandardAccountOptions, StandardEmailAndPasswordOptions } from './auth/index.js'
 import * as authClient from './auth/client.js'
 import * as authReact from './auth/react.js'
-import * as build from './build/index.js'
 import * as conformance from './conformance/index.js'
 import * as database from './database/index.js'
 import * as databaseLibsql from './database/libsql.js'
 import * as databasePostgres from './database/postgres.js'
 import * as databaseSqlite from './database/sqlite.js'
 import * as email from './email/index.js'
-import * as changesets from './changesets/index.js'
 import * as posthog from './posthog/index.js'
-import * as posthogClient from './posthog/client.js'
 import * as posthogProxy from './posthog/proxy.js'
 import * as posthogReact from './posthog/react.js'
 import * as posthogServer from './posthog/server.js'
 import * as previewDokploy from './preview/dokploy.js'
-import * as previewGithub from './preview/github.js'
 import * as realtime from './realtime/index.js'
 import * as realtimeClient from './realtime/client.js'
 import * as realtimeReact from './realtime/react.js'
@@ -47,7 +43,6 @@ void betterAuthAccountOptions
 // Widening the published surface is a semantic-version commitment, so it has to arrive as a reviewed diff here.
 const surface = {
   './auth': [
-    'acceptedOrigins',
     'configuredProviderOptions',
     'configuredProviders',
     'forwardedOrigin',
@@ -57,7 +52,6 @@ const surface = {
     'publicOrigin',
     'randomId',
     'randomToken',
-    'requireSameOrigin',
     'standardAccountOptions',
     'standardEmailAndPasswordOptions',
     'standardRateLimitOptions',
@@ -67,150 +61,56 @@ const surface = {
   ],
   './auth/client': ['authFailureMessage', 'classifyAuthCallbackFailure', 'classifySignInFailure', 'localRedirectPath'],
   './auth/react': ['useAuthAction'],
-  './build': ['checkServerAssets', 'loadServerAssetsConfig', 'syncServerAssets'],
-  './conformance': [
-    'ConformanceError',
-    'assertAuthSecretConformance',
-    'assertDatabaseTargetConformance',
-    'assertHealthHandlerConformance',
-    'assertMutationOriginConformance',
-    'assertPostHogBrowserConformance',
-    'assertPostHogRequestConformance',
-    'assertRateLimitStoreConformance',
-    'assertRealtimePublisherConformance',
-    'assertRealtimeTokenConformance',
-    'assertSmtpConfigConformance',
-    'assertSqliteConformance',
-  ],
+  './conformance': ['assertDatabaseTargetConformance', 'assertMutationOriginConformance', 'assertSqliteConformance'],
   './database': ['bundledDirectory', 'databaseTarget'],
   './database/libsql': ['openDrizzleLibsql'],
-  './database/postgres': [
-    'closeDrizzlePostgres',
-    'migrateDrizzlePostgres',
-    'openDrizzlePostgres',
-    'postgresRateLimitStore',
-    'redactedPostgresUrl',
-  ],
-  './database/sqlite': ['closeDrizzleSqlite', 'configureSqlite', 'openDrizzleSqlite', 'openSqliteClient', 'sqliteRateLimitStore'],
-  './email': ['createAuthEmailHandler', 'createSmtpDelivery', 'createSmtpTransport', 'smtpConfigFromEnvironment', 'standardAuthEmails'],
-  './changesets': ['checkChangesets'],
-  './posthog': ['POSTHOG_DISTINCT_ID_HEADER', 'POSTHOG_SESSION_ID_HEADER', 'postHogEnvironment', 'postHogHttpUrl', 'postHogRequestContext'],
-  './posthog/client': [
-    'POSTHOG_BROWSER_DEFAULTS',
-    'POSTHOG_DISTINCT_ID_HEADER',
-    'POSTHOG_SESSION_ID_HEADER',
-    'postHogBrowserHeaders',
-    'postHogBrowserOptions',
-  ],
-  './posthog/proxy': ['POSTHOG_DEFAULT_INGEST_PATH', 'postHogIngestProxy'],
-  './posthog/react': ['PostHogBetterAuthIdentity', 'PostHogIntegration', 'usePostHog'],
+  './database/postgres': ['openDrizzlePostgres'],
+  './database/sqlite': ['closeDrizzleSqlite', 'openDrizzleSqlite', 'openSqliteClient'],
+  './email': ['createSmtpDelivery', 'smtpConfigFromEnvironment', 'standardAuthEmails'],
+  './posthog': ['postHogEnvironment', 'postHogRequestContext'],
+  './posthog/proxy': ['postHogIngestProxy'],
+  './posthog/react': ['PostHogBetterAuthIdentity', 'PostHogIntegration'],
   './posthog/server': [
     'createManagedPostHogServerTelemetry',
     'createPostHogRpcLogger',
     'createPostHogRpcObserver',
-    'createPostHogServerClient',
     'installPostHogServerTelemetryShutdown',
-    'shutdownPostHogServerClient',
   ],
-  './preview/dokploy': [
-    'DokployClient',
-    'DokployPreviewManager',
-    'dokployPreviewFromEnvironment',
-    'loadPreviewAppSecrets',
-    'previewHostname',
-    'pullRequestNumber',
-  ],
-  './preview/github': ['reportPreviewStatus'],
-  './realtime': [
-    'CentrifugoPublisher',
-    'connectRealtimeClient',
-    'createSameOriginRealtimeClient',
-    'openRealtimeSubscription',
-    'realtimeEnvironment',
-    'requestRealtimeTicket',
-    'sameOriginWebSocketUrl',
-    'signRealtimeToken',
-    'watchServerChannel',
-    'watchSubscriptionPresence',
-  ],
-  './realtime/client': [
-    'connectRealtimeClient',
-    'createSameOriginRealtimeClient',
-    'openRealtimeSubscription',
-    'requestRealtimeTicket',
-    'sameOriginWebSocketUrl',
-    'watchServerChannel',
-    'watchSubscriptionPresence',
-  ],
-  './realtime/react': ['useConnectedRealtimeClient', 'useRealtimePresence', 'useRealtimeSubscription'],
-  './runtime': [
-    'caddyRealtimeProxy',
-    'caddyRuntimeEnvironment',
-    'centrifugoEnvironment',
-    'persistedRealtimeSecret',
-    'runRealtimeDev',
-    'runRealtimeStack',
-    'superviseProcesses',
-  ],
+  './preview/dokploy': ['DokployClient', 'dokployPreviewFromEnvironment', 'loadPreviewAppSecrets', 'pullRequestNumber'],
+  './realtime': ['CentrifugoPublisher', 'realtimeEnvironment', 'signRealtimeToken'],
+  './realtime/client': ['createSameOriginRealtimeClient', 'requestRealtimeTicket', 'watchServerChannel'],
+  './realtime/react': ['useConnectedRealtimeClient', 'useRealtimeSubscription'],
+  './runtime': ['caddyRealtimeProxy', 'persistedRealtimeSecret', 'runRealtimeStack'],
   './server': [
-    'InfrastructureError',
-    'canonicalRedirect',
     'clearGlobalSingleton',
-    'createRateLimit',
-    'createRpc',
-    'currentServerFunction',
     'databaseHealthFailure',
     'errorHasCode',
-    'forwardedClientAddress',
     'globalAsyncSingleton',
     'globalSingleton',
     'healthResponse',
-    'infrastructureDiagnostic',
-    'infrastructureFailure',
-    'memoryRateLimitStore',
     'peekGlobalSingleton',
-    'rateLimitTable',
-    'safeInfrastructureError',
-    'withServerFunction',
   ],
   './tanstack/client': ['chunkRecoveryScript'],
-  './tanstack/middleware': [
-    'canonicalHostMiddleware',
-    'canonicalHostRequest',
-    'serverFunctionIdentityMiddleware',
-    'staleServerFunctionMiddleware',
-  ],
-  './tanstack/server': [
-    'betterAuthHandlers',
-    'canonicalHostMiddleware',
-    'canonicalHostRequest',
-    'createTanStackRpc',
-    'requireTanStackMutationOrigin',
-    'serverFunctionIdentityMiddleware',
-    'tanStackHealthHandler',
-  ],
-  './uploads': ['createTusUpload', 'startTusUpload', 'tusResponse', 'tusResponseMessage', 'uploadWithTus'],
+  './tanstack/middleware': ['canonicalHostMiddleware', 'serverFunctionIdentityMiddleware', 'staleServerFunctionMiddleware'],
+  './tanstack/server': ['createTanStackRpc', 'requireTanStackMutationOrigin', 'tanStackHealthHandler'],
+  './uploads': ['createTusUpload', 'startTusUpload'],
 } satisfies Record<string, string[]>
 
 const entrypoints: Record<keyof typeof surface, object> = {
   './auth': auth,
   './auth/client': authClient,
   './auth/react': authReact,
-  './build': build,
   './conformance': conformance,
   './database': database,
   './database/libsql': databaseLibsql,
   './database/postgres': databasePostgres,
   './database/sqlite': databaseSqlite,
   './email': email,
-  './changesets': changesets,
   './posthog': posthog,
-  './posthog/client': posthogClient,
   './posthog/proxy': posthogProxy,
   './posthog/react': posthogReact,
   './posthog/server': posthogServer,
   './preview/dokploy': previewDokploy,
-  './preview/github': previewGithub,
   './realtime': realtime,
   './realtime/client': realtimeClient,
   './realtime/react': realtimeReact,

@@ -1,4 +1,4 @@
-import { pullRequestNumber } from './dokploy.js'
+import { pullRequestNumber } from './dokploy-preview.js'
 
 export type PreviewStatusState = 'awaiting' | 'building' | 'ready' | 'failed' | 'deleted'
 

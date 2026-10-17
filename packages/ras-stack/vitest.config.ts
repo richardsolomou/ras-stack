@@ -8,7 +8,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       provider: 'v8',
       reporter: ['text-summary'],
-      thresholds: { branches: 82, functions: 91, lines: 91, statements: 89 },
+      thresholds: { branches: 84, functions: 93, lines: 93, statements: 90 },
     },
     include: ['../../actions/**/*.test.ts', 'src/**/*.test.ts'],
   },
