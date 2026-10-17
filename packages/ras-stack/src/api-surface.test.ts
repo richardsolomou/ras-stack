@@ -7,6 +7,7 @@ import * as authReact from './auth/react.js'
 import * as build from './build/index.js'
 import * as conformance from './conformance/index.js'
 import * as database from './database/index.js'
+import * as databaseLibsql from './database/libsql.js'
 import * as databasePostgres from './database/postgres.js'
 import * as databaseSqlite from './database/sqlite.js'
 import * as email from './email/index.js'
@@ -82,6 +83,7 @@ const surface = {
     'assertSqliteConformance',
   ],
   './database': ['bundledDirectory', 'databaseTarget'],
+  './database/libsql': ['openDrizzleLibsql'],
   './database/postgres': [
     'closeDrizzlePostgres',
     'migrateDrizzlePostgres',
@@ -197,6 +199,7 @@ const entrypoints: Record<keyof typeof surface, object> = {
   './build': build,
   './conformance': conformance,
   './database': database,
+  './database/libsql': databaseLibsql,
   './database/postgres': databasePostgres,
   './database/sqlite': databaseSqlite,
   './email': email,

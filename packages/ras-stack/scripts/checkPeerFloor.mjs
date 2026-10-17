@@ -14,6 +14,7 @@ try {
     readdirSync(temporary).find((file) => file.endsWith('.tgz')),
   )
   const floors = {
+    '@libsql/client': '0.18.0',
     '@opentelemetry/api-logs': '0.221.0',
     '@opentelemetry/exporter-logs-otlp-http': '0.221.0',
     '@opentelemetry/resources': '2.10.0',

@@ -19,6 +19,7 @@ try {
       private: true,
       type: 'module',
       dependencies: {
+        '@libsql/client': packageJson.devDependencies['@libsql/client'],
         '@posthog/react': packageJson.devDependencies['@posthog/react'],
         '@tanstack/react-start': packageJson.devDependencies['@tanstack/react-start'],
         'better-sqlite3': packageJson.devDependencies['better-sqlite3'],

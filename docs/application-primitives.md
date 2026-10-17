@@ -233,6 +233,16 @@ const database = openDrizzleSqlite({
 
 Applications retain their schema, migrations, database path, repositories, transactions, and driver selection. Dual-database applications can use `openSqliteClient()` and `configureSqlite()` beneath their own wrapper without forcing PostgreSQL through a shared database interface.
 
+The libsql entrypoint does the same for `@libsql/client`, asynchronously:
+
+```ts
+import { openDrizzleLibsql } from 'ras-stack/database/libsql'
+
+const database = await openDrizzleLibsql({ file, schema, migrationsFolder })
+```
+
+The libsql client pools connections and opens each one with its own defaults, so a PRAGMA run through `execute` would reach only one of them. Those defaults already match the standard synchronous and foreign-key settings, so `pragmas` covers only the journal mode, which persists in the file, and the busy timeout, which every connection receives through the client's `timeout` option.
+
 The PostgreSQL entrypoint applies the same boundary to Postgres.js and Drizzle while returning both native objects:
 
 ```ts
@@ -256,6 +266,12 @@ import { assertDatabaseTargetConformance, assertSqliteConformance } from 'ras-st
 
 await assertDatabaseTargetConformance(databaseTarget)
 await assertSqliteConformance((name) => sqliteClient.pragma(name, { simple: true }))
+```
+
+With libsql, read each PRAGMA through the client:
+
+```ts
+await assertSqliteConformance(async (name) => (await database.$client.execute(`pragma ${name}`)).rows[0]?.[0])
 ```
 
 ## Realtime updates

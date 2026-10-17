@@ -54,6 +54,10 @@
       "types": "./dist/database/sqlite.d.ts",
       "default": "./dist/database/sqlite.js"
     },
+    "./database/libsql": {
+      "types": "./dist/database/libsql.d.ts",
+      "default": "./dist/database/libsql.js"
+    },
     "./database/postgres": {
       "types": "./dist/database/postgres.d.ts",
       "default": "./dist/database/postgres.js"
@@ -151,6 +155,7 @@
     "@manypkg/get-packages": "3.1.0"
   },
   "devDependencies": {
+    "@libsql/client": "0.18.0",
     "@opentelemetry/api-logs": "^0.223.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",
@@ -183,6 +188,7 @@
     "yaml": "^2.8.2"
   },
   "peerDependencies": {
+    "@libsql/client": ">=0.18 <1",
     "@opentelemetry/api-logs": ">=0.221.0 <0.224.0",
     "@opentelemetry/exporter-logs-otlp-http": ">=0.221.0 <0.224.0",
     "@opentelemetry/resources": "^2.10.0",
@@ -200,6 +206,9 @@
     "tus-js-client": ">=4 <5"
   },
   "peerDependenciesMeta": {
+    "@libsql/client": {
+      "optional": true
+    },
     "@opentelemetry/api-logs": {
       "optional": true
     },
