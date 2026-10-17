@@ -53,6 +53,7 @@ const surface = {
     'parseOrigin',
     'persistedSecret',
     'providerCredentials',
+    'publicOrigin',
     'randomId',
     'randomToken',
     'requireSameOrigin',

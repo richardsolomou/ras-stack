@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { acceptedOrigins, forwardedOrigin, requireSameOrigin, trustedOrigins, validSameOriginRequest } from './origins.js'
+import { acceptedOrigins, forwardedOrigin, publicOrigin, requireSameOrigin, trustedOrigins, validSameOriginRequest } from './origins.js'
 import { configuredProviderOptions, configuredProviders, providerCredentials } from './providers.js'
 import { randomId, randomToken } from './random.js'
 import { persistedSecret } from './secret.js'
@@ -254,3 +254,21 @@ function temporaryDirectory() {
   temporaryDirectories.push(directory)
   return directory
 }
+
+describe('public origin', () => {
+  const proxied = new Request('http://app:3000/page', { headers: { 'x-forwarded-host': 'example.com', 'x-forwarded-proto': 'https' } })
+
+  it('prefers the first valid configured origin', () => {
+    expect(
+      publicOrigin(proxied, { configured: [undefined, 'not a URL', 'https://canonical.example/path'], trustForwardedHeaders: true }),
+    ).toBe('https://canonical.example')
+  })
+
+  it('uses the forwarded origin from a trusted proxy when none is configured', () => {
+    expect(publicOrigin(proxied, { trustForwardedHeaders: true })).toBe('https://example.com')
+  })
+
+  it('falls back to the request origin without trusting forwarded headers by default', () => {
+    expect(publicOrigin(proxied)).toBe('http://app:3000')
+  })
+})
