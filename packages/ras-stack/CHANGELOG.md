@@ -1,5 +1,11 @@
 # ras-stack
 
+## 4.3.0
+
+### Minor Changes
+
+- c665743: Let `publish-production-image` callers turn off SBOM and provenance attestations and choose the BuildKit cache mode.
+
 ## 4.2.0
 
 ### Minor Changes
