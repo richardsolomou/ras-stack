@@ -45,17 +45,37 @@ describe('container image actions', () => {
   })
 
   it('forwards BuildKit secrets through the production image action', async () => {
-    const action = parse(
-      await readFile(new URL('../../../../actions/publish-production-image/action.yml', import.meta.url), 'utf8'),
-    ) as Action
-    const build = action.runs.steps.find((step) => step.uses === 'docker/build-push-action@v7')
+    const { action, build } = await productionImageAction()
 
     expect({ default: action.inputs.secrets?.default, forwarded: build?.with?.secrets }).toEqual({
       default: '',
       forwarded: '${{ inputs.secrets }}',
     })
   })
+
+  it('keeps attestations and a minimal cache unless the caller opts out', async () => {
+    const { action, build } = await productionImageAction()
+
+    expect({
+      defaults: [action.inputs.sbom?.default, action.inputs.provenance?.default, action.inputs['cache-mode']?.default],
+      forwarded: [build?.with?.sbom, build?.with?.provenance, build?.with?.['cache-to']],
+    }).toEqual({
+      defaults: ['true', 'mode=max', 'min'],
+      forwarded: [
+        '${{ inputs.sbom }}',
+        '${{ inputs.provenance }}',
+        'type=gha,mode=${{ inputs.cache-mode }},scope=${{ inputs.cache-scope }}',
+      ],
+    })
+  })
 })
+
+async function productionImageAction() {
+  const action = parse(
+    await readFile(new URL('../../../../actions/publish-production-image/action.yml', import.meta.url), 'utf8'),
+  ) as Action
+  return { action, build: action.runs.steps.find((step) => step.uses === 'docker/build-push-action@v7') }
+}
 
 async function dockerFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'ras-stack-image-actions-'))

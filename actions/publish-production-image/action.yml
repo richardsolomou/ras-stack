@@ -41,6 +41,15 @@ inputs:
   seed-cache-scope:
     description: Additional cache scope populated by a pre-release build such as E2E.
     default: e2e-image
+  cache-mode:
+    description: BuildKit cache export mode; max also caches intermediate stages.
+    default: min
+  sbom:
+    description: Whether to attach an SBOM attestation.
+    default: 'true'
+  provenance:
+    description: Provenance attestation setting, or false to attach none.
+    default: mode=max
 
 outputs:
   reference:
@@ -64,8 +73,8 @@ runs:
         file: ${{ inputs.dockerfile }}
         platforms: ${{ inputs.platforms }}
         push: true
-        provenance: mode=max
-        sbom: true
+        provenance: ${{ inputs.provenance }}
+        sbom: ${{ inputs.sbom }}
         tags: |
           ${{ inputs.image }}:latest
           ${{ inputs.image }}:${{ inputs.release-tag }}
@@ -75,7 +84,7 @@ runs:
         cache-from: |
           type=gha,scope=${{ inputs.cache-scope }}
           type=gha,scope=${{ inputs.seed-cache-scope }}
-        cache-to: type=gha,mode=min,scope=${{ inputs.cache-scope }}
+        cache-to: type=gha,mode=${{ inputs.cache-mode }},scope=${{ inputs.cache-scope }}
     - name: Record immutable image reference
       id: reference
       shell: bash
