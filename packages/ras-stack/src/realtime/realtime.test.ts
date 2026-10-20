@@ -1,6 +1,5 @@
-import { createHmac } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { CentrifugoPublisher } from './publisher.js'
+import { CentrifugoPublisher, type CentrifugoPublisherOptions } from './publisher.js'
 import { signRealtimeToken } from './tokens.js'
 
 describe('realtime tokens', () => {
@@ -10,28 +9,31 @@ describe('realtime tokens', () => {
       { sub: 'attacker', exp: 9_999, channel: 'battle:one', info: { name: 'Ada' } },
       { secret: 'secret', now: 100 },
     )
-    const [header, payload, signature] = token.split('.')
-    expect(signature).toBe(createHmac('sha256', 'secret').update(`${header}.${payload}`).digest('base64url'))
-    expect(JSON.parse(Buffer.from(payload!, 'base64url').toString())).toEqual({
-      sub: 'user-1',
-      exp: 400,
-      channel: 'battle:one',
-      info: { name: 'Ada' },
+    const [header, payload] = token.split('.')
+    expect({
+      header: JSON.parse(Buffer.from(header!, 'base64url').toString()),
+      payload: JSON.parse(Buffer.from(payload!, 'base64url').toString()),
+      token,
+    }).toEqual({
+      header: { alg: 'HS256', typ: 'JWT' },
+      payload: { sub: 'user-1', exp: 400, channel: 'battle:one', info: { name: 'Ada' } },
+      token:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLTEiLCJleHAiOjQwMCwiY2hhbm5lbCI6ImJhdHRsZTpvbmUiLCJpbmZvIjp7Im5hbWUiOiJBZGEifX0.Ke4gJZM5N2eDZuvUUhRtx0b7uuTdmhMT0I07YT1AlX8',
     })
   })
 })
 
 describe('Centrifugo publisher', () => {
   it('rejects invalid queue limits', () => {
-    expect(
-      () => new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', maxConcurrentChannels: 0, onError: vi.fn() }),
-    ).toThrow('maxConcurrentChannels must be a positive integer')
+    expect(() => publisherWith(vi.fn<typeof fetch>(), { maxConcurrentChannels: 0 })).toThrow(
+      'maxConcurrentChannels must be a positive integer',
+    )
   })
 
   it('reports non-retryable responses without retrying', async () => {
     const onError = vi.fn()
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 400 }))
-    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError })
+    const publisher = publisherWith(request, { onError })
     publisher.publish('one', { type: 'change' })
     await publisher.idle()
     expect(request).toHaveBeenCalledOnce()
@@ -40,7 +42,7 @@ describe('Centrifugo publisher', () => {
 
   it('stays disabled without an API URL instead of publishing nowhere', async () => {
     const request = vi.fn<typeof fetch>()
-    const publisher = new CentrifugoPublisher({ apiUrl: '', apiKey: 'key', fetch: request, onError: vi.fn() })
+    const publisher = publisherWith(request, { apiUrl: '' })
 
     expect(publisher.publish('one', { type: 'change' })).toBe(false)
     await publisher.idle()
@@ -114,7 +116,7 @@ describe('Centrifugo publisher', () => {
 
   it('publishes application-owned channels and payloads', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
-    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api/', apiKey: 'key', fetch: request, onError: vi.fn() })
+    const publisher = publisherWith(request, { apiUrl: 'http://realtime/api/' })
     publisher.publish('battle:one', { type: 'change' })
     await vi.waitFor(() => expect(request).toHaveBeenCalledOnce())
     expect(request).toHaveBeenCalledWith('http://realtime/api/publish', {
@@ -123,6 +125,14 @@ describe('Centrifugo publisher', () => {
       body: JSON.stringify({ channel: 'battle:one', data: { type: 'change' } }),
       signal: expect.any(AbortSignal),
     })
+  })
+
+  it('drains a publication to an empty channel name', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}'))
+    const publisher = publisherWith(request)
+    publisher.publish('', { type: 'change' })
+    await publisher.idle()
+    expect(request).toHaveBeenCalledOnce()
   })
 
   it('coalesces pending publications independently by channel', async () => {
@@ -134,7 +144,7 @@ describe('Centrifugo publisher', () => {
       .fn<typeof fetch>()
       .mockImplementationOnce(() => pending)
       .mockResolvedValue(new Response('{}'))
-    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError: vi.fn() })
+    const publisher = publisherWith(request)
     publisher.publish('one', { version: 1 })
     publisher.publish('one', { version: 2 })
     publisher.publish('two', { version: 1 })
@@ -154,14 +164,7 @@ describe('Centrifugo publisher', () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('{}', { status: 503 }))
       .mockResolvedValue(new Response('{}'))
-    const publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      retryMs: 1,
-      onError: vi.fn(),
-      onRetry,
-    })
+    const publisher = publisherWith(request, { retryMs: 1, onRetry })
     publisher.publish('one', { type: 'change' })
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2))
     expect(onRetry).toHaveBeenCalledWith(expect.any(Error), 'one')
@@ -170,14 +173,7 @@ describe('Centrifugo publisher', () => {
   it('reports a transient failure after exhausting bounded retries', async () => {
     const onError = vi.fn()
     const request = vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 503 }))
-    const publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      retryMs: 1,
-      maxRetries: 1,
-      onError,
-    })
+    const publisher = publisherWith(request, { retryMs: 1, maxRetries: 1, onError })
     publisher.publish('one', { type: 'change' })
     await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(expect.any(Error), 'one'))
     expect(request).toHaveBeenCalledTimes(2)
@@ -188,13 +184,7 @@ describe('Centrifugo publisher', () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response('{}', { status: 400 }))
       .mockResolvedValue(new Response('{}'))
-    let publisher!: CentrifugoPublisher
-    publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      onError: () => publisher.publish('one', { version: 2 }),
-    })
+    const publisher: CentrifugoPublisher = publisherWith(request, { onError: () => publisher.publish('one', { version: 2 }) })
     publisher.publish('one', { version: 1 })
     await vi.waitFor(() => expect(request).toHaveBeenCalledTimes(2))
     expect(request.mock.calls.map(([, options]) => options?.body)).toEqual([
@@ -212,12 +202,7 @@ describe('Centrifugo publisher', () => {
       .fn<typeof fetch>()
       .mockImplementationOnce(() => first)
       .mockResolvedValue(new Response('{}'))
-    const publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      onError: vi.fn(),
-    })
+    const publisher = publisherWith(request)
     publisher.publish('one', { version: 1 })
     publisher.publish('one', { version: 2 })
     failFirst()
@@ -237,13 +222,7 @@ describe('Centrifugo publisher', () => {
       .fn<typeof fetch>()
       .mockImplementationOnce(() => first)
       .mockResolvedValue(new Response('{}'))
-    const publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      maxConcurrentChannels: 1,
-      onError: vi.fn(),
-    })
+    const publisher = publisherWith(request, { maxConcurrentChannels: 1 })
     publisher.publish('one', { type: 'change' })
     publisher.publish('two', { type: 'change' })
     await vi.waitFor(() => expect(request).toHaveBeenCalledOnce())
@@ -255,13 +234,7 @@ describe('Centrifugo publisher', () => {
   it('rejects new channels when the pending bound is full', async () => {
     const request = vi.fn<typeof fetch>().mockImplementation(() => new Promise<Response>(() => undefined))
     const onError = vi.fn()
-    const publisher = new CentrifugoPublisher({
-      apiUrl: 'http://realtime/api',
-      apiKey: 'key',
-      fetch: request,
-      maxPendingChannels: 1,
-      onError,
-    })
+    const publisher = publisherWith(request, { maxPendingChannels: 1, onError })
     expect(publisher.publish('one', { type: 'change' })).toBe(true)
     expect(publisher.publish('two', { type: 'change' })).toBe(false)
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'Realtime publisher queue is full' }), 'two')
@@ -274,7 +247,7 @@ describe('Centrifugo publisher', () => {
     })
     const request = vi.fn<typeof fetch>().mockImplementation(() => response)
     const onError = vi.fn()
-    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError })
+    const publisher = publisherWith(request, { onError })
     publisher.publish('one', { type: 'change' })
     const closed = publisher.close()
     expect(publisher.publish('two', { type: 'change' })).toBe(false)
@@ -285,7 +258,7 @@ describe('Centrifugo publisher', () => {
 
   it('lets shutdown stop waiting at its deadline', async () => {
     const request = vi.fn<typeof fetch>().mockImplementation(() => new Promise<Response>(() => undefined))
-    const publisher = new CentrifugoPublisher({ apiUrl: 'http://realtime/api', apiKey: 'key', fetch: request, onError: vi.fn() })
+    const publisher = publisherWith(request)
     const controller = new AbortController()
     publisher.publish('one', { type: 'change' })
     const closed = publisher.close({ signal: controller.signal })
@@ -296,7 +269,7 @@ describe('Centrifugo publisher', () => {
   })
 })
 
-function publisherWith(request: ReturnType<typeof vi.fn<typeof fetch>>, overrides: Record<string, unknown> = {}) {
+function publisherWith(request: typeof fetch, overrides: Partial<CentrifugoPublisherOptions> = {}) {
   return new CentrifugoPublisher({
     apiUrl: 'http://realtime/api',
     apiKey: 'key',

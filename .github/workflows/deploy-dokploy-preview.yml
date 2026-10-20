@@ -76,6 +76,7 @@ on:
         required: false
 
 env:
+  PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
   CUSTOM_PREVIEW_URL: ${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}
 
 jobs:
@@ -93,7 +94,6 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
         run: |
           dependabot=false
           if [[ "$EVENT_NAME" == "workflow_run" ]]; then
@@ -106,7 +106,6 @@ jobs:
 
   approve-deploy:
     needs: classify-pr
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
     environment: ${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}
     runs-on: ubuntu-latest
     permissions:
@@ -146,8 +145,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
-          PREVIEW_URL: ${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PREVIEW_URL: ${{ env.CUSTOM_PREVIEW_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           STATE: ${{ github.event.action == 'requested' && 'awaiting' || 'building' }}
           WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
@@ -163,7 +161,6 @@ jobs:
 
   deploy:
     needs: approve-deploy
-    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'
     concurrency:
       group: dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
       cancel-in-progress: false
@@ -183,7 +180,6 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
           WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           read -r state head_sha < <(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '[.state, .head.sha] | @tsv')
@@ -212,7 +208,6 @@ jobs:
           PREVIEW_PORT: ${{ inputs.port }}
           PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
           PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ inputs.cloudflare-zone-id }}
         run: |
@@ -225,7 +220,6 @@ jobs:
         if: steps.pr.outputs.action == 'delete'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
           PREVIEW_MARKER: ${{ inputs.marker }}
         run: pnpm exec ras preview deleted
       - name: Delete closed preview images
@@ -234,22 +228,22 @@ jobs:
         with:
           token: ${{ github.token }}
           package: ${{ inputs.package }}
-          pr-number: ${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}
+          pr-number: ${{ env.PR_NUMBER }}
       - name: Publish fork preview image
         if: steps.pr.outputs.action == 'deploy' && github.event.workflow_run.pull_requests[0].head.repo.id != github.event.repository.id
         uses: richardsolomou/ras-stack/actions/publish-preview-image@v1
         with:
-          artifact-name: preview-image-${{ github.event.workflow_run.pull_requests[0].number }}
+          artifact-name: preview-image-${{ env.PR_NUMBER }}
           run-id: ${{ github.event.workflow_run.id }}
-          source-image: ${{ inputs.local-image }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
-          target-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
+          source-image: ${{ inputs.local-image }}:preview-pr-${{ env.PR_NUMBER }}-sha-${{ github.event.workflow_run.head_sha }}
+          target-image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ env.PR_NUMBER }}-sha-${{ github.event.workflow_run.head_sha }}
           token: ${{ github.token }}
       - name: Resolve immutable preview image
         id: image
         if: steps.pr.outputs.action == 'deploy'
         uses: richardsolomou/ras-stack/actions/resolve-container-image@v1
         with:
-          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ github.event.workflow_run.pull_requests[0].number }}-sha-${{ github.event.workflow_run.head_sha }}
+          image: ghcr.io/${{ github.repository_owner }}/${{ inputs.package }}:preview-pr-${{ env.PR_NUMBER }}-sha-${{ github.event.workflow_run.head_sha }}
           registry-username: ${{ secrets.PREVIEW_REGISTRY_USERNAME }}
           registry-password: ${{ secrets.PREVIEW_REGISTRY_PASSWORD }}
       - name: Deploy preview
@@ -270,7 +264,6 @@ jobs:
           PREVIEW_HEALTH_PATH: ${{ inputs.health-path }}
           PREVIEW_ENVIRONMENT: ${{ inputs.environment }}
           PREVIEW_SCRIPT: ${{ inputs.deploy-script }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ZONE_ID: ${{ inputs.cloudflare-zone-id }}
         run: |
@@ -286,7 +279,7 @@ jobs:
           fi
       - name: Install preview browser
         if: steps.pr.outputs.action == 'deploy' && inputs.playwright-config != ''
-        run: pnpm exec playwright install --with-deps chromium
+        uses: richardsolomou/ras-stack/actions/setup-playwright@v1
       - name: Verify preview
         if: steps.pr.outputs.action == 'deploy' && inputs.playwright-config != ''
         env:
@@ -297,7 +290,6 @@ jobs:
         if: steps.pr.outputs.action == 'deploy'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}
@@ -308,7 +300,6 @@ jobs:
         if: failure() && steps.pr.outputs.action == 'deploy'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
           PREVIEW_MARKER: ${{ inputs.marker }}
           PREVIEW_NOTE: ${{ inputs.note }}

@@ -1,6 +1,10 @@
-import { spawn } from 'node:child_process'
+import { spawn, type StdioOptions } from 'node:child_process'
+import { once } from 'node:events'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
+import { parseArgs } from 'node:util'
+import { errorHasCode } from '../server/errors.js'
+import { centrifugoEnvironment, port, requiredValue } from './stack.js'
 
 const runtimeImage =
   'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e'
@@ -17,8 +21,8 @@ export type RealtimeDevOptions = {
 }
 
 type CommandResult = { code: number }
-type RunCommand = (command: string, args: readonly string[]) => Promise<CommandResult>
-type RealtimeDevDependencies = { remove?: (containerName: string) => Promise<void>; run?: RunCommand }
+type RunCommand = (command: string, args: readonly string[], stdio?: StdioOptions) => Promise<CommandResult>
+type RealtimeDevDependencies = { run?: RunCommand }
 
 export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: RealtimeDevDependencies = {}) {
   const configPath = path.resolve(options.configPath)
@@ -28,16 +32,27 @@ export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: 
     throw new Error(`realtime config is unavailable: ${configPath}`, { cause: error })
   }
   const containerName = dockerName(options.containerName)
-  const publicPort = tcpPort(options.port)
+  const publicPort = port(options.port, 'port')
   const bindAddress = dockerBindAddress(options.bindAddress ?? '127.0.0.1')
   const origin = httpUrl(options.origin, 'origin')
-  const secret = required(options.secret, 'secret')
+  const secret = requiredValue(options.secret, 'secret')
   const connectProxyEndpoint = options.connectProxyEndpoint ? httpEndpoint(options.connectProxyEndpoint) : undefined
   const run = dependencies.run ?? runCommand
-  const remove = dependencies.remove ?? removeContainer
+  // Docker publishes the port to the container's network interface, which a loopback-only listener would not accept.
+  const { CENTRIFUGO_HTTP_SERVER_ADDRESS: _loopback, ...centrifugo } = centrifugoEnvironment({
+    apiKey: secret,
+    clientTokenSecret: secret,
+    subscriptionTokenSecret: secret,
+    allowedOrigins: origin,
+  })
+  const environment = {
+    ...centrifugo,
+    CENTRIFUGO_VAR_PROXY_SECRET: secret,
+    ...(connectProxyEndpoint ? { CENTRIFUGO_CLIENT_PROXY_CONNECT_ENDPOINT: connectProxyEndpoint } : {}),
+  }
 
   try {
-    if (options.detached) await remove(containerName)
+    if (options.detached) await run('docker', ['rm', '--force', containerName], 'ignore')
     const result = await run('docker', [
       'run',
       '--rm',
@@ -48,29 +63,16 @@ export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: 
       'host.docker.internal:host-gateway',
       '-p',
       `${bindAddress}:${publicPort}:8000`,
-      '-e',
-      `CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY=${secret}`,
-      '-e',
-      'CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_ENABLED=true',
-      '-e',
-      `CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY=${secret}`,
-      '-e',
-      `CENTRIFUGO_HTTP_API_KEY=${secret}`,
-      '-e',
-      `CENTRIFUGO_CLIENT_ALLOWED_ORIGINS=${origin}`,
-      '-e',
-      `CENTRIFUGO_VAR_PROXY_SECRET=${secret}`,
-      ...(connectProxyEndpoint ? ['-e', `CENTRIFUGO_CLIENT_PROXY_CONNECT_ENDPOINT=${connectProxyEndpoint}`] : []),
+      ...Object.entries(environment).flatMap(([name, value]) => ['-e', `${name}=${value}`]),
       '-v',
       `${configPath}:/centrifugo/config.json:ro`,
       runtimeImage,
       '/usr/local/bin/centrifugo',
       '--config=/centrifugo/config.json',
-      '--health.enabled',
     ])
     if (result.code !== 0) throw new Error(`Docker exited with status ${result.code}`)
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    if (errorHasCode(error, 'ENOENT')) {
       throw new Error('Docker is required but was not found', { cause: error })
     }
     throw error
@@ -78,67 +80,41 @@ export async function runRealtimeDev(options: RealtimeDevOptions, dependencies: 
 }
 
 export function parseRealtimeDevArguments(arguments_: readonly string[]): RealtimeDevOptions {
-  const values = new Map<string, string>()
-  let detached = false
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index]!
-    if (argument === '--detach') {
-      detached = true
-      continue
-    }
-    if (!['--config', '--name', '--port', '--bind-address', '--origin', '--secret', '--connect-proxy-endpoint'].includes(argument)) {
-      throw new Error(`unknown argument: ${argument}`)
-    }
-    const value = arguments_[index + 1]
-    if (!value || value.startsWith('--')) throw new Error(`${argument} requires a value`)
-    values.set(argument, value)
-    index += 1
-  }
-  const connectProxyEndpoint = values.get('--connect-proxy-endpoint')
-  const bindAddress = values.get('--bind-address')
+  const { values } = parseArgs({
+    args: [...arguments_],
+    options: {
+      config: { type: 'string' },
+      name: { type: 'string' },
+      port: { type: 'string' },
+      'bind-address': { type: 'string' },
+      origin: { type: 'string' },
+      secret: { type: 'string' },
+      'connect-proxy-endpoint': { type: 'string' },
+      detach: { type: 'boolean' },
+    },
+    strict: true,
+  })
   return {
-    configPath: required(values.get('--config'), '--config'),
-    containerName: required(values.get('--name'), '--name'),
-    port: Number(required(values.get('--port'), '--port')),
-    ...(bindAddress ? { bindAddress } : {}),
-    origin: required(values.get('--origin'), '--origin'),
-    secret: required(values.get('--secret'), '--secret'),
-    ...(detached ? { detached: true } : {}),
-    ...(connectProxyEndpoint ? { connectProxyEndpoint } : {}),
+    configPath: requiredValue(values.config, '--config'),
+    containerName: requiredValue(values.name, '--name'),
+    port: Number(requiredValue(values.port, '--port')),
+    ...(values['bind-address'] ? { bindAddress: values['bind-address'] } : {}),
+    origin: requiredValue(values.origin, '--origin'),
+    secret: requiredValue(values.secret, '--secret'),
+    ...(values.detach ? { detached: true } : {}),
+    ...(values['connect-proxy-endpoint'] ? { connectProxyEndpoint: values['connect-proxy-endpoint'] } : {}),
   }
 }
 
-async function runCommand(command: string, args: readonly string[]) {
-  return new Promise<CommandResult>((resolve, reject) => {
-    const child = spawn(command, [...args], { stdio: 'inherit' })
-    child.once('error', reject)
-    child.once('exit', (code) => resolve({ code: code ?? 1 }))
-  })
-}
-
-async function removeContainer(containerName: string) {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn('docker', ['rm', '--force', containerName], { stdio: 'ignore' })
-    child.once('error', reject)
-    child.once('exit', () => resolve())
-  })
-}
-
-function required(value: string | undefined, name: string) {
-  const normalized = value?.trim()
-  if (!normalized) throw new Error(`${name} is required`)
-  return normalized
+async function runCommand(command: string, args: readonly string[], stdio: StdioOptions = 'inherit') {
+  const [code] = (await once(spawn(command, [...args], { stdio }), 'exit')) as [number | null]
+  return { code: code ?? 1 }
 }
 
 function dockerName(value: string) {
-  const normalized = required(value, 'containerName')
+  const normalized = requiredValue(value, 'containerName')
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(normalized)) throw new Error('containerName is invalid')
   return normalized
-}
-
-function tcpPort(value: number) {
-  if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error('port must be a valid TCP port')
-  return value
 }
 
 function dockerBindAddress(value: string) {

@@ -124,6 +124,7 @@ function deploymentStore(overrides: Partial<ConstructorParameters<typeof UploadS
     quotaBytes: 5,
     globalQuotaBytes: 100,
     globalMaxFiles: 100,
+    onError: vi.fn(),
     ...overrides,
   })
 }

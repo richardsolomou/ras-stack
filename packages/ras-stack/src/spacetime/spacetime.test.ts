@@ -41,6 +41,10 @@ describe('SpacetimeDB database URLs', () => {
       'http://spacetime:3000',
     )
   })
+
+  it('allows plain HTTP to IPv6 loopback', () => {
+    expect(spacetimeDatabaseUrl({ ...connection, url: 'http://[::1]:3000' }).origin).toBe('http://[::1]:3000')
+  })
 })
 
 describe('SpacetimeDB calls', () => {

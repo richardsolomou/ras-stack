@@ -180,10 +180,13 @@ h2 {
 
 .boundary,
 .commands {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+}
+
+.boundary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .boundary > div,
@@ -191,8 +194,7 @@ h2 {
   padding: 0.9rem 1.25rem 0.9rem 0;
 }
 
-.boundary > div + div,
-.commands > div + div {
+.boundary > div + div {
   padding-right: 0;
   padding-left: 1.25rem;
   border-left: 1px solid var(--line);
@@ -255,13 +257,11 @@ section:last-child {
     grid-template-columns: 7.5rem 1fr;
   }
 
-  .boundary,
-  .commands {
+  .boundary {
     grid-template-columns: 1fr;
   }
 
-  .boundary > div + div,
-  .commands > div + div {
+  .boundary > div + div {
     padding-left: 0;
     border-top: 1px solid var(--line);
     border-left: 0;

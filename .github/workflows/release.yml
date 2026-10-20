@@ -1,5 +1,5 @@
 name: Release
-run-name: Release ${{ inputs.release_tag || github.event.release.tag_name }}
+run-name: Release ${{ inputs.release_tag }}
 
 on:
   workflow_dispatch:
@@ -7,8 +7,6 @@ on:
       release_tag:
         description: Existing release tag to verify and publish.
         required: true
-  release:
-    types: [published]
 
 permissions:
   contents: read
@@ -20,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.release_tag || github.event.release.tag_name }}
+          ref: ${{ inputs.release_tag }}
       - uses: ./actions/setup-js
       - uses: ./actions/setup-just
         with:
@@ -28,7 +26,7 @@ jobs:
       - run: just check
       - name: Verify release version
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"

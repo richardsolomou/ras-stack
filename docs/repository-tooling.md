@@ -120,8 +120,6 @@ steps:
   - run: pnpm check
 ```
 
-Pass `fetch-depth: 0` when the check command reads history, and `audit-level` to run `pnpm audit` before it.
-
 Just is independent of the application language and is installed separately when a repository uses it:
 
 ```yaml
@@ -152,6 +150,12 @@ Enable **Settings > Actions > General > Workflow permissions > Allow GitHub Acti
 
 The release job opens a pull request for the version commit. It validates the exact commit, enables auto-merge, and waits for GitHub to merge it after every branch rule settles. A candidate that is already mergeable is merged directly, because GitHub refuses auto-merge for it. The release tag points to the protected branch's merge commit.
 
+The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
+
+Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Configuration-only releases leave it unchanged. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
+
+Reusable workflows refer to ras-stack actions through the stable major compatibility tag, because GitHub requires a remote action to use an `owner/repository/path@ref` reference even when a reusable workflow calls it. A nested reusable workflow can use a local `./.github/workflows/` path, which GitHub resolves from the same commit as its caller.
+
 Browser jobs can cache the pinned Playwright payload through `actions/setup-playwright`. It installs system dependencies by default; set `install-dependencies: 'false'` only for runner images that already provide the browser libraries. Production-container E2E stays a repository job: the image build, cache strategy, sharding, and PR-versus-main topology differ per application, and the check workflow above supplies the toolchain steps.
 
 `publish-production-image` reads both its production cache and the `e2e-image` cache, so an E2E build can warm unchanged layers for the release build without paying to upload every intermediate BuildKit layer.
@@ -175,7 +179,7 @@ The action switches the application to Dokploy's Docker-image provider before de
 
 Preview images use the application package with a readable, commit-specific tag: `preview-pr-<number>-sha-<40-character commit>`. Resolve that tag through `actions/resolve-container-image` before deployment to retain its readable identity while pinning the exact manifest digest. On pull request close, and from a scheduled orphan sweep, `actions/prune-preview-images` removes only versions whose tags all match that preview convention; production versions are never candidates.
 
-Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. Both image-building actions accept newline-separated `secrets` for sensitive BuildKit mounts; Dockerfiles consume them with `RUN --mount=type=secret` rather than build arguments. The production action attaches SBOM and `mode=max` provenance attestations and exports a `min` cache by default; set `sbom: 'false'`, `provenance: 'false'`, or `cache-mode: max` when an application does not consume the attestations or wants intermediate stages cached. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
+Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. It accepts newline-separated `secrets` for sensitive BuildKit mounts; Dockerfiles consume them with `RUN --mount=type=secret` rather than build arguments. The production action attaches SBOM and `mode=max` provenance attestations and exports a `min` cache by default; set `sbom: 'false'`, `provenance: 'false'`, or `cache-mode: max` when an application does not consume the attestations or wants intermediate stages cached. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
 
 Dokploy applications share the complete preview lifecycle through three reusable workflows:
 
@@ -267,12 +271,6 @@ The foreground command follows terminal signals and leaves an existing named con
 
 Read-only containers can pass writable `configHome` and `dataHome` paths through `caddy.runtime`; both default to isolated directories under `/tmp`.
 
-The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
-
-Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Configuration-only releases leave it unchanged. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
-
-Reusable workflows refer to ras-stack actions and nested workflows through the stable major compatibility tag. GitHub requires remote actions and reusable workflows to use an `owner/repository/path@ref` reference, including calls made from another reusable workflow.
-
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 
 ```yaml
@@ -295,6 +293,8 @@ jobs:
       command: just check
       just-version: '1.58.0'
 ```
+
+Pass `fetch-depth: 0` when the check command reads history, and `audit-level` to run `pnpm audit` before it.
 
 Simple Playwright jobs can also share browser installation and failure artifacts:
 

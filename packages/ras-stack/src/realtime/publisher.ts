@@ -1,3 +1,5 @@
+import { setTimeout as delay } from 'node:timers/promises'
+
 export type CentrifugoPublisherOptions = {
   apiUrl: string
   apiKey: string
@@ -18,6 +20,7 @@ export class CentrifugoPublisher {
   private readonly queue: string[] = []
   private readonly idleWaiters = new Set<() => void>()
   private readonly request: typeof fetch
+  private readonly publishUrl: string
   private readonly maxConcurrentChannels: number
   private readonly maxPendingChannels: number
   private active = 0
@@ -25,6 +28,7 @@ export class CentrifugoPublisher {
 
   constructor(private readonly options: CentrifugoPublisherOptions) {
     this.request = options.fetch ?? fetch
+    this.publishUrl = `${options.apiUrl.replace(/\/$/, '')}/publish`
     this.maxConcurrentChannels = positiveInteger(options.maxConcurrentChannels ?? 8, 'maxConcurrentChannels')
     this.maxPendingChannels = positiveInteger(options.maxPendingChannels ?? 1_024, 'maxPendingChannels')
   }
@@ -68,9 +72,9 @@ export class CentrifugoPublisher {
   private pump() {
     while (this.active < this.maxConcurrentChannels) {
       const channel = this.queue.shift()
-      if (!channel) break
-      const state = this.pending.get(channel)
-      if (!state || state.running) continue
+      if (channel === undefined) break
+      // A channel is queued only alongside a fresh, idle pending state.
+      const state = this.pending.get(channel)!
       state.running = true
       this.active++
       void this.flush(channel, state).finally(() => {
@@ -118,7 +122,7 @@ export class CentrifugoPublisher {
         if (retries >= maxRetries) throw error
         this.options.onRetry?.(error, channel)
         // oxlint-disable-next-line no-await-in-loop
-        await new Promise((resolve) => setTimeout(resolve, this.options.retryMs ?? 1_000))
+        await delay(this.options.retryMs ?? 1_000)
       }
     }
   }
@@ -126,7 +130,7 @@ export class CentrifugoPublisher {
   private async deliverOnce(channel: string, data: unknown) {
     let response: Response
     try {
-      response = await this.request(`${this.options.apiUrl.replace(/\/$/, '')}/publish`, {
+      response = await this.request(this.publishUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': this.options.apiKey },
         body: JSON.stringify({ channel, data }),

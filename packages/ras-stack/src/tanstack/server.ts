@@ -3,7 +3,7 @@ import { requireSameOrigin, type OriginOptions } from '../auth/origins.js'
 import { healthResponse, type HealthResponseOptions } from '../server/health.js'
 import { createRpc, type RpcOptions } from '../server/rpc.js'
 
-export type TanStackRpcOptions = Omit<RpcOptions, 'getRequest'> & Pick<RpcOptions, 'getRequest'>
+export type TanStackRpcOptions = RpcOptions
 
 export function createTanStackRpc(options: TanStackRpcOptions = {}) {
   return createRpc({ ...options, getRequest: options.getRequest ?? getRequest })

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { dokployPreviewFromEnvironment } from './dokploy-preview.js'
 import { renderPreviewEnvironment, runDokployPreviewCli } from './dokploy-cli.js'
+import { fakeDokploy, requestUrl } from './testing.js'
 
 const environment = {
   DOKPLOY_URL: 'https://dokploy.example',
@@ -73,10 +74,12 @@ describe('Dokploy preview CLI configuration', () => {
 })
 
 describe('Dokploy preview CLI commands', () => {
-  afterEach(() => {
+  const roots: string[] = []
+  afterEach(async () => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+    await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
   })
 
   it('rejects a command outside the preview lifecycle', async () => {
@@ -84,7 +87,7 @@ describe('Dokploy preview CLI commands', () => {
   })
 
   it('requires the pull request number before contacting Dokploy', async () => {
-    const request = fakeDokploy()
+    const request = vi.fn(fakeDokploy().fetch)
     vi.stubGlobal('fetch', request)
 
     await expect(runDokployPreviewCli(['deploy'], environment)).rejects.toThrow('PR_NUMBER is required')
@@ -94,71 +97,36 @@ describe('Dokploy preview CLI commands', () => {
   it('outputs a generated URL before a later deployment failure', async () => {
     vi.useFakeTimers()
     const directory = await mkdtemp(join(tmpdir(), 'ras-stack-preview-'))
+    roots.push(directory)
     const output = join(directory, 'github-output')
-    const applications: { applicationId: string; name: string; serverId?: string }[] = []
-    let deployed = false
-    let savedEnvironment: unknown
-    vi.stubGlobal(
-      'fetch',
-      vi.fn<typeof globalThis.fetch>(async (input, init) => {
-        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-        const procedure = url.pathname.slice('/api/'.length)
-        const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
-        if (procedure === 'environment.one') return Response.json({ applications })
-        if (procedure === 'application.create') {
-          applications.push({ applicationId: 'app-42', name: String(body?.name), serverId: 'server-1' })
-          return new Response(null)
-        }
-        if (procedure === 'domain.canGenerateTraefikMeDomains') return Response.json('1.1.1.1')
-        if (procedure === 'domain.generateDomain') return Response.json('ras-preview-a1b2c3-1-1-1-1.sslip.io')
-        if (procedure === 'application.saveEnvironment') savedEnvironment = body?.env
-        if (procedure === 'application.deploy') deployed = true
-        if (procedure === 'application.one') return Response.json(deployed ? { applicationStatus: 'error' } : { domains: [] })
-        return new Response(null)
-      }),
-    )
+    const server = fakeDokploy({ deploymentStatus: 'error' })
+    vi.stubGlobal('fetch', server.fetch)
 
-    try {
-      const deployment = runDokployPreviewCli(['deploy'], {
-        ...environment,
-        PREVIEW_DOMAIN: '',
-        PREVIEW_IMAGE: 'ghcr.io/example/app:pr-42',
-        PREVIEW_ENVIRONMENT: 'APP_URL={{PREVIEW_URL}}\n',
-        PR_NUMBER: '42',
-        GITHUB_OUTPUT: output,
-      })
-      const failure = deployment.catch((error: unknown) => error)
-      await vi.runAllTimersAsync()
-      expect(await failure).toMatchObject({ message: 'Dokploy reported a failed deployment' })
-      expect(savedEnvironment).toBe('APP_URL=http://ras-preview-a1b2c3-1-1-1-1.sslip.io')
-      await expect(readFile(output, 'utf8')).resolves.toBe('preview-url=http://ras-preview-a1b2c3-1-1-1-1.sslip.io\n')
-    } finally {
-      await rm(directory, { recursive: true, force: true })
-    }
+    const deployment = runDokployPreviewCli(['deploy'], {
+      ...environment,
+      PREVIEW_DOMAIN: '',
+      PREVIEW_IMAGE: 'ghcr.io/example/app:pr-42',
+      PREVIEW_ENVIRONMENT: 'APP_URL={{PREVIEW_URL}}\n',
+      PR_NUMBER: '42',
+      GITHUB_OUTPUT: output,
+    })
+    const failure = deployment.catch((error: unknown) => error)
+    await vi.runAllTimersAsync()
+    expect(await failure).toMatchObject({ message: 'Dokploy reported a failed deployment' })
+    expect(server.bodies.get('application.saveEnvironment')).toMatchObject({ env: 'APP_URL=http://ras-preview-a1b2c3-1-1-1-1.sslip.io' })
+    await expect(readFile(output, 'utf8')).resolves.toBe('preview-url=http://ras-preview-a1b2c3-1-1-1-1.sslip.io\n')
   })
 
   it('creates proxied DNS before verifying a prefixed custom hostname', async () => {
     vi.useFakeTimers()
-    const calls: { procedure: string; body?: Record<string, unknown> }[] = []
     const cloudflare = vi.fn<typeof globalThis.fetch>()
-    let deployed = false
+    const server = fakeDokploy({ applications: [{ applicationId: 'app-42', name: 'example-pr-42' }], serverIp: '145.239.74.127' })
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof globalThis.fetch>(async (input, init) => {
-        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-        if (url.hostname === 'api.cloudflare.com') {
-          await cloudflare(input, init)
-          return Response.json({ success: true, result: init?.method === 'POST' ? { id: 'dns-1' } : [] })
-        }
-        if (url.hostname === 'sealed-lists-pr-42.example.com') return new Response(null, { status: 200 })
-        const procedure = url.pathname.slice('/api/'.length)
-        const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : undefined
-        calls.push({ procedure, ...(body ? { body } : {}) })
-        if (procedure === 'environment.one') return Response.json({ applications: [{ applicationId: 'app-42', name: 'example-pr-42' }] })
-        if (procedure === 'application.one') return Response.json(deployed ? { applicationStatus: 'done' } : { domains: [] })
-        if (procedure === 'settings.getIp') return Response.json('145.239.74.127')
-        if (procedure === 'application.deploy') deployed = true
-        return new Response(null)
+        if (requestUrl(input).hostname !== 'api.cloudflare.com') return server.fetch(input, init)
+        await cloudflare(input, init)
+        return Response.json({ success: true, result: init?.method === 'POST' ? { id: 'dns-1' } : [] })
       }),
     )
 
@@ -174,7 +142,7 @@ describe('Dokploy preview CLI commands', () => {
     await vi.runAllTimersAsync()
     await deployment
 
-    expect(calls.find((call) => call.procedure === 'domain.create')?.body).toMatchObject({
+    expect(server.bodies.get('domain.create')).toMatchObject({
       host: 'sealed-lists-pr-42.example.com',
       https: true,
     })
@@ -182,7 +150,7 @@ describe('Dokploy preview CLI commands', () => {
   })
 
   it('reports a delete for a pull request that has no preview', async () => {
-    vi.stubGlobal('fetch', fakeDokploy())
+    vi.stubGlobal('fetch', fakeDokploy().fetch)
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
 
     await runDokployPreviewCli(['delete'], { ...environment, PR_NUMBER: '42' })
@@ -191,34 +159,18 @@ describe('Dokploy preview CLI commands', () => {
   })
 
   it('prunes only the previews whose pull requests are closed', async () => {
-    const request = fakeDokploy([
-      { applicationId: 'app-7', name: 'example-pr-7' },
-      { applicationId: 'app-9', name: 'example-pr-9' },
-    ])
-    vi.stubGlobal('fetch', request)
+    const server = fakeDokploy({
+      applications: [
+        { applicationId: 'app-7', name: 'example-pr-7' },
+        { applicationId: 'app-9', name: 'example-pr-9' },
+      ],
+    })
+    vi.stubGlobal('fetch', server.fetch)
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
 
     await runDokployPreviewCli(['prune'], { ...environment, OPEN_PR_NUMBERS: '9' })
 
     expect(log).toHaveBeenCalledWith('Deleted example-pr-7')
-    expect(request.deleted).toEqual(['app-7'])
+    expect(server.applications.map((application) => application.applicationId)).toEqual(['app-9'])
   })
 })
-
-function fakeDokploy(applications: { applicationId: string; name: string }[] = []) {
-  const deleted: string[] = []
-  const request = Object.assign(
-    vi.fn<typeof globalThis.fetch>(async (input, init) => {
-      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-      const procedure = url.pathname.slice('/api/'.length)
-      if (procedure === 'environment.one') return Response.json({ applications })
-      if (procedure === 'application.delete') {
-        if (typeof init?.body !== 'string') throw new Error('test expected a JSON string body')
-        deleted.push((JSON.parse(init.body) as { applicationId: string }).applicationId)
-      }
-      return new Response(null)
-    }),
-    { deleted },
-  )
-  return request
-}

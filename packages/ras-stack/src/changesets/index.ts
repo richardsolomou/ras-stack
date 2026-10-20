@@ -2,10 +2,11 @@ import { parseChangesetFile } from '@changesets/parse'
 import { getPackages } from '@manypkg/get-packages'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { errorHasCode } from '../server/errors.js'
 
 export async function checkChangesets(root: string): Promise<string[]> {
-  const files = await readdir(join(root, '.changeset')).catch((error: NodeJS.ErrnoException) => {
-    if (error.code === 'ENOENT') return []
+  const files = await readdir(join(root, '.changeset')).catch((error: unknown) => {
+    if (errorHasCode(error, 'ENOENT')) return []
     throw error
   })
   const changesets = files.filter((file) => file.endsWith('.md') && file !== 'README.md').toSorted()

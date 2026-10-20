@@ -34,4 +34,23 @@ describe('runRasCli', () => {
     expect(error).toHaveBeenCalledWith('usage: ras changesets check')
     expect(process.exitCode).toBe(2)
   })
+
+  it('reports a failed command as a message instead of an uncaught error', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await runRasCli(['preview', 'queued'])
+
+    expect({ calls: error.mock.calls, exitCode: process.exitCode }).toEqual({
+      calls: [['preview state must be awaiting, building, ready, failed, or deleted']],
+      exitCode: 1,
+    })
+  })
+
+  it('reports invalid realtime arguments instead of starting a container', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    await runRasCli(['realtime', '--unknown', 'value'])
+
+    expect({ calls: error.mock.calls, exitCode: process.exitCode }).toEqual({ calls: [[expect.any(String)]], exitCode: 1 })
+  })
 })

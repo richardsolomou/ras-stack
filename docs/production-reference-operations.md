@@ -16,7 +16,7 @@ The reference CSP permits inline script and style because the pinned TanStack St
 
 ## Migrations and rollout
 
-The application applies checked-in Drizzle migrations before constructing Better Auth, workers, or request handlers. The production build copies `drizzle/` into `.output/server/drizzle` and verifies byte-for-byte drift. On the first upgraded start, a compatibility bootstrap renames the old unjournaled `messages` table, applies the migration, and imports its rows under a synthetic legacy owner in one transaction.
+The application applies checked-in Drizzle migrations before constructing Better Auth, workers, or request handlers. The production build copies `drizzle/` into `.output/server/drizzle` and verifies byte-for-byte drift.
 
 Before deploying a schema change:
 
@@ -58,4 +58,4 @@ Upload creation checks the per-user quota and deployment-wide declared-byte/file
 
 ## Supply chain
 
-The runtime-binaries workflow and shared production-image action publish BuildKit provenance and an SBOM. The npm release uses trusted publishing provenance. This repository's full-stack example additionally scans its final image with Anchore and fails CI on fixable high or critical vulnerabilities, proving a concrete policy for the reference artifact. Consumers still own their production image-signing identity, admission rules, vulnerability exceptions and severity policy, registry retention, and remediation workflow because those depend on the deployment platform and risk model.
+The runtime-binaries workflow publishes BuildKit provenance and an SBOM, and the shared production-image action does so by default. The npm release uses trusted publishing provenance. This repository's full-stack example additionally scans its final image with Anchore and fails CI on fixable high or critical vulnerabilities, proving a concrete policy for the reference artifact. Consumers still own their production image-signing identity, admission rules, vulnerability exceptions and severity policy, registry retention, and remediation workflow because those depend on the deployment platform and risk model.

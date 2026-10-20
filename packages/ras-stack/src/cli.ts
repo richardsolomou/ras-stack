@@ -2,13 +2,13 @@
 import { runAssetsCli } from './build/cli.js'
 import { runChangesetsCli } from './changesets/cli.js'
 import { runPreviewCli } from './preview/cli.js'
-import { runRealtimeCli } from './runtime/dev-cli.js'
+import { parseRealtimeDevArguments, runRealtimeDev } from './runtime/dev.js'
 
 const commands = {
   assets: runAssetsCli,
   changesets: runChangesetsCli,
   preview: runPreviewCli,
-  realtime: runRealtimeCli,
+  realtime: (arguments_: string[]) => runRealtimeDev(parseRealtimeDevArguments(arguments_)),
 } as const
 
 export type RasCommand = keyof typeof commands
@@ -26,7 +26,12 @@ export async function runRasCli(arguments_: string[]): Promise<void> {
     process.exitCode = 2
     return
   }
-  await commands[parsed.command](parsed.arguments)
+  try {
+    await commands[parsed.command](parsed.arguments)
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error)
+    process.exitCode = 1
+  }
 }
 
 if (import.meta.main) await runRasCli(process.argv.slice(2))

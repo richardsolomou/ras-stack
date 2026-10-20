@@ -45,9 +45,7 @@ console.log(`${pinned} resolves, covering ${[...platforms].join(' and ')}`)
 
 function gitGrep(term) {
   try {
-    return execFileSync('git', ['grep', '--fixed-strings', '--line-number', term], { cwd: root, encoding: 'utf8' })
-      .split('\n')
-      .filter(Boolean)
+    return execFileSync('git', ['grep', '--fixed-strings', term], { cwd: root, encoding: 'utf8' }).split('\n').filter(Boolean)
   } catch (error) {
     if (error.status === 1) return []
     throw error

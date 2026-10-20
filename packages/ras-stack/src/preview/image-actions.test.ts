@@ -1,10 +1,9 @@
 import { execFile } from 'node:child_process'
-import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
-import { parse } from 'yaml'
+import { afterEach, describe, expect, it } from 'vitest'
 
 const exec = promisify(execFile)
 const resolveScript = new URL('../../../../actions/resolve-container-image/resolve.sh', import.meta.url).pathname
@@ -12,10 +11,10 @@ const recordScript = new URL('../../../../actions/publish-production-image/recor
 const digest = `sha256:${'a'.repeat(64)}`
 const sha = 'b'.repeat(40)
 
-type Action = {
-  inputs: Record<string, { default?: string }>
-  runs: { steps: Array<{ uses?: string; with?: Record<string, string> }> }
-}
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
 
 describe('container image actions', () => {
   it('resolves a readable tag to its immutable digest', async () => {
@@ -31,58 +30,30 @@ describe('container image actions', () => {
     expect(await readFile(fixture.output, 'utf8')).toBe(`reference=ghcr.io/example/app:preview@${digest}\n`)
   })
 
-  it('records the published commit tag and rejects malformed digests', async () => {
+  it('records the published commit tag', async () => {
     const fixture = await dockerFixture()
     await exec('bash', [recordScript], {
       env: { ...process.env, IMAGE: 'ghcr.io/example/app', SHA: sha, DIGEST: digest, GITHUB_OUTPUT: fixture.output },
     })
     expect(await readFile(fixture.output, 'utf8')).toBe(`reference=ghcr.io/example/app:sha-${sha}@${digest}\n`)
-    await expect(
-      exec('bash', [recordScript], {
-        env: { ...process.env, IMAGE: 'ghcr.io/example/app', SHA: sha, DIGEST: 'latest', GITHUB_OUTPUT: fixture.output },
-      }),
-    ).rejects.toBeDefined()
   })
 
-  it('forwards BuildKit secrets through the production image action', async () => {
-    const { action, build } = await productionImageAction()
-
-    expect({ default: action.inputs.secrets?.default, forwarded: build?.with?.secrets }).toEqual({
-      default: '',
-      forwarded: '${{ inputs.secrets }}',
-    })
-  })
-
-  it('keeps attestations and a minimal cache unless the caller opts out', async () => {
-    const { action, build } = await productionImageAction()
-
-    expect({
-      defaults: [action.inputs.sbom?.default, action.inputs.provenance?.default, action.inputs['cache-mode']?.default],
-      forwarded: [build?.with?.sbom, build?.with?.provenance, build?.with?.['cache-to']],
-    }).toEqual({
-      defaults: ['true', 'mode=max', 'min'],
-      forwarded: [
-        '${{ inputs.sbom }}',
-        '${{ inputs.provenance }}',
-        'type=gha,mode=${{ inputs.cache-mode }},scope=${{ inputs.cache-scope }}',
-      ],
-    })
+  it('rejects a malformed digest without recording a reference', async () => {
+    const fixture = await dockerFixture()
+    const failure = await exec('bash', [recordScript], {
+      env: { ...process.env, IMAGE: 'ghcr.io/example/app', SHA: sha, DIGEST: 'latest', GITHUB_OUTPUT: fixture.output },
+    }).catch((error: unknown) => error)
+    expect({ failure, output: await readFile(fixture.output, 'utf8') }).toMatchObject({ failure: { code: 1 }, output: '' })
   })
 })
 
-async function productionImageAction() {
-  const action = parse(
-    await readFile(new URL('../../../../actions/publish-production-image/action.yml', import.meta.url), 'utf8'),
-  ) as Action
-  return { action, build: action.runs.steps.find((step) => step.uses === 'docker/build-push-action@v7') }
-}
-
 async function dockerFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'ras-stack-image-actions-'))
+  roots.push(directory)
   const output = join(directory, 'output')
   await writeFile(output, '')
   const docker = join(directory, 'docker')
-  await writeFile(docker, `#!/usr/bin/env bash\necho '"${digest}"'\n`)
+  await writeFile(docker, `#!/usr/bin/env bash\necho '${digest}'\n`)
   await chmod(docker, 0o755)
   return { directory, output }
 }

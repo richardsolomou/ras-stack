@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { persistedSecret, standardRateLimitOptions, standardSessionOptions } from 'ras-stack/auth'
-import { openDrizzleSqlite, openSqliteClient, type OpenDrizzleSqliteOptions } from 'ras-stack/database/sqlite'
+import { persistedSecret } from 'ras-stack/auth'
+import { bundledDirectory } from 'ras-stack/database'
+import { openDrizzleSqlite } from 'ras-stack/database/sqlite'
 import { createSmtpDelivery, smtpConfigFromEnvironment } from 'ras-stack/email'
 import { postHogEnvironment } from 'ras-stack/posthog'
 import { createManagedPostHogServerTelemetry } from 'ras-stack/posthog/server'
@@ -20,15 +21,15 @@ export function app() {
 function createApp() {
   const environment = loadEnvironment()
   mkdirSync(environment.dataDirectory, { recursive: true })
-  const databaseFile = path.join(environment.dataDirectory, 'example.sqlite')
-  prepareLegacyMessages(databaseFile)
-  const options: OpenDrizzleSqliteOptions<typeof schema> = {
-    file: databaseFile,
+  const database = openDrizzleSqlite({
+    file: path.join(environment.dataDirectory, 'example.sqlite'),
     schema,
-    migrationsFolder: migrationsDirectory(),
-  }
-  const database = openDrizzleSqlite(options)
-  importLegacyMessages(database.$client)
+    migrationsFolder: bundledDirectory({
+      developmentUrl: new URL('../../drizzle', import.meta.url),
+      production: import.meta.env.PROD,
+      name: 'drizzle',
+    }),
+  })
   const smtp = smtpConfigFromEnvironment()
   const email = smtp ? createSmtpDelivery(smtp) : undefined
   let publishFailure: unknown
@@ -55,7 +56,7 @@ function createApp() {
     database,
     email,
     environment,
-    secret: process.env.BETTER_AUTH_SECRET ?? persistedSecret({ directory: environment.dataDirectory, filename: 'auth.secret' }),
+    secret: persistedSecret({ directory: environment.dataDirectory, environmentKey: 'BETTER_AUTH_SECRET' }),
   })
   const outbox = new OutboxWorker({
     database,
@@ -85,47 +86,6 @@ function createApp() {
   return application
 }
 
-function prepareLegacyMessages(file: string) {
-  const client = openSqliteClient(file)
-  try {
-    if (!tableExists(client, 'messages')) return
-    const columns = client.pragma('table_info(messages)') as Array<{ name: string }>
-    if (columns.some((column) => column.name === 'author_id')) return
-    if (tableExists(client, 'messages_legacy')) throw new Error('Both messages and messages_legacy exist; refusing ambiguous migration')
-    client.exec('ALTER TABLE messages RENAME TO messages_legacy')
-  } finally {
-    client.close()
-  }
-}
-
-function importLegacyMessages(client: ReturnType<typeof openSqliteClient>) {
-  if (!tableExists(client, 'messages_legacy')) return
-  client.transaction(() => {
-    const now = Date.now()
-    client
-      .prepare('INSERT OR IGNORE INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, ?, ?, false, ?, ?)')
-      .run('legacy-import', 'Legacy import', 'legacy-import@invalid.example', now, now)
-    client.exec(`INSERT INTO messages (id, author_id, author, body, created_at)
-      SELECT id, 'legacy-import', author, body, created_at FROM messages_legacy;
-      DROP TABLE messages_legacy;`)
-  })()
-}
-
-function tableExists(client: ReturnType<typeof openSqliteClient>, name: string) {
-  return Boolean(client.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name))
-}
-
-function migrationsDirectory() {
-  const directories = [
-    path.resolve(import.meta.dirname, 'drizzle'),
-    path.resolve(import.meta.dirname, '..', 'drizzle'),
-    path.resolve(process.cwd(), 'drizzle'),
-  ]
-  const directory = directories.find((candidate) => existsSync(path.join(candidate, 'meta', '_journal.json')))
-  if (!directory) throw new Error(`Drizzle migrations are missing from ${directories.join(', ')}`)
-  return directory
-}
-
 const closing = new WeakMap<object, Promise<void>>()
 
 export function closeApp(value = app()) {
@@ -151,8 +111,6 @@ export function closeApp(value = app()) {
   closing.set(value, promise)
   return promise
 }
-
-export { standardRateLimitOptions, standardSessionOptions }
 
 function installShutdown(application: ReturnType<typeof createApp>) {
   let started = false

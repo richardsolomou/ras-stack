@@ -33,7 +33,7 @@ An application can use one surface without adopting the others. The npm package 
 | Layer               | Supported technology                           | What `ras-stack` centralizes                                                                        |
 | ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint       | Setup actions and version synchronization                                                           |
-| Web application     | TanStack Start, React                          | Request binding, mutation-origin checks, canonical hosts, health handlers                           |
+| Web application     | TanStack Start, React                          | Request binding, mutation-origin checks, canonical hosts, health handlers, and conformance checks   |
 | Authentication      | Better Auth                                    | Secure option builders, origins, secrets, redirects, failure classification, and React action state |
 | Data                | Drizzle, `better-sqlite3`, libsql, Postgres.js | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks         |
 | Realtime            | Centrifuge, Centrifugo, Caddy                  | Publishing, tokens, browser/React lifecycle, proxy configuration, binaries, and supervision         |

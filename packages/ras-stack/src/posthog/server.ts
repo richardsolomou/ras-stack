@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { setTimeout as delay } from 'node:timers/promises'
 import type { CaptureMetricOptions, PostHog, PostHogOptions, Span, StartSpanOptions } from 'posthog-node'
 import type { RpcErrorContext, RpcLogger, RpcObserver } from '../server/rpc.js'
 import { currentServerFunction } from '../server/server-function.js'
@@ -55,11 +56,7 @@ type PostHogShutdownProcess = {
   kill(pid: number, signal: 'SIGINT' | 'SIGTERM'): void
 }
 
-async function createPostHogServerClient(
-  environment: PostHogEnvironment | undefined,
-  options: Omit<PostHogOptions, 'host'> = {},
-): Promise<PostHog | undefined> {
-  if (!environment) return undefined
+async function createPostHogServerClient(environment: PostHogEnvironment, options: Omit<PostHogOptions, 'host'>) {
   const { PostHog } = await import('posthog-node')
   return new PostHog(environment.projectToken, {
     host: environment.host,
@@ -68,15 +65,9 @@ async function createPostHogServerClient(
   })
 }
 
-async function shutdownPostHogServerClient(client: PostHog | undefined, timeoutMs = 10_000) {
-  assertShutdownTimeout(timeoutMs)
-  // oxlint-disable-next-line no-underscore-dangle -- posthog-node's async shutdown API is named `_shutdown`.
-  await client?._shutdown(timeoutMs)
-}
-
 export function createManagedPostHogServerTelemetry(options: ManagedPostHogServerTelemetryOptions) {
-  let client: Promise<PostHog | undefined> | undefined
-  let logProvider: Promise<LogProvider | undefined> | undefined
+  let client: Promise<PostHog> | undefined
+  let logProvider: Promise<LogProvider> | undefined
   let closed = false
   const context = new AsyncLocalStorage<PostHogTelemetryContext>()
 
@@ -101,7 +92,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
   const getLogProvider = () => {
     if (closed || !options.environment) return undefined
     if (!logProvider) {
-      const pending = createPostHogLogProvider(options)
+      const pending = createPostHogLogProvider(options.environment, options)
       logProvider = pending
       void pending.catch(() => {
         if (logProvider === pending) logProvider = undefined
@@ -150,14 +141,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
   }
 
   async function withRequestContext<T>(request: Request, requestOptions: PostHogRequestContextOptions, work: () => T): Promise<Awaited<T>> {
-    const correlation = postHogRequestContext(request, requestOptions)
-    return withContext(
-      {
-        ...(correlation.distinctId ? { distinctId: correlation.distinctId } : {}),
-        ...(correlation.sessionId ? { sessionId: correlation.sessionId } : {}),
-      },
-      work,
-    )
+    return withContext(postHogRequestContext(request, requestOptions), work)
   }
 
   async function withSpan<T>(name: string, work: (span: PostHogTraceSpan) => T): Promise<Awaited<T>>
@@ -242,7 +226,8 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
       assertShutdownTimeout(timeoutMs)
       closed = true
       const results = await Promise.allSettled([
-        client?.then((value) => shutdownPostHogServerClient(value, timeoutMs)),
+        // oxlint-disable-next-line no-underscore-dangle -- posthog-node's async shutdown API is named `_shutdown`.
+        client?.then((value) => value._shutdown(timeoutMs)),
         logProvider?.then((value) => shutdownPostHogLogProvider(value, timeoutMs)),
       ])
       for (const result of results) if (result.status === 'rejected') report(result.reason)
@@ -368,16 +353,15 @@ export function installPostHogServerTelemetryShutdown(
   return remove
 }
 
-async function createPostHogLogProvider(options: ManagedPostHogServerTelemetryOptions): Promise<LogProvider | undefined> {
-  if (!options.environment) return undefined
+async function createPostHogLogProvider(environment: PostHogEnvironment, options: ManagedPostHogServerTelemetryOptions) {
   const [{ OTLPLogExporter }, { resourceFromAttributes }, { BatchLogRecordProcessor, LoggerProvider }] = await Promise.all([
     import('@opentelemetry/exporter-logs-otlp-http'),
     import('@opentelemetry/resources'),
     import('@opentelemetry/sdk-logs'),
   ])
   const exporter = new OTLPLogExporter({
-    url: `${options.environment.host.replace(/\/$/, '')}/i/v1/logs`,
-    headers: { Authorization: `Bearer ${options.environment.projectToken}` },
+    url: `${environment.host.replace(/\/$/, '')}/i/v1/logs`,
+    headers: { Authorization: `Bearer ${environment.projectToken}` },
   })
   return new LoggerProvider({
     resource: resourceFromAttributes({
@@ -427,19 +411,17 @@ function boundedString(value: string) {
   return value.slice(0, 2_048)
 }
 
-async function shutdownPostHogLogProvider(provider: LogProvider | undefined, timeoutMs: number) {
-  if (!provider) return
-  let timeout: ReturnType<typeof setTimeout> | undefined
+async function shutdownPostHogLogProvider(provider: LogProvider, timeoutMs: number) {
+  const timer = new AbortController()
   try {
     await Promise.race([
       provider.shutdown(),
-      new Promise<never>((_resolve, reject) => {
-        timeout = setTimeout(() => reject(new Error(`PostHog log shutdown timed out after ${timeoutMs}ms`)), timeoutMs)
-        timeout.unref?.()
+      delay(timeoutMs, undefined, { ref: false, signal: timer.signal }).then(() => {
+        throw new Error(`PostHog log shutdown timed out after ${timeoutMs}ms`)
       }),
     ])
   } finally {
-    if (timeout) clearTimeout(timeout)
+    timer.abort()
   }
 }
 

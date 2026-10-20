@@ -13,8 +13,7 @@ case "$owner_type" in
   User) owner_path="users/$owner" ;;
   *) echo "Unsupported GitHub owner type: $owner_type" >&2; exit 1 ;;
 esac
-package="$(jq -rn --arg value "$PREVIEW_PACKAGE" '$value | @uri')"
-endpoint="/$owner_path/packages/container/$package/versions"
+endpoint="/$owner_path/packages/container/$PREVIEW_PACKAGE/versions"
 versions="$(gh api --paginate --slurp "${endpoint}?per_page=100")"
 
 mapfile -t version_ids < <(

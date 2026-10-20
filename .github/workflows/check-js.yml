@@ -38,11 +38,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: ${{ inputs.fetch-depth }}
-      - uses: richardsolomou/ras-stack/actions/require-current-base@v1
-        if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'dependabot/')
-        with:
-          base-sha: ${{ github.event.pull_request.base.sha }}
-          head-sha: ${{ github.event.pull_request.head.sha }}
       - uses: richardsolomou/ras-stack/actions/setup-js@v1
       - if: inputs.just-version != ''
         uses: richardsolomou/ras-stack/actions/setup-just@v1

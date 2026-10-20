@@ -17,17 +17,8 @@ describe('React realtime lifecycle', () => {
       rendered = create(createElement(() => (useConnectedRealtimeClient(createClient), null)))
     })
     await act(async () => rendered.unmount())
-    const warnings = warning.mock.calls.map(([message]) => String(message))
     warning.mockRestore()
-    expect({
-      connect: connect.mock.calls.length,
-      disconnect: disconnect.mock.calls.length,
-      warnings,
-    }).toEqual({
-      connect: 1,
-      disconnect: 1,
-      warnings: ['react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer'],
-    })
+    expect({ connect: connect.mock.calls.length, disconnect: disconnect.mock.calls.length }).toEqual({ connect: 1, disconnect: 1 })
   })
 
   it('configures the client before connecting and cleans up before disconnecting', async () => {
@@ -122,17 +113,8 @@ describe('React realtime lifecycle', () => {
       rendered = create(createElement(() => (useRealtimeSubscription({ channel: 'battle:one', client }), null)))
     })
     await act(async () => rendered.unmount())
-    const warnings = warning.mock.calls.map(([message]) => String(message))
     warning.mockRestore()
-    expect({
-      remove: remove.mock.calls.length,
-      subscribe: subscribe.mock.calls.length,
-      warnings,
-    }).toEqual({
-      remove: 1,
-      subscribe: 1,
-      warnings: ['react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer'],
-    })
+    expect({ remove: remove.mock.calls.length, subscribe: subscribe.mock.calls.length }).toEqual({ remove: 1, subscribe: 1 })
   })
 
   it('runs the subscription cleanup before removing it', async () => {

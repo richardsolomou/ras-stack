@@ -2,9 +2,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const root = path.resolve(import.meta.dirname, '..')
 const temporary = mkdtempSync(path.join(tmpdir(), 'ras-stack-package-'))
 const serverOnly = mkdtempSync(path.join(tmpdir(), 'ras-stack-posthog-server-'))
 

@@ -1,4 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises'
+import { isBuiltin } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
 const tooling = ['build', 'changesets', 'preview']
@@ -35,12 +36,27 @@ describe('module boundaries', () => {
   })
 
   it.each(['tanstack/client.ts', 'tanstack/middleware.ts'])('keeps %s safe for the client transform', async (file) => {
-    const source = await readFile(new URL(file, import.meta.url), 'utf8')
-
-    expect(source).not.toContain('@tanstack/react-start/server')
-    expect(source).not.toContain('../server/index.js')
+    expect(await serverOnlyImports(new URL(file, import.meta.url))).toEqual([])
   })
 })
+
+async function serverOnlyImports(entry: URL, visited = new Set<string>()): Promise<string[]> {
+  if (visited.has(entry.href)) return []
+  visited.add(entry.href)
+  const source = await readFile(entry, 'utf8')
+  // Type-only imports are erased before bundling, so only value imports reach the client.
+  const specifiers = [...source.matchAll(/^(?:import|export)\s+(?!type\s)(?:[^;]*?\sfrom\s+)?'([^']+)'/gm)].map(
+    ([, specifier]) => specifier ?? '',
+  )
+  const found = await Promise.all(
+    specifiers.map(async (specifier) => {
+      if (specifier.startsWith('.')) return serverOnlyImports(new URL(specifier.replace(/\.js$/, '.ts'), entry), visited)
+      const serverOnly = isBuiltin(specifier) || specifier === '@tanstack/react-start/server'
+      return serverOnly ? [`${entry.pathname.split('/src/').at(-1)} ${specifier}`] : []
+    }),
+  )
+  return found.flat()
+}
 
 async function toolingImports(directory: string) {
   const base = new URL(`${directory}/`, import.meta.url)

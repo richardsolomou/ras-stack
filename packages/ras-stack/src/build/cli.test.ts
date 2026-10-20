@@ -1,13 +1,16 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runAssetsCli } from './cli.js'
 
+const roots: string[] = []
+
 describe('server assets CLI', () => {
-  afterEach(() => {
+  afterEach(async () => {
     process.exitCode = undefined
     vi.restoreAllMocks()
+    await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
   })
 
   it('rejects an unrecognized command', async () => {
@@ -52,6 +55,7 @@ describe('server assets CLI', () => {
 
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), 'ras-stack-assets-cli-'))
+  roots.push(root)
   await mkdir(path.join(root, 'drizzle'), { recursive: true })
   await writeFile(path.join(root, 'drizzle/0000.sql'), 'CREATE TABLE example (id integer);')
   await writeFile(

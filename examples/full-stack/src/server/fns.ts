@@ -1,11 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
-import { getRequest } from '@tanstack/react-start/server'
 import { desc } from 'drizzle-orm'
 import { z } from 'zod'
 import { app } from './app'
 import { writeMessage } from './messages'
 import { messages } from './schema'
-import { currentUser } from './session'
+import { currentUser, requireCurrentUser } from './session'
 import { mutationRpc, rpc } from './rpc'
 
 export const snapshot = createServerFn({ method: 'GET' }).handler(() =>
@@ -21,9 +20,7 @@ export const addMessage = createServerFn({ method: 'POST' })
   .validator(z.object({ body: z.string().trim().min(1).max(280) }))
   .handler(({ data }) =>
     mutationRpc(async () => {
-      const request = getRequest()
-      const user = await currentUser(request)
-      if (!user) throw new Response('Sign in first', { status: 401 })
+      const user = await requireCurrentUser()
       const now = new Date()
       const application = app()
       return writeMessage(application.database, application.environment.realtimeEnabled, {

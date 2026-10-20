@@ -8,7 +8,7 @@ describe('published documentation', () => {
       ...(await documentationSources()),
     ])
     const { exports } = JSON.parse(manifestSource) as { exports: Record<string, unknown> }
-    const published = Object.keys(exports).filter((path) => !path.startsWith('./config/'))
+    const published = Object.keys(exports)
     const prose = documentation.join('\n')
 
     expect(published.filter((path) => !prose.includes(`ras-stack/${path.slice(2)}`))).toEqual([])

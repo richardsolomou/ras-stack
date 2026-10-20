@@ -96,9 +96,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=runtime-binaries
       - name: Inspect runtime binaries
         run: |
-          test "$(docker image inspect ras-stack-runtime-binaries:test --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')" = "$(cat runtime/VERSION)"
-          test "$(docker run --rm --entrypoint /usr/local/bin/caddy ras-stack-runtime-binaries:test version)" = 'v2.11.4'
-          docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F 'Centrifugo v6.9.6 '
+          labels="$(docker image inspect ras-stack-runtime-binaries:test --format '{{ json .Config.Labels }}')"
+          test "$(jq -r '."org.opencontainers.image.version"' <<< "$labels")" = "$(cat runtime/VERSION)"
+          test "$(docker run --rm --entrypoint /usr/local/bin/caddy ras-stack-runtime-binaries:test version)" = "v$(jq -r '."dev.ras-stack.caddy.version"' <<< "$labels")"
+          docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F "Centrifugo v$(jq -r '."dev.ras-stack.centrifugo.version"' <<< "$labels") "
       - name: Build production image
         run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
       - name: Scan production image
@@ -116,6 +117,15 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ras-stack-example-backup"
           chmod 0777 "$RUNNER_TEMP/ras-stack-example-backup"
           docker volume create ras-stack-example-data
+          cat > "$RUNNER_TEMP/ras-stack-example.env" <<'EOF'
+          APP_URL=http://127.0.0.1:3110
+          CENTRIFUGO_API_KEY=example-api-key
+          CENTRIFUGO_PROXY_SECRET=example-proxy-secret
+          SMTP_HOST=host.docker.internal
+          SMTP_PORT=1025
+          EMAIL_FROM=ras-stack@example.test
+          EMAIL_REQUIRE_VERIFICATION=false
+          EOF
           docker run -d --name ras-stack-example-e2e \
             --read-only \
             --tmpfs /tmp:rw \
@@ -123,21 +133,9 @@ jobs:
             --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup \
             --add-host=host.docker.internal:host-gateway \
             -p 3110:3100 \
-            -e APP_URL=http://127.0.0.1:3110 \
-            -e CENTRIFUGO_API_KEY=example-api-key \
-            -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
-            -e SMTP_HOST=host.docker.internal \
-            -e SMTP_PORT=1025 \
-            -e EMAIL_FROM=ras-stack@example.test \
-            -e EMAIL_REQUIRE_VERIFICATION=false \
+            --env-file "$RUNNER_TEMP/ras-stack-example.env" \
             ras-stack-example:e2e
-          for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
       - name: Exercise full stack
         run: pnpm --filter @ras-stack/example-full-stack e2e
       - name: Verify persistence and drill backup restore
@@ -147,13 +145,7 @@ jobs:
           test -n "$upload_path"
           test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
           docker restart ras-stack-example-e2e
-          for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
           test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
           curl --fail --silent --cookie-jar /tmp/example-cookies \
             -H 'Content-Type: application/json' \
@@ -191,21 +183,9 @@ jobs:
             --mount source=ras-stack-example-restored-data,target=/data \
             --add-host=host.docker.internal:host-gateway \
             -p 3110:3100 \
-            -e APP_URL=http://127.0.0.1:3110 \
-            -e CENTRIFUGO_API_KEY=example-api-key \
-            -e CENTRIFUGO_PROXY_SECRET=example-proxy-secret \
-            -e SMTP_HOST=host.docker.internal \
-            -e SMTP_PORT=1025 \
-            -e EMAIL_FROM=ras-stack@example.test \
-            -e EMAIL_REQUIRE_VERIFICATION=false \
+            --env-file "$RUNNER_TEMP/ras-stack-example.env" \
             ras-stack-example:e2e
-          for _ in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null; then
-              break
-            fi
-            sleep 1
-          done
-          curl --fail --silent http://127.0.0.1:3110/api/ready >/dev/null
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
           curl --fail --silent --cookie-jar /tmp/restored-example-cookies \
             -H 'Content-Type: application/json' \
             -H 'Origin: http://127.0.0.1:3110' \
@@ -234,7 +214,7 @@ jobs:
         run: |
           docker rm -f ras-stack-example-e2e ras-stack-example-restored ras-stack-example-mailpit 2>/dev/null || true
           docker volume rm ras-stack-example-data ras-stack-example-restored-data 2>/dev/null || true
-          rm -rf "${RUNNER_TEMP:?}/ras-stack-example-backup"
+          rm -rf "${RUNNER_TEMP:?}/ras-stack-example-backup" "${RUNNER_TEMP:?}/ras-stack-example.env"
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -287,24 +267,19 @@ jobs:
           if [[ "$RELEASE_TAG" =~ ^config-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             exit 0
           fi
-          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
           compatibility_tag="v1"
-          version_key() {
-            local major minor patch
-            IFS=. read -r major minor patch <<< "${1#v}"
-            printf '%010d%010d%010d' "$major" "$minor" "$patch"
-          }
           current_sha="$(git ls-remote --tags origin "refs/tags/$compatibility_tag" | awk '{print $1}')"
           if [ -n "$current_sha" ]; then
             current_release="$(git tag --points-at "$current_sha" --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n1)"
-            if [[ ! "$current_release" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            if [[ ! "$current_release" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "Cannot resolve the release behind $compatibility_tag" >&2
               exit 1
             fi
-            if [[ "$(version_key "$current_release")" > "$(version_key "$RELEASE_TAG")" ]]; then
+            if [ "$(printf '%s\n' "$current_release" "$RELEASE_TAG" | sort -V | tail -n1)" != "$RELEASE_TAG" ]; then
               echo "$compatibility_tag already points to newer release $current_release"
               exit 0
             fi

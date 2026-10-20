@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import crypto from 'node:crypto'
 import { requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
+import { app } from '../../server/app'
 import { currentUser } from '../../server/session'
 
 export const Route = createFileRoute('/api/centrifugo/connect')({
@@ -9,7 +10,7 @@ export const Route = createFileRoute('/api/centrifugo/connect')({
       POST: async ({ request }) => {
         if (!proxySecret(request)) return Response.json({ disconnect: { code: 4501, reason: 'unauthorized' } })
         try {
-          requireTanStackMutationOrigin({ configured: [process.env.APP_URL], trustForwardedHeaders: true }, request)
+          requireTanStackMutationOrigin({ configured: [app().environment.appUrl], trustForwardedHeaders: true }, request)
         } catch {
           return Response.json({ disconnect: { code: 4501, reason: 'unauthorized' } })
         }
@@ -23,7 +24,7 @@ export const Route = createFileRoute('/api/centrifugo/connect')({
 })
 
 function proxySecret(request: Request) {
-  const expected = Buffer.from(process.env.CENTRIFUGO_PROXY_SECRET ?? '')
+  const expected = Buffer.from(app().environment.proxySecret)
   const received = Buffer.from(request.headers.get('x-proxy-secret') ?? '')
   return expected.length > 0 && expected.length === received.length && crypto.timingSafeEqual(expected, received)
 }

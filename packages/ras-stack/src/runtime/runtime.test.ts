@@ -4,14 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  caddyRealtimeProxy,
-  caddyRuntimeEnvironment,
-  centrifugoEnvironment,
-  persistedRealtimeSecret,
-  runRealtimeStack,
-  superviseProcesses,
-} from './stack.js'
+import { caddyRealtimeProxy, caddyRuntimeEnvironment, centrifugoEnvironment, persistedRealtimeSecret, runRealtimeStack } from './stack.js'
 
 describe('self-hosted runtime configuration', () => {
   it('builds standard token and Redis Centrifugo environment', () => {
@@ -157,50 +150,30 @@ describe('self-hosted runtime configuration', () => {
     await rm(directory, { recursive: true })
   })
 
-  it('stops every sibling when one process exits', async () => {
-    const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
-    const app = child()
-    const realtime = child()
-    const running = superviseProcesses(
-      [
-        { name: 'app', command: 'app' },
-        { name: 'realtime', command: 'realtime' },
-      ],
-      { signalSource: signals, spawn: ({ name }) => (name === 'app' ? app.process : realtime.process) },
-    )
-    app.exit(2)
-    realtime.exit(0, 'SIGTERM')
-    expect(await running).toBe(2)
-    expect(realtime.kill).toHaveBeenCalledWith('SIGTERM')
-  })
-
-  it('returns success after forwarding an orchestrator signal', async () => {
-    const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
-    const app = child()
-    const running = superviseProcesses([{ name: 'app', command: 'app' }], { signalSource: signals, spawn: () => app.process })
-    signals.emit('SIGTERM')
-    app.exit(0, 'SIGTERM')
-    expect(await running).toBe(0)
-  })
-
-  it('force kills a child that exceeds the shutdown timeout', async () => {
+  it('force kills realtime siblings that outlive the shutdown timeout after one stack process fails', async () => {
     vi.useFakeTimers()
     const signals = new EventEmitter() as EventEmitter & Pick<NodeJS.Process, 'off' | 'once'>
-    const app = child()
-    const running = superviseProcesses([{ name: 'app', command: 'app' }], {
-      signalSource: signals,
-      shutdownTimeoutMs: 10,
-      spawn: () => app.process,
-    })
-    signals.emit('SIGINT')
+    const children = { app: child(), realtime: child(), proxy: child() }
+    const { directory, running } = await startRealtimeStack(children, signals, 10)
+    children.app.exit(2)
     await vi.advanceTimersByTimeAsync(10)
-    await expect(running).resolves.toBe(0)
-    expect(app.kill).toHaveBeenLastCalledWith('SIGKILL')
+    await expect(running).resolves.toBe(2)
+    expect([children.realtime.kill.mock.lastCall, children.proxy.kill.mock.lastCall]).toEqual([['SIGKILL'], ['SIGKILL']])
     vi.useRealTimers()
+    await rm(directory, { recursive: true })
   })
 
   it('rejects invalid runtime configuration before spawning', async () => {
-    await expect(superviseProcesses([], {})).rejects.toThrow('at least one runtime process is required')
+    const directory = await mkdtemp(join(tmpdir(), 'ras-stack-runtime-invalid-'))
+    await expect(
+      runRealtimeStack({
+        app: { command: ' ' },
+        centrifugo: { configPath: '/app/realtime.json', environment: { apiKey: 'api' } },
+        caddy: { configPath: join(directory, 'Caddyfile') },
+        supervisor: { spawn: () => expect.unreachable() },
+      }),
+    ).rejects.toThrow('runtime process app must have a command')
+    await rm(directory, { recursive: true })
     expect(() => caddyRealtimeProxy({ publicPort: 0 })).toThrow('publicPort must be a valid TCP port')
     expect(() => caddyRealtimeProxy({ websocketPath: '//connection/' })).toThrow(
       'websocketPath must be a normalized absolute directory path',

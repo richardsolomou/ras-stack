@@ -1,3 +1,5 @@
+import { loopback } from '../server/canonical-host.js'
+
 export type SpacetimeConnection = {
   /** Origin of the SpacetimeDB host. Plain HTTP is accepted only for loopback or `internalHost`. */
   url: string
@@ -22,7 +24,7 @@ export class SpacetimeRequestError extends Error {
 export function spacetimeDatabaseUrl(connection: Pick<SpacetimeConnection, 'url' | 'database' | 'internalHost'>, path = '') {
   const base = new URL(connection.url)
   const internal = /^[a-z][a-z0-9-]{1,63}$/.test(connection.internalHost ?? '') && base.hostname === connection.internalHost
-  const local = base.protocol === 'http:' && (['localhost', '127.0.0.1'].includes(base.hostname) || internal)
+  const local = base.protocol === 'http:' && (loopback(base.hostname) || internal)
   if ((!local && base.protocol !== 'https:') || base.username || base.password || base.search || base.hash || base.pathname !== '/') {
     throw new Error('Invalid SpacetimeDB URL')
   }

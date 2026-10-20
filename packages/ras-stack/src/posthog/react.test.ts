@@ -23,6 +23,20 @@ vi.mock('@posthog/react', () => ({
   usePostHog: () => posthog,
 }))
 
+const environment = {
+  projectToken: 'phc_test',
+  host: 'https://us.i.posthog.com',
+  uiHost: 'https://us.posthog.com',
+  assetsHost: 'https://us-assets.i.posthog.com',
+}
+
+async function browserOptions(properties: Omit<Parameters<typeof PostHogIntegration>[0], 'environment'> = {}) {
+  const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  await act(async () => void create(createElement(PostHogIntegration, { environment, ...properties }, 'application')))
+  warning.mockRestore()
+  return provider.mock.lastCall?.[0].options
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   posthog['__loaded'] = false
@@ -38,63 +52,62 @@ describe('PostHog React integration', () => {
   })
 
   it('installs the provider and render error boundary with complete defaults', async () => {
-    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await act(async () => {
-      create(
-        createElement(
-          PostHogIntegration,
-          {
-            environment: {
-              projectToken: 'phc_test',
-              host: 'https://us.i.posthog.com',
-              uiHost: 'https://us.posthog.com',
-              assetsHost: 'https://us-assets.i.posthog.com',
-            },
-            service: { name: 'example-web', environment: 'test' },
-          },
-          'application',
-        ),
-      )
+    expect(await browserOptions()).toMatchObject({
+      api_host: '/t',
+      ui_host: 'https://us.posthog.com',
+      defaults: '2026-05-30',
+      capture_exceptions: true,
+      capture_pageview: 'history_change',
+      capture_performance: true,
+      custom_personal_data_properties: ['token'],
+      mask_personal_data_properties: true,
+      person_profiles: 'identified_only',
+      session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture' },
     })
-    warning.mockRestore()
-    expect(provider).toHaveBeenCalledWith(
-      expect.objectContaining({
-        apiKey: 'phc_test',
-        options: expect.objectContaining({
-          api_host: '/t',
-          capture_exceptions: true,
-          capture_pageview: 'history_change',
-          capture_performance: true,
-          person_profiles: 'identified_only',
-          logs: { serviceName: 'example-web', environment: 'test' },
-          metrics: { serviceName: 'example-web', environment: 'test' },
-        }),
-      }),
-    )
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'phc_test' }))
     expect(boundary).toHaveBeenCalledOnce()
   })
 
-  it.each(['/relay', 'https://eu.i.posthog.com'])('routes browser ingestion to %s when configured', async (ingestPath) => {
-    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-    await act(async () => {
-      create(
-        createElement(
-          PostHogIntegration,
-          {
-            environment: {
-              projectToken: 'phc_test',
-              host: 'https://us.i.posthog.com',
-              uiHost: 'https://us.posthog.com',
-              assetsHost: 'https://us-assets.i.posthog.com',
-            },
-            ingestPath,
-          },
-          'application',
-        ),
-      )
+  it('preserves application overrides of the defaults', async () => {
+    expect(
+      await browserOptions({ options: { autocapture: false, capture_exceptions: false, mask_personal_data_properties: false } }),
+    ).toMatchObject({ autocapture: false, capture_exceptions: false, mask_personal_data_properties: false })
+  })
+
+  it('keeps replay privacy defaults when an application overrides one recording option', async () => {
+    const options = await browserOptions({ options: { session_recording: { captureCanvas: { recordCanvas: true } } } })
+    expect(options.session_recording).toEqual({
+      maskAllInputs: true,
+      blockSelector: '.ph-no-capture',
+      captureCanvas: { recordCanvas: true },
     })
-    warning.mockRestore()
-    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({ api_host: ingestPath }) }))
+  })
+
+  it('adds request correlation for the current application host', async () => {
+    vi.stubGlobal('window', { location: { hostname: 'app.example' } })
+    try {
+      expect(await browserOptions()).toMatchObject({ tracing_headers: ['app.example'] })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('configures browser logs and metrics with one service identity', async () => {
+    const service = {
+      serviceName: 'storefront-web',
+      serviceVersion: '1.2.3',
+      environment: 'production',
+      resourceAttributes: { region: 'eu' },
+    }
+    expect(
+      await browserOptions({
+        service: { name: 'storefront-web', version: '1.2.3', environment: 'production', resourceAttributes: { region: 'eu' } },
+      }),
+    ).toMatchObject({ logs: service, metrics: service })
+  })
+
+  it.each(['/relay', 'https://eu.i.posthog.com'])('routes browser ingestion to %s when configured', async (ingestPath) => {
+    expect(await browserOptions({ ingestPath })).toMatchObject({ api_host: ingestPath })
   })
 
   it('reconciles identity after the provider loads', async () => {
@@ -105,12 +118,7 @@ describe('PostHog React integration', () => {
         createElement(
           PostHogIntegration,
           {
-            environment: {
-              projectToken: 'phc_test',
-              host: 'https://us.i.posthog.com',
-              uiHost: 'https://us.posthog.com',
-              assetsHost: 'https://us-assets.i.posthog.com',
-            },
+            environment,
             options: { loaded },
           },
           createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } }),
@@ -134,12 +142,7 @@ describe('PostHog React integration', () => {
         createElement(
           PostHogIntegration,
           {
-            environment: {
-              projectToken: 'phc_test',
-              host: 'https://us.i.posthog.com',
-              uiHost: 'https://us.posthog.com',
-              assetsHost: 'https://us-assets.i.posthog.com',
-            },
+            environment,
           },
           createElement(PostHogBetterAuthIdentity, { authClient: { useSession: () => state } }),
         ),

@@ -28,14 +28,17 @@ runs:
         path: ${{ runner.temp }}/ras-stack-preview-image
         github-token: ${{ inputs.token }}
         run-id: ${{ inputs.run-id }}
+    - uses: docker/login-action@v4
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token }}
     - name: Publish preview image
       shell: bash
       env:
-        GHCR_TOKEN: ${{ inputs.token }}
         SOURCE_IMAGE: ${{ inputs.source-image }}
         TARGET_IMAGE: ${{ inputs.target-image }}
       run: |
         docker load --input "$RUNNER_TEMP/ras-stack-preview-image/preview-image.tar"
         docker tag "$SOURCE_IMAGE" "$TARGET_IMAGE"
-        echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
         docker push "$TARGET_IMAGE"

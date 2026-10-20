@@ -23,7 +23,6 @@
     "@vitejs/plugin-react": "^6.0.5",
     "oxlint": "^1.74.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "ras-stack": "workspace:*",
     "ras-stack-config": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "8.2.1",

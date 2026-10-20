@@ -1,3 +1,8 @@
+import type { databaseTarget } from '../database/index.js'
+import { resolveSqlitePragmas, type SqlitePragmas } from '../database/pragmas.js'
+
+export type { DatabaseTarget } from '../database/index.js'
+
 class ConformanceError extends Error {
   constructor(
     readonly scenario: string,
@@ -46,6 +51,8 @@ export async function assertMutationOriginConformance(
   }
 }
 
+const synchronousLevels = { OFF: 0, NORMAL: 1, FULL: 2, EXTRA: 3 } satisfies Record<Required<SqlitePragmas>['synchronous'], number>
+
 export type SqlitePragmaReader = (name: 'journal_mode' | 'synchronous' | 'busy_timeout' | 'foreign_keys') => unknown
 
 export async function assertSqliteConformance(readPragma: SqlitePragmaReader) {
@@ -55,23 +62,27 @@ export async function assertSqliteConformance(readPragma: SqlitePragmaReader) {
     busyTimeout: Number(await readPragma('busy_timeout')),
     foreignKeys: Number(await readPragma('foreign_keys')),
   }
-  if (values.journalMode !== 'wal' && values.journalMode !== 'memory') {
-    throw new ConformanceError('SQLite journal mode', `expected wal or memory, received ${values.journalMode}`)
+  const expected = resolveSqlitePragmas()
+  const journalMode = expected.journalMode.toLowerCase()
+  if (values.journalMode !== journalMode && values.journalMode !== 'memory') {
+    throw new ConformanceError('SQLite journal mode', `expected ${journalMode} or memory, received ${values.journalMode}`)
   }
-  if (values.synchronous !== 2) {
-    throw new ConformanceError('SQLite synchronous mode', `expected FULL (2), received ${values.synchronous}`)
+  const synchronous = synchronousLevels[expected.synchronous]
+  if (values.synchronous !== synchronous) {
+    throw new ConformanceError(
+      'SQLite synchronous mode',
+      `expected ${expected.synchronous} (${synchronous}), received ${values.synchronous}`,
+    )
   }
-  if (values.busyTimeout !== 5000) {
-    throw new ConformanceError('SQLite busy timeout', `expected 5000, received ${values.busyTimeout}`)
+  if (values.busyTimeout !== expected.busyTimeout) {
+    throw new ConformanceError('SQLite busy timeout', `expected ${expected.busyTimeout}, received ${values.busyTimeout}`)
   }
   if (values.foreignKeys !== 1) {
     throw new ConformanceError('SQLite foreign keys', `expected enabled (1), received ${values.foreignKeys}`)
   }
 }
 
-export type DatabaseTarget = { provider: 'sqlite'; file: string } | { provider: 'postgres'; url: string }
-
-export type DatabaseTargetResolver = (options: { databaseUrl?: string; sqliteFile: string }) => DatabaseTarget
+export type DatabaseTargetResolver = typeof databaseTarget
 
 export function assertDatabaseTargetConformance(resolve: DatabaseTargetResolver) {
   const sqliteFile = '/data/application.sqlite'

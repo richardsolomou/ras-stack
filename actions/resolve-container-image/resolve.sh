@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest.Digest}}' | jq -r .)"
+digest="$(docker buildx imagetools inspect "$IMAGE" --format '{{.Manifest.Digest}}')"
 [[ $digest =~ ^sha256:[0-9a-f]{64}$ ]]
 reference="${IMAGE}@${digest}"
 echo "reference=${reference}" >> "$GITHUB_OUTPUT"

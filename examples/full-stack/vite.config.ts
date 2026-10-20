@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
@@ -19,7 +18,6 @@ export default defineConfig(({ mode }) => {
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   }
   return {
-    resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
     server: { port: 3100, proxy: { '/connection': { target: 'ws://localhost:8100', ws: true }, ...proxy?.vite } },
     build: {
       rollupOptions: {
