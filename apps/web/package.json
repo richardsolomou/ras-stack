@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@tanstack/react-router": "^1.170.18",
+    "@tanstack/react-router": "^1.170.44",
     "@tanstack/react-start": "^1.168.32",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -22,7 +22,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^6.0.5",
     "oxlint": "^1.74.0",
-    "oxlint-tsgolint": "^7.0.2001",
+    "oxlint-tsgolint": "^7.0.2004",
     "ras-stack-config": "workspace:*",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
