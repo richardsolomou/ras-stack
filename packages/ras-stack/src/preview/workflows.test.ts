@@ -10,10 +10,41 @@ type Workflow = {
       secrets?: Record<string, { required?: boolean }>
     }
   }
-  jobs: Record<string, { steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
+  jobs: Record<string, { 'runs-on'?: string; steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
 }
 
 describe('Dokploy preview workflows', () => {
+  it('lets deployment hooks use a runner matching the image architecture', async () => {
+    const deploy = await workflow('deploy-dokploy-preview.yml')
+
+    expect({
+      defaultRunner: deploy.on.workflow_call.inputs.runner?.default,
+      deploymentRunner: deploy.jobs.deploy?.['runs-on'],
+    }).toEqual({
+      defaultRunner: 'ubuntu-latest',
+      deploymentRunner: '${{ inputs.runner }}',
+    })
+  })
+
+  it('forwards one target platform to trusted images and fork artifacts', async () => {
+    const dokploy = await workflow('build-dokploy-preview.yml')
+    const image = await workflow('build-preview-image.yml')
+
+    expect({
+      defaultPlatform: dokploy.on.workflow_call.inputs.platform?.default,
+      forwardedPlatform: dokploy.jobs.build?.with?.platform,
+      imageDefault: image.on.workflow_call.inputs.platform?.default,
+      trustedPlatform: step(image, 'build', 'Build and publish trusted preview image').with?.platforms,
+      forkPlatform: step(image, 'build', 'Build untrusted preview artifact').with?.platforms,
+    }).toEqual({
+      defaultPlatform: 'linux/amd64',
+      forwardedPlatform: '${{ inputs.platform }}',
+      imageDefault: 'linux/amd64',
+      trustedPlatform: '${{ inputs.platform }}',
+      forkPlatform: '${{ inputs.platform }}',
+    })
+  })
+
   it('forwards an optional build secret only to trusted preview builds', async () => {
     const dokploy = await workflow('build-dokploy-preview.yml')
     const image = await workflow('build-preview-image.yml')
