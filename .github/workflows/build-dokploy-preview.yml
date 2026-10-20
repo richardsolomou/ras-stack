@@ -35,6 +35,10 @@ on:
         description: Dockerfile path.
         type: string
         default: Dockerfile
+      platform:
+        description: Single target platform for registry images and Docker fork artifacts.
+        type: string
+        default: linux/amd64
       build-args:
         description: Newline-separated Docker build arguments.
         type: string
@@ -87,6 +91,7 @@ jobs:
       artifact-name: preview-image-${{ github.event.pull_request.number }}
       context: ${{ inputs.context }}
       dockerfile: ${{ inputs.dockerfile }}
+      platform: ${{ inputs.platform }}
       build-args: ${{ inputs.build-args }}
       build-secret-id: ${{ inputs.build-secret-id }}
       cache-scope: ${{ inputs.cache-scope }}

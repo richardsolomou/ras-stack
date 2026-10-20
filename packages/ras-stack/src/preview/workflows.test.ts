@@ -14,6 +14,25 @@ type Workflow = {
 }
 
 describe('Dokploy preview workflows', () => {
+  it('forwards one target platform to trusted images and fork artifacts', async () => {
+    const dokploy = await workflow('build-dokploy-preview.yml')
+    const image = await workflow('build-preview-image.yml')
+
+    expect({
+      defaultPlatform: dokploy.on.workflow_call.inputs.platform?.default,
+      forwardedPlatform: dokploy.jobs.build?.with?.platform,
+      imageDefault: image.on.workflow_call.inputs.platform?.default,
+      trustedPlatform: step(image, 'build', 'Build and publish trusted preview image').with?.platforms,
+      forkPlatform: step(image, 'build', 'Build untrusted preview artifact').with?.platforms,
+    }).toEqual({
+      defaultPlatform: 'linux/amd64',
+      forwardedPlatform: '${{ inputs.platform }}',
+      imageDefault: 'linux/amd64',
+      trustedPlatform: '${{ inputs.platform }}',
+      forkPlatform: '${{ inputs.platform }}',
+    })
+  })
+
   it('forwards an optional build secret only to trusted preview builds', async () => {
     const dokploy = await workflow('build-dokploy-preview.yml')
     const image = await workflow('build-preview-image.yml')
