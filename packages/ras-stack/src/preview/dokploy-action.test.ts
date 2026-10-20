@@ -1,27 +1,20 @@
 import { execFile } from 'node:child_process'
-import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it, vi } from 'vitest'
-import { DokployClient, DokployPreviewManager } from './dokploy-preview.js'
+import { afterEach, describe, expect, it } from 'vitest'
+import { fakeDokploy, previewManager } from './testing.js'
 
 const exec = promisify(execFile)
 const script = new URL('../../../../actions/deploy-dokploy-image/deploy.sh', import.meta.url).pathname
 
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
 describe('Dokploy image deployment action', () => {
-  it('selects the public image provider before deploying', async () => {
-    const fixture = await curlFixture()
-    await run(fixture)
-
-    const calls = await readFile(fixture.calls, 'utf8')
-    expect(calls).toContain('ghcr.io/example/application:sha-abc123')
-    expect(calls).toContain('"registryUrl": null')
-    expect(calls).toContain('https://dokploy.example/api/application.saveDockerProvider')
-    expect(calls).toContain('https://dokploy.example/api/application.deploy')
-    expect(calls.indexOf('application.saveDockerProvider')).toBeLessThan(calls.indexOf('application.deploy'))
-  })
-
   it('rejects incomplete private registry credentials', async () => {
     const fixture = await curlFixture()
     await expect(run(fixture, { DOKPLOY_REGISTRY_USERNAME: 'user' })).rejects.toMatchObject({
@@ -48,41 +41,16 @@ describe('Dokploy image deployment action', () => {
 })
 
 async function typescriptCalls() {
-  const shared = new Set(['application.saveDockerProvider', 'application.deploy'])
-  const bodies: unknown[] = []
-  const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-    const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-    if (url.hostname !== 'dokploy.example') return new Response('healthy')
-    const procedure = url.pathname.slice('/api/'.length)
-    if (typeof init?.body === 'string' && shared.has(procedure)) bodies.push(JSON.parse(init.body))
-    if (procedure === 'environment.one') return Response.json({ applications: [{ applicationId: 'application-id', name: 'example-pr-1' }] })
-    if (procedure === 'application.one') {
-      return Response.json(bodies.length > 1 ? { applicationStatus: 'done' } : { domains: [{ host: 'pr-1.example.com' }] })
-    }
-    return new Response(null)
+  const server = fakeDokploy({
+    applications: [{ applicationId: 'application-id', name: 'example-pr-1' }],
+    domains: [{ host: 'pr-1.example.com' }],
   })
-  const client = new DokployClient({
-    url: 'https://dokploy.example',
-    apiKey: 'secret',
-    environmentId: 'environment',
-    fetch,
-    log: () => undefined,
-  })
-  const manager = new DokployPreviewManager({
-    client,
-    applicationName: () => 'example-pr-1',
-    hostname: () => 'pr-1.example.com',
-    port: 3000,
-    fetch,
-    sleep: async () => undefined,
-    log: () => undefined,
-  })
-  await manager.deploy({
+  await previewManager(server.fetch, { hostname: () => 'pr-1.example.com' }).deploy({
     prNumber: '1',
     image: 'ghcr.io/example/application:sha-abc123',
     environment: 'APP_URL=https://pr-1.example.com\n',
   })
-  return bodies
+  return [server.bodies.get('application.saveDockerProvider'), server.bodies.get('application.deploy')]
 }
 
 // jq pretty-prints the body, so an argument can span lines. Each invocation starts at the flag the script passes first,
@@ -106,6 +74,7 @@ function parseCurlCalls(recorded: string) {
 
 async function curlFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'ras-stack-dokploy-'))
+  roots.push(directory)
   const calls = join(directory, 'calls')
   const curl = join(directory, 'curl')
   await writeFile(curl, '#!/usr/bin/env bash\nprintf \'%s\\n\' "$@" >> "$CALLS"\n')

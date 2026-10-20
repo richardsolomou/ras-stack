@@ -1,5 +1,5 @@
 import { isIP } from 'node:net'
-import { previewHostname } from './dokploy-preview.js'
+import { previewHostname, previewSlug } from './dokploy-preview.js'
 
 type CloudflareDnsRecord = {
   id: string
@@ -99,6 +99,5 @@ export class CloudflarePreviewDns {
 }
 
 function ownerComment(owner: string) {
-  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(owner)) throw new Error('Cloudflare preview DNS owner must be a slug')
-  return `ras-stack preview ${owner}`
+  return `ras-stack preview ${previewSlug(owner, 'Cloudflare preview DNS owner')}`
 }

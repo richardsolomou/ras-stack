@@ -1,8 +1,11 @@
 # syntax=docker/dockerfile:1
+ARG CADDY_VERSION=2.11.4
+ARG CENTRIFUGO_VERSION=6.9.6
+
 FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS centrifugo
 ARG TARGETOS
 ARG TARGETARCH
-ARG CENTRIFUGO_VERSION=6.9.6
+ARG CENTRIFUGO_VERSION
 ARG CENTRIFUGO_COMMIT=f2e575ffe83c62d9b277602bfcce40cf0c2dc9fb
 ARG CENTRIFUGO_SOURCE_SHA256=a3f201cbfc8c26af20f9a0b0894166f2782c68073a034e017cd2ba65830fc9ba
 WORKDIR /src
@@ -17,7 +20,7 @@ RUN wget -q "https://github.com/centrifugal/centrifugo/archive/${CENTRIFUGO_COMM
 FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS caddy
 ARG TARGETOS
 ARG TARGETARCH
-ARG CADDY_VERSION=2.11.4
+ARG CADDY_VERSION
 ARG CADDY_SOURCE_SHA256=2c3d02078286a6282cdb4d1d8744077788d556659dac0b64d8ed5886a7e5aeb9
 WORKDIR /src
 RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VERSION}.tar.gz" -O source.tar.gz \
@@ -30,8 +33,8 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
 
 FROM scratch
 ARG RUNTIME_VERSION=1.0.5
-ARG CADDY_VERSION=2.11.4
-ARG CENTRIFUGO_VERSION=6.9.6
+ARG CADDY_VERSION
+ARG CENTRIFUGO_VERSION
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
       org.opencontainers.image.description="Verified static Caddy and Centrifugo binaries for ras-stack applications." \
       org.opencontainers.image.source="https://github.com/richardsolomou/ras-stack" \

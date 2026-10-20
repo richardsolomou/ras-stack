@@ -20,18 +20,9 @@ export type SupervisorOptions = {
   spawn?: SpawnProcess
 }
 
-export async function superviseProcesses(
-  processes: readonly RuntimeProcess[],
-  options: SupervisorOptions = {},
-  shutdownOrder?: readonly string[],
-) {
-  if (processes.length === 0) throw new Error('at least one runtime process is required')
-  const names = new Set<string>()
+async function superviseProcesses(processes: readonly RuntimeProcess[], options: SupervisorOptions, shutdownOrder: readonly string[]) {
   for (const process of processes) {
-    if (!process.name.trim()) throw new Error('runtime process names must not be empty')
     if (!process.command.trim()) throw new Error(`runtime process ${process.name} must have a command`)
-    if (names.has(process.name)) throw new Error(`duplicate runtime process name: ${process.name}`)
-    names.add(process.name)
   }
 
   const signalSource = options.signalSource ?? process
@@ -62,7 +53,11 @@ export async function superviseProcesses(
     settled = true
     signalSource.off('SIGINT', onSignal)
     signalSource.off('SIGTERM', onSignal)
-    await stopChildren([...children.keys()], shutdownTimeoutMs)
+    const active = [...children.keys()].filter(running)
+    for (const child of active) child.kill('SIGTERM')
+    if (!(await beforeDeadline(Promise.all(active.map((child) => exits.get(child)!)), shutdownTimeoutMs))) {
+      for (const child of active) if (running(child)) child.kill('SIGKILL')
+    }
     resolveResult(status)
   }
   const finishInPhases = async () => {
@@ -71,7 +66,7 @@ export async function superviseProcesses(
     signalSource.off('SIGINT', onSignal)
     signalSource.off('SIGTERM', onSignal)
     const deadline = Date.now() + shutdownTimeoutMs
-    for (const name of shutdownOrder ?? []) {
+    for (const name of shutdownOrder) {
       if (settled) return
       const child = [...children].find(([, childName]) => childName === name)?.[0]
       if (!child || !running(child)) continue
@@ -91,10 +86,7 @@ export async function superviseProcesses(
     settled = true
     resolveResult(0)
   }
-  const onSignal = () => {
-    if (shutdownOrder) void finishInPhases()
-    else void finishImmediately(0)
-  }
+  const onSignal = () => void finishInPhases()
   signalSource.once('SIGINT', onSignal)
   signalSource.once('SIGTERM', onSignal)
 
@@ -122,7 +114,7 @@ export async function superviseProcesses(
   return result
 }
 
-async function beforeDeadline(exited: Promise<void>, timeoutMs: number) {
+async function beforeDeadline(exited: Promise<unknown>, timeoutMs: number) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<false>((resolve) => {
     timer = setTimeout(() => resolve(false), timeoutMs)
@@ -134,24 +126,6 @@ async function beforeDeadline(exited: Promise<void>, timeoutMs: number) {
 
 function running(child: ChildProcess) {
   return child.exitCode === null && child.signalCode === null
-}
-
-async function stopChildren(children: ChildProcess[], timeoutMs: number) {
-  const active = children.filter(running)
-  if (active.length === 0) return
-  const exited = Promise.all(active.map((child) => new Promise<void>((resolve) => child.once('exit', () => resolve())))).then(
-    () => 'exited' as const,
-  )
-  for (const child of active) child.kill('SIGTERM')
-  let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<'timeout'>((resolve) => {
-    timer = setTimeout(() => resolve('timeout'), timeoutMs)
-  })
-  const outcome = await Promise.race([exited, timeout])
-  if (timer) clearTimeout(timer)
-  if (outcome === 'timeout') {
-    for (const child of active) if (running(child)) child.kill('SIGKILL')
-  }
 }
 
 export type CentrifugoEnvironmentOptions = {
@@ -281,13 +255,13 @@ ${options.encode === false ? '' : '\tencode zstd gzip\n'}\troute {
 `
 }
 
-function requiredValue(value: string, name: string) {
-  const normalized = value.trim()
+export function requiredValue(value: string | undefined, name: string) {
+  const normalized = value?.trim()
   if (!normalized) throw new Error(`${name} is required`)
   return normalized
 }
 
-function port(value: number, name: string) {
+export function port(value: number, name: string) {
   if (!Number.isInteger(value) || value < 1 || value > 65_535) throw new Error(`${name} must be a valid TCP port`)
   return value
 }

@@ -77,10 +77,7 @@ function contains(parent: string, child: string) {
 function containedPath(parent: string, child: string, name: string) {
   if (!child.trim()) throw new Error(`${name} must not be empty`)
   const resolved = path.resolve(parent, child)
-  const relative = path.relative(parent, resolved)
-  if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error(`${name} must stay inside ${parent}`)
-  }
+  if (resolved === parent || !contains(parent, resolved)) throw new Error(`${name} must stay inside ${parent}`)
   return resolved
 }
 

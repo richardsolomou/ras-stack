@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { errorHasCode } from '../server/errors.js'
 
 export type RealtimeEnvironmentOptions = {
   prefix?: string
@@ -29,7 +30,7 @@ function secretFromFile(file: string | undefined) {
   try {
     return fs.readFileSync(file, 'utf8').trim() || undefined
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    if (errorHasCode(error, 'ENOENT')) return undefined
     throw error
   }
 }

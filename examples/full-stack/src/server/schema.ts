@@ -130,5 +130,3 @@ export const outbox = sqliteTable(
   },
   (table) => [index('outbox_available_at_idx').on(table.availableAt, table.id)],
 )
-
-export type Message = typeof messages.$inferSelect

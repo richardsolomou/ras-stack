@@ -32,7 +32,7 @@ describe('transactional outbox worker', () => {
       .values({ channel: 'messages:all', payload: JSON.stringify({ id: 1 }), availableAt: now, createdAt: now })
       .run()
     const publish = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined)
-    const worker = new OutboxWorker({ database: app().database, enabled: false, publish, batchSize: 1 })
+    const worker = new OutboxWorker({ database: app().database, enabled: false, publish, batchSize: 1, onError: vi.fn() })
     await worker.drain()
     const retained = app().database.select().from(outbox).get()!
     expect(retained.attempts).toBe(1)
@@ -55,7 +55,7 @@ describe('transactional outbox worker', () => {
       ])
       .run()
     const publish = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
-    const worker = new OutboxWorker({ database: app().database, enabled: false, publish })
+    const worker = new OutboxWorker({ database: app().database, enabled: false, publish, onError: vi.fn() })
     await worker.drain()
     await worker.drain()
     expect(publish).toHaveBeenCalledTimes(1)
@@ -78,6 +78,7 @@ describe('transactional outbox worker', () => {
       enabled: false,
       publish: vi.fn().mockRejectedValue(new Error('offline')),
       maxAttempts: 2,
+      onError: vi.fn(),
     })
     await worker.drain()
     app()
@@ -114,7 +115,7 @@ describe('transactional outbox worker', () => {
   })
 
   it('propagates the final drain failure during close', async () => {
-    const worker = new OutboxWorker({ database: app().database, enabled: true, publish: vi.fn() })
+    const worker = new OutboxWorker({ database: app().database, enabled: true, publish: vi.fn(), onError: vi.fn() })
     vi.spyOn(worker, 'drain').mockRejectedValue(new Error('database unavailable'))
     await expect(worker.close()).rejects.toThrow('database unavailable')
   })

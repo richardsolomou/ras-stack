@@ -18,7 +18,7 @@ export class OutboxWorker {
       intervalMs?: number
       batchSize?: number
       maxAttempts?: number
-      onError?: (error: unknown) => void
+      onError: (error: unknown) => void
     },
   ) {}
 
@@ -47,10 +47,7 @@ export class OutboxWorker {
   private scheduleDrain() {
     if (this.scheduled) return
     const scheduled = this.drain()
-      .catch((error: unknown) => {
-        if (this.options.onError) this.options.onError(error)
-        else console.error({ event: 'example_outbox_drain_failed', error })
-      })
+      .catch(this.options.onError)
       .finally(() => {
         if (this.scheduled === scheduled) this.scheduled = undefined
       })

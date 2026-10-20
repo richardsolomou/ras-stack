@@ -7,7 +7,7 @@
 The reference proves one production-shaped vertical slice:
 
 - Better Auth 1.7 with its React client, Drizzle adapter, database sessions, email/password sign-up, sign-in, sign-out, email verification, and password reset.
-- A checked-in Drizzle migration copied into the Nitro server output through `ras assets`, plus a compatibility bootstrap that preserves rows from the pre-migration `messages` table.
+- A checked-in Drizzle migration copied into the Nitro server output through `ras assets`.
 - SQLite messages, user-owned upload metadata, and a durable transactional outbox.
 - Filesystem-backed TUS content with metadata validation, per-user and deployment-wide limits, offset recovery after a partial write, completed-file retention, and bounded stale-upload cleanup.
 - SMTP delivery through Nodemailer when configured, with Mailpit as the deterministic CI sink.
@@ -16,7 +16,7 @@ The reference proves one production-shaped vertical slice:
 
 ## Local development
 
-Copy `.env.example` to `.env` and replace the development secrets. Start a local SMTP sink if email verification and password reset should be exercised; Mailpit listens on SMTP port 1025 and web port 8025 in the CI example.
+Copy `.env.example` to `.env` and replace `BETTER_AUTH_SECRET`. `CENTRIFUGO_API_KEY` and `CENTRIFUGO_PROXY_SECRET` must match the `--secret` the `realtime` script passes to Centrifugo. Start a local SMTP sink if email verification and password reset should be exercised; Mailpit listens on SMTP port 1025 and web port 8025 in the CI example.
 
 Run the pinned realtime container and Vite in separate terminals:
 

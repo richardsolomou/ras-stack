@@ -6,17 +6,17 @@ import { outboxStatus } from '../../server/outbox'
 
 export const readinessHandler = tanStackHealthHandler(
   async () => {
-    try {
-      app().database.get(sql`SELECT 1`)
-      const status = outboxStatus(app().database)
-      if (status.failed > 0) throw new Error(`Realtime outbox has ${status.failed} dead-lettered item(s)`)
-      await app().email?.verify()
-    } catch (error) {
-      console.error({ event: 'example_readiness_failed', error })
-      throw error
-    }
+    app().database.get(sql`SELECT 1`)
+    const status = outboxStatus(app().database)
+    if (status.failed > 0) throw new Error(`Realtime outbox has ${status.failed} dead-lettered item(s)`)
+    await app().email?.verify()
   },
-  { failure: () => ({ code: 'dependency_unavailable', message: 'required dependency unavailable' }) },
+  {
+    failure: (error) => {
+      console.error({ event: 'example_readiness_failed', error })
+      return { code: 'dependency_unavailable', message: 'required dependency unavailable' }
+    },
+  },
 )
 
 export const Route = createFileRoute('/api/ready')({

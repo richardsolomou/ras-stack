@@ -190,6 +190,25 @@ describe('PostHog server integration', () => {
     expect(logFlush).toHaveBeenCalledOnce()
   })
 
+  it('bounds log bodies and attributes before export', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    const filler = Object.fromEntries(Array.from({ length: 70 }, (_, index) => [`extra${index}`, index]))
+    await telemetry.log({
+      body: 'b'.repeat(3_000),
+      attributes: { long: 'a'.repeat(3_000), nested: [[[['deep']]]], circular, ...filler },
+    })
+    const record = emit.mock.lastCall?.[0]
+    expect({
+      body: record.body.length,
+      long: record.attributes.long.length,
+      nested: record.attributes.nested,
+      circular: record.attributes.circular,
+      keys: Object.keys(record.attributes).length,
+    }).toEqual({ body: 2_048, long: 2_048, nested: [[['[Truncated]']]], circular: '[Unserializable value]', keys: 64 })
+  })
+
   it('links traces, logs, and exceptions to trusted browser request context', async () => {
     const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
     const request = new Request('https://example.com/action', {
@@ -200,7 +219,10 @@ describe('PostHog server integration', () => {
       await telemetry.log({ body: 'request completed' })
       await telemetry.exception(new Error('failure'))
     })
-    expect(withContext).toHaveBeenCalledWith({ distinctId: 'person-1', sessionId: 'session-1' }, expect.any(Function))
+    expect(withContext).toHaveBeenCalledWith(
+      { distinctId: 'person-1', sessionId: 'session-1', properties: { $session_id: 'session-1' } },
+      expect.any(Function),
+    )
     expect(emit).toHaveBeenCalledWith(expect.objectContaining({ attributes: { posthogDistinctId: 'person-1', sessionId: 'session-1' } }))
     expect(captureException).toHaveBeenCalledWith(expect.any(Error), 'person-1', { $session_id: 'session-1' })
   })

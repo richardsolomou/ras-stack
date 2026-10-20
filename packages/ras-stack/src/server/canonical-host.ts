@@ -19,6 +19,6 @@ export function canonicalRedirect(requestUrl: string, options: CanonicalRedirect
   }
 }
 
-function loopback(hostname: string) {
+export function loopback(hostname: string) {
   return hostname === 'localhost' || hostname === '[::1]' || /^127(?:\.\d{1,3}){3}$/.test(hostname)
 }

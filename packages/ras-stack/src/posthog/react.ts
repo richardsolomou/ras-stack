@@ -1,8 +1,9 @@
 import { PostHogErrorBoundary, PostHogProvider, usePostHog } from '@posthog/react'
 import { createContext, createElement, type ReactNode, useContext, useEffect, useRef, useState } from 'react'
 import type { PostHogConfig, Properties } from 'posthog-js'
-import { postHogBrowserOptions } from './client.js'
 import { POSTHOG_DEFAULT_INGEST_PATH, type PostHogBrowserService, type PostHogEnvironment } from './config.js'
+
+const POSTHOG_BROWSER_DEFAULTS = '2026-05-30'
 
 const PostHogLoadedContext = createContext(true)
 
@@ -25,25 +26,37 @@ export function PostHogIntegration({
   const loadedRef = useRef(options?.loaded)
   loadedRef.current = options?.loaded
   if (!environment) return children
-  const tracingHostnames = typeof window === 'undefined' ? undefined : [window.location.hostname]
+  const { session_recording: sessionRecording, ...overrides } = options ?? {}
+  const serviceOptions = service
+    ? {
+        serviceName: required(service.name, 'service.name'),
+        ...(service.version ? { serviceVersion: service.version } : {}),
+        ...(service.environment ? { environment: service.environment } : {}),
+        ...(service.resourceAttributes ? { resourceAttributes: service.resourceAttributes } : {}),
+      }
+    : undefined
+  const browserOptions: Partial<PostHogConfig> = {
+    api_host: required(ingestPath, 'apiHost'),
+    ui_host: environment.uiHost,
+    defaults: POSTHOG_BROWSER_DEFAULTS,
+    capture_exceptions: true,
+    capture_pageview: 'history_change',
+    capture_performance: true,
+    custom_personal_data_properties: ['token'],
+    mask_personal_data_properties: true,
+    person_profiles: 'identified_only',
+    session_recording: { maskAllInputs: true, blockSelector: '.ph-no-capture', ...sessionRecording },
+    ...(serviceOptions ? { logs: serviceOptions, metrics: serviceOptions } : {}),
+    ...(typeof window === 'undefined' ? {} : { tracing_headers: [window.location.hostname] }),
+    ...overrides,
+    loaded: (posthog) => {
+      setIsLoaded(true)
+      loadedRef.current?.(posthog)
+    },
+  }
   return createElement(
     PostHogProvider,
-    {
-      apiKey: environment.projectToken,
-      options: postHogBrowserOptions({
-        apiHost: ingestPath,
-        uiHost: environment.uiHost,
-        ...(tracingHostnames ? { tracingHostnames } : {}),
-        ...(service ? { service } : {}),
-        options: {
-          ...options,
-          loaded: (posthog) => {
-            setIsLoaded(true)
-            loadedRef.current?.(posthog)
-          },
-        },
-      }),
-    },
+    { apiKey: environment.projectToken, options: browserOptions },
     createElement(PostHogLoadedContext.Provider, { value: isLoaded }, createElement(PostHogErrorBoundary, { fallback }, children)),
   )
 }
@@ -89,4 +102,10 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
   }, [isReady, posthog, session.data?.user, session.error, session.isPending])
 
   return null
+}
+
+function required(value: string, name: string) {
+  const normalized = value.trim()
+  if (!normalized) throw new Error(`${name} is required`)
+  return normalized
 }

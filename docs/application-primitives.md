@@ -193,7 +193,7 @@ The package does not make SQLite and PostgreSQL queries look identical. Applicat
 Consumer tests can verify the real provider selection and provider-specific safety settings without sharing a schema or repository:
 
 ```ts
-import { assertDatabaseTargetConformance, assertSqliteConformance } from 'ras-stack/conformance'
+import { assertDatabaseTargetConformance, assertMutationOriginConformance, assertSqliteConformance } from 'ras-stack/conformance'
 
 await assertDatabaseTargetConformance(databaseTarget)
 await assertSqliteConformance((name) => sqliteClient.pragma(name, { simple: true }))
@@ -203,6 +203,12 @@ With libsql, read each PRAGMA through the client:
 
 ```ts
 await assertSqliteConformance(async (name) => (await database.$client.execute(`pragma ${name}`)).rows[0]?.[0])
+```
+
+The same entrypoint checks the mutation-origin guard the application passes to `createTanStackRpc` or its routes:
+
+```ts
+await assertMutationOriginConformance(requireMutation)
 ```
 
 ## Realtime updates
@@ -256,6 +262,8 @@ const createClient = useCallback(() => createSameOriginRealtimeClient({ getToken
 const client = useConnectedRealtimeClient(createClient)
 const subscription = useRealtimeSubscription({ client, channel, options, configure })
 ```
+
+For server-side subscriptions the connection token grants, `watchServerChannel(client, channel, { publication, unrecovered })` from `ras-stack/realtime/client` delivers that channel's publications, calls `unrecovered` when a resubscription could not recover missed publications so the application can refetch, and returns a cleanup function that removes both listeners.
 
 The client factory may return a client or a promise, so applications can fetch and validate an initial ticket before connecting. Pass `onError` as the third argument to handle asynchronous ticket failures. A client that resolves after unmount is disconnected without ever connecting. The factory, error handler, subscription options, and configure callback should have stable identities and change only when their corresponding lifecycle should restart.
 

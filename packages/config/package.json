@@ -28,7 +28,6 @@
     "access": "public"
   },
   "scripts": {
-    "check": "tsc -p test/consumer/tsconfig.json && tsc -p test/consumer/tsconfig-bundler.json && tsc -p test/consumer/tsconfig-library.json && oxlint --config config/oxlint/application.json --print-config > /dev/null && oxlint --config config/oxlint/tanstack.json --print-config > /dev/null",
     "test": "vitest run test/boundaries.test.ts",
     "package:check": "node scripts/checkPackedPackage.mjs"
   },

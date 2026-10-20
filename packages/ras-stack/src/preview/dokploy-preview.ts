@@ -1,5 +1,6 @@
 import { appendFileSync } from 'node:fs'
 import { BlockList, isIP } from 'node:net'
+import { optionalEnvironment, requiredEnvironment } from './environment.js'
 
 export type DokployApplication = { applicationId: string; name: string; serverId?: string | null }
 
@@ -10,11 +11,9 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
   if (Boolean(username) !== Boolean(password)) throw new Error('preview registry username and password must be configured together')
   const port = Number(requiredEnvironment(environment, 'PREVIEW_PORT'))
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error('PREVIEW_PORT must be a valid port')
-  const applicationPrefix = requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX')
-  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(applicationPrefix)) throw new Error('PREVIEW_APPLICATION_PREFIX must be a slug')
+  const applicationPrefix = previewSlug(requiredEnvironment(environment, 'PREVIEW_APPLICATION_PREFIX'), 'PREVIEW_APPLICATION_PREFIX')
   const domain = optionalEnvironment(environment, 'PREVIEW_DOMAIN')
-  const subdomainPrefix = optionalEnvironment(environment, 'PREVIEW_SUBDOMAIN_PREFIX') ?? 'pr'
-  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(subdomainPrefix)) throw new Error('PREVIEW_SUBDOMAIN_PREFIX must be a slug')
+  const subdomainPrefix = previewSlug(optionalEnvironment(environment, 'PREVIEW_SUBDOMAIN_PREFIX') ?? 'pr', 'PREVIEW_SUBDOMAIN_PREFIX')
   if (domain) previewHostname(`${subdomainPrefix}-1.${domain}`)
   const config = {
     url: requiredEnvironment(environment, 'DOKPLOY_URL'),
@@ -28,12 +27,16 @@ export function dokployPreviewFromEnvironment(environment: NodeJS.ProcessEnv = p
     ...(username && password ? { registry: { username, password } } : {}),
   }
   const client = new DokployClient(config)
+  const applicationName = (prNumber: string) => `${applicationPrefix}-pr-${prNumber}`
+  const hostname = domain ? (prNumber: string) => `${subdomainPrefix}-${prNumber}.${domain}` : undefined
   return {
     config,
+    applicationName,
+    hostname,
     manager: new DokployPreviewManager({
       client,
-      applicationName: (prNumber) => `${applicationPrefix}-pr-${prNumber}`,
-      ...(domain ? { hostname: (prNumber: string) => `${subdomainPrefix}-${prNumber}.${domain}` } : {}),
+      applicationName,
+      ...(hostname ? { hostname } : {}),
       port,
       ...(config.healthPath ? { healthPath: config.healthPath } : {}),
       ...(githubOutput ? { onResolved: ({ url }: { url: string }) => appendFileSync(githubOutput, `preview-url=${url}\n`) } : {}),
@@ -276,7 +279,6 @@ export class DokployPreviewManager {
       await this.pause(this.options.pollIntervalMs ?? 5_000)
       let applicationStatus: string
       try {
-        // Polling is intentionally sequential; each response determines whether another request is needed.
         // oxlint-disable-next-line no-await-in-loop
         const details = await this.options.client.api<{ applicationStatus: string }>('application.one', {
           query: { applicationId },
@@ -298,7 +300,6 @@ export class DokployPreviewManager {
     let lastFailure = 'no response'
     while (this.now() < deadline) {
       try {
-        // Polling is intentionally sequential; each response determines whether another request is needed.
         // oxlint-disable-next-line no-await-in-loop
         const response = await this.request(url, { signal: AbortSignal.timeout(Math.max(1, deadline - this.now())) })
         if (response.status === 200) return
@@ -315,6 +316,11 @@ export class DokployPreviewManager {
 
 export function pullRequestNumber(value: string) {
   if (!/^\d+$/.test(value)) throw new Error('pull request number must contain only digits')
+  return value
+}
+
+export function previewSlug(value: string, name: string) {
+  if (!/^[a-z\d](?:[a-z\d-]*[a-z\d])?$/.test(value)) throw new Error(`${name} must be a slug`)
   return value
 }
 
@@ -399,19 +405,8 @@ function previewServerIp(value: unknown) {
 }
 
 function previewApplicationPrNumber(name: string, applicationName: (prNumber: string) => string) {
-  const match = /^(\d+)$/.exec(name.match(/(\d+)$/)?.[1] ?? '')
-  const prNumber = match?.[1]
+  const prNumber = name.match(/(\d+)$/)?.[1]
   return prNumber && applicationName(prNumber) === name ? prNumber : undefined
-}
-
-function requiredEnvironment(environment: NodeJS.ProcessEnv, name: string) {
-  const value = optionalEnvironment(environment, name)
-  if (!value) throw new Error(`${name} is required`)
-  return value
-}
-
-function optionalEnvironment(environment: NodeJS.ProcessEnv, name: string) {
-  return environment[name]?.trim() || undefined
 }
 
 // Deploy scripts receive product secrets as one JSON object; an unknown key is a mistake, not a passthrough.

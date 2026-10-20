@@ -15,7 +15,8 @@ export function loadEnvironment(environment: NodeJS.ProcessEnv = process.env) {
     throw new Error('CENTRIFUGO_API_URL and CENTRIFUGO_API_KEY must be configured together')
   }
   const realtimeEnabled = Boolean(centrifugoApiUrl)
-  if (production && realtimeEnabled && !environment.CENTRIFUGO_PROXY_SECRET?.trim()) {
+  const proxySecret = environment.CENTRIFUGO_PROXY_SECRET ?? ''
+  if (production && realtimeEnabled && !proxySecret.trim()) {
     throw new Error('CENTRIFUGO_PROXY_SECRET is required when realtime is enabled in production')
   }
   const uploadMaxBytes = positiveInteger(environment.UPLOAD_MAX_BYTES ?? '1000000', 'UPLOAD_MAX_BYTES')
@@ -30,6 +31,7 @@ export function loadEnvironment(environment: NodeJS.ProcessEnv = process.env) {
     centrifugoApiUrl,
     dataDirectory,
     production,
+    proxySecret,
     realtimeEnabled,
     requireEmailVerification,
     trustProxy,

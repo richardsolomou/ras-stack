@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runPreviewCli } from './cli.js'
+import { requestUrl } from './testing.js'
 
 const dokployEnvironment = {
   DOKPLOY_URL: 'https://dokploy.example',
@@ -60,8 +61,4 @@ describe('preview CLI', () => {
 
 function stubEnvironment(environment: Record<string, string>) {
   for (const [name, value] of Object.entries(environment)) vi.stubEnv(name, value)
-}
-
-function requestUrl(input: RequestInfo | URL) {
-  return new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
 }

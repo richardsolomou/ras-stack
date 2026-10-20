@@ -1,66 +1,68 @@
 import { pullRequestNumber } from './dokploy-preview.js'
-
-export type PreviewStatusState = 'awaiting' | 'building' | 'ready' | 'failed' | 'deleted'
+import type { PreviewStatusState } from './environment.js'
 
 export type GitHubPreviewOptions = {
   repository: string
   token: string
   marker: string
   note?: string
-  checkName?: string
   fetch?: typeof fetch
 }
 
-export type PreviewStatus =
-  | { state: 'deleted'; prNumber: string }
+type ActivePreviewStatus =
+  | { state: 'ready'; prNumber: string; sha: string; previewUrl: string; runUrl?: string }
   | {
-      state: Exclude<PreviewStatusState, 'deleted'>
+      state: Exclude<PreviewStatusState, 'deleted' | 'ready'>
       prNumber: string
       sha: string
       previewUrl?: string
       runUrl?: string
     }
 
+export type PreviewStatus = { state: 'deleted'; prNumber: string } | ActivePreviewStatus
+
 type Check = { id: number }
 type Comment = { id: number; body?: string }
+
+const checkName = 'PR preview deploy'
 
 export async function reportPreviewStatus(options: GitHubPreviewOptions, status: PreviewStatus) {
   const repository = githubRepository(options.repository)
   const marker = commentMarker(options.marker)
-  if (!options.token) throw new Error('GitHub token is required')
   const prNumber = pullRequestNumber(status.prNumber)
   const request = options.fetch ?? fetch
   const api = <T>(path: string, init?: RequestInit) => github<T>(request, options.token, `/repos/${repository}${path}`, init)
 
-  if (status.state !== 'deleted') {
-    const sha = commitSha(status.sha)
-    if (status.state === 'ready' && !status.previewUrl) throw new Error('preview URL is required for ready preview status')
-    if (status.previewUrl) webUrl(status.previewUrl, 'preview URL')
-    if (status.runUrl) webUrl(status.runUrl, 'workflow run URL')
-    await updateCheck(api, options.checkName ?? 'PR preview deploy', sha, status)
-  }
+  const validated = status.state === 'deleted' ? status : activeStatus(status)
+  if (validated.state !== 'deleted') await updateCheck(api, validated)
   const comments = await issueComments(api, prNumber)
   const existing = comments.find((comment) => comment.body?.includes(marker))
-  const body = previewComment({ ...options, marker }, status, existing?.body)
+  const body = previewComment({ ...options, marker }, validated, existing?.body)
   if (existing) await api(`/issues/comments/${existing.id}`, jsonRequest('PATCH', { body }))
   else await api(`/issues/${prNumber}/comments`, jsonRequest('POST', { body }))
 }
 
-async function updateCheck(
-  api: <T>(path: string, init?: RequestInit) => Promise<T>,
-  name: string,
-  sha: string,
-  status: Extract<PreviewStatus, { state: Exclude<PreviewStatusState, 'deleted'> }>,
-) {
-  const checks = await api<{ check_runs: Check[] }>(`/commits/${sha}/check-runs?check_name=${encodeURIComponent(name)}&filter=latest`)
+function activeStatus(status: ActivePreviewStatus): ActivePreviewStatus {
+  return {
+    ...status,
+    sha: commitSha(status.sha),
+    ...(status.previewUrl ? { previewUrl: webUrl(status.previewUrl, 'preview URL') } : {}),
+    ...(status.runUrl ? { runUrl: webUrl(status.runUrl, 'workflow run URL') } : {}),
+  }
+}
+
+async function updateCheck(api: <T>(path: string, init?: RequestInit) => Promise<T>, status: ActivePreviewStatus) {
+  const checks = await api<{ check_runs: Check[] }>(
+    `/commits/${status.sha}/check-runs?check_name=${encodeURIComponent(checkName)}&filter=latest`,
+  )
   const state = checkState(status.state)
   const body = {
-    name,
-    head_sha: sha,
+    name: checkName,
+    head_sha: status.sha,
     status: state.status,
     ...(state.conclusion ? { conclusion: state.conclusion } : {}),
-    ...(status.runUrl ? { details_url: webUrl(status.runUrl, 'workflow run URL') } : {}),
-    output: { title: name, summary: state.summary },
+    ...(status.runUrl ? { details_url: status.runUrl } : {}),
+    output: { title: checkName, summary: state.summary },
   }
   const existing = checks.check_runs[0]
   if (existing) await api(`/check-runs/${existing.id}`, jsonRequest('PATCH', body))
@@ -75,19 +77,19 @@ async function issueComments(api: <T>(path: string, init?: RequestInit) => Promi
 
 function previewComment(options: GitHubPreviewOptions, status: PreviewStatus, previous?: string) {
   if (status.state === 'deleted') return `${options.marker}\n🗑️ Preview deleted because this pull request was closed.`
-  const sha = commitSha(status.sha).slice(0, 7)
+  const sha = status.sha.slice(0, 7)
   const standingSha = previous?.match(/up to date with commit `([0-9a-f]{7})`/)?.[1]
   const standing = standingSha ? ` The preview of \`${standingSha}\` stays up until it does.` : ''
   const heading = {
     awaiting: `⏸️ The preview of \`${sha}\` is waiting for a maintainer to approve its build.${standing}`,
     building: `🔄 Deploying \`${sha}\`.${standing}`,
     ready: `✅ Preview is up to date with commit \`${sha}\`.`,
-    failed: `❌ Deploying commit \`${sha}\` failed${status.runUrl ? ` ([workflow run](${webUrl(status.runUrl, 'workflow run URL')}))` : ''}. The preview may be stale or unavailable.`,
+    failed: `❌ Deploying commit \`${sha}\` failed${status.runUrl ? ` ([workflow run](${status.runUrl}))` : ''}. The preview may be stale or unavailable.`,
   }[status.state]
   return [
     options.marker,
     heading,
-    ...(status.previewUrl ? ['', `Preview: ${webUrl(status.previewUrl, 'preview URL')}`] : []),
+    ...(status.previewUrl ? ['', `Preview: ${status.previewUrl}`] : []),
     ...(options.note ? ['', options.note] : []),
   ].join('\n')
 }

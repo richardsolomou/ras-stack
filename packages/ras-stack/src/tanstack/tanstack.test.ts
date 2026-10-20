@@ -3,23 +3,34 @@ import { currentServerFunction } from '../server/server-function.js'
 import { canonicalHostMiddleware, serverFunctionIdentityMiddleware, staleServerFunctionMiddleware } from './middleware.js'
 import { createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from './server.js'
 
+const ambient = vi.hoisted(() => ({ request: new Request('https://example.com/action', { method: 'POST' }) }))
+vi.mock('@tanstack/react-start/server', () => ({ getRequest: () => ambient.request }))
+
 describe('TanStack RPC integration', () => {
   it('uses the ambient request for mutation policy', async () => {
-    const request = new Request('https://example.com/action', { method: 'POST' })
     const requireMutation = vi.fn()
-    const { mutationRpc } = createTanStackRpc({ getRequest: () => request, requireMutation })
+    const { mutationRpc } = createTanStackRpc({ requireMutation })
 
-    await expect(mutationRpc(() => 'saved')).resolves.toBe('saved')
-    expect(requireMutation).toHaveBeenCalledWith(request)
+    await mutationRpc(() => 'saved')
+    expect(requireMutation).toHaveBeenCalledWith(ambient.request)
   })
 
-  it('applies same-origin policy to an explicit request', () => {
+  it('accepts a same-origin request', () => {
     const request = new Request('https://example.com/action', {
       method: 'POST',
       headers: { origin: 'https://example.com' },
     })
 
     expect(() => requireTanStackMutationOrigin({}, request)).not.toThrow()
+  })
+
+  it('rejects a cross-origin request', () => {
+    const request = new Request('https://example.com/action', {
+      method: 'POST',
+      headers: { origin: 'https://attacker.example' },
+    })
+
+    expect(() => requireTanStackMutationOrigin({}, request)).toThrow(expect.objectContaining({ status: 403 }))
   })
 
   it('builds a health handler around an application-owned check', async () => {

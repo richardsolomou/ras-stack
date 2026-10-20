@@ -8,7 +8,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "oxlint --config oxlint.json --type-aware --deny-warnings .",
-    "realtime": "ras realtime --config centrifugo.json --name ras-stack-example-realtime --port 8100 --origin http://localhost:3100 --secret example-development-secret --connect-proxy-endpoint http://host.docker.internal:3100/api/centrifugo/connect",
+    "realtime": "node ../../packages/ras-stack/dist/cli.js realtime --config centrifugo.json --name ras-stack-example-realtime --port 8100 --origin http://localhost:3100 --secret example-development-secret --connect-proxy-endpoint http://host.docker.internal:3100/api/centrifugo/connect",
     "e2e": "playwright test",
     "test": "vitest run --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
@@ -17,8 +17,6 @@
     "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@better-auth/core": "1.7.1",
-    "@better-auth/drizzle-adapter": "1.7.1",
     "@opentelemetry/api-logs": "^0.223.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",

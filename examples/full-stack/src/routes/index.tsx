@@ -53,13 +53,9 @@ function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
         const name = formText(form, 'name')
         const email = formText(form, 'email')
         const password = formText(form, 'password')
-        const result = await action.run(async () => {
-          const response =
-            mode === 'sign-up'
-              ? await authClient.signUp.email({ name, email, password })
-              : await authClient.signIn.email({ email, password })
-          return response.error ? { error: { message: response.error.message } } : { data: response.data }
-        })
+        const result = await action.run(() =>
+          mode === 'sign-up' ? authClient.signUp.email({ name, email, password }) : authClient.signIn.email({ email, password }),
+        )
         if (!result.error) {
           if (mode === 'sign-up' && emailConfigured) setNotice('Check your email to verify your account.')
           await queryClient.invalidateQueries()

@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { requireTanStackMutationOrigin } from 'ras-stack/tanstack/server'
 import { app } from '../../server/app'
-import { requireCurrentUser } from '../../server/session'
+import { requireCurrentUser, requireMutationOrigin } from '../../server/session'
 
 export const Route = createFileRoute('/api/uploads/$id')({
   server: {
@@ -12,10 +11,7 @@ export const Route = createFileRoute('/api/uploads/$id')({
         return upload ? new Response(null, { headers: headers(upload.offset, upload.length) }) : new Response(null, { status: 404 })
       },
       PATCH: async ({ request, params }) => {
-        requireTanStackMutationOrigin(
-          { configured: [app().environment.appUrl], trustForwardedHeaders: app().environment.trustProxy },
-          request,
-        )
+        requireMutationOrigin(request)
         const user = await requireCurrentUser(request)
         const declaredLength = Number(request.headers.get('content-length'))
         if (!Number.isSafeInteger(declaredLength) || declaredLength < 1 || declaredLength > app().environment.uploadMaxBytes) {

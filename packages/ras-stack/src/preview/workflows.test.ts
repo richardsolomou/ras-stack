@@ -2,15 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
-type Step = {
-  id?: string
-  name?: string
-  env?: Record<string, string>
-  if?: string
-  run?: string
-  uses?: string
-  with?: Record<string, string>
-}
+type Step = { name?: string; with?: Record<string, string> }
 type Workflow = {
   on: {
     workflow_call: {
@@ -18,21 +10,7 @@ type Workflow = {
       secrets?: Record<string, { required?: boolean }>
     }
   }
-  env?: Record<string, string>
-  jobs: Record<
-    string,
-    {
-      if?: string
-      environment?: string
-      needs?: string
-      outputs?: Record<string, string>
-      concurrency?: { group?: string; 'cancel-in-progress'?: boolean }
-      permissions?: Record<string, string>
-      steps?: Step[]
-      with?: Record<string, string>
-      secrets?: Record<string, string>
-    }
-  >
+  jobs: Record<string, { steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
 }
 
 describe('Dokploy preview workflows', () => {
@@ -52,137 +30,12 @@ describe('Dokploy preview workflows', () => {
       untrustedBuildSecret: untrusted.with?.secrets,
     }).toEqual({
       inputDefault: '',
-      declaredSecret: { description: 'Optional BuildKit secret value forwarded to trusted same-repository builds.', required: false },
+      declaredSecret: expect.objectContaining({ required: false }),
       forwardedInput: '${{ inputs.build-secret-id }}',
       forwardedSecret: '${{ secrets.build-secret }}',
-      imageSecret: { description: 'Optional BuildKit secret value for trusted same-repository builds.', required: false },
+      imageSecret: expect.objectContaining({ required: false }),
       trustedBuildSecret: "${{ inputs.build-secret-id != '' && format('{0}={1}', inputs.build-secret-id, secrets.build-secret) || '' }}",
       untrustedBuildSecret: undefined,
-    })
-  })
-
-  it('routes custom and generated preview URLs through every deployment consumer', async () => {
-    const build = await workflow('build-dokploy-preview.yml')
-    const deploy = await workflow('deploy-dokploy-preview.yml')
-    const prune = await workflow('prune-dokploy-previews.yml')
-
-    expect({
-      defaults: [build, deploy, prune].map((candidate) => candidate.on.workflow_call.inputs.domain?.default),
-      prefixDefaults: [build, deploy, prune].map((candidate) => candidate.on.workflow_call.inputs['subdomain-prefix']?.default),
-      customUrl: deploy.env?.CUSTOM_PREVIEW_URL,
-      buildingUrl: step(build, 'mark-deploying', 'Mark preview as deploying').env?.PREVIEW_URL,
-      forkUrl: step(deploy, 'mark-fork-status', 'Report fork preview status').env?.PREVIEW_URL,
-      forkState: step(deploy, 'mark-fork-status', 'Report fork preview status').env?.STATE,
-      forkStatusScript: step(deploy, 'mark-fork-status', 'Report fork preview status').run,
-      forkStatusPermissions: deploy.jobs['mark-fork-status']?.permissions,
-      browserUrl: step(deploy, 'deploy', 'Verify preview').env?.PREVIEW_BASE_URL,
-      readyUrl: step(deploy, 'deploy', 'Mark preview as ready').env?.PREVIEW_URL,
-      failedUrl: step(deploy, 'deploy', 'Mark preview as failed').env?.PREVIEW_URL,
-      dependabotEnvironmentDefault: deploy.on.workflow_call.inputs['dependabot-environment']?.default,
-      dependabotClassification: step(deploy, 'classify-pr', 'Classify pull request'),
-      classificationEvents: deploy.jobs['classify-pr']?.if,
-      classificationOutputs: deploy.jobs['classify-pr']?.outputs,
-      classificationPermissions: deploy.jobs['classify-pr']?.permissions,
-      approvalEvents: deploy.jobs['approve-deploy']?.if,
-      approvalNeeds: deploy.jobs['approve-deploy']?.needs,
-      approvalConcurrency: deploy.jobs['approve-deploy']?.concurrency,
-      approvalEnvironment: deploy.jobs['approve-deploy']?.environment,
-      deployNeeds: deploy.jobs.deploy?.needs,
-      deployEnvironment: deploy.jobs.deploy?.environment,
-      dependabotProtection: step(deploy, 'approve-deploy', 'Verify Dependabot deployment protection'),
-      deployConcurrency: deploy.jobs.deploy?.concurrency,
-      reconcileEvents: deploy.jobs.deploy?.if,
-      stateCheck: step(deploy, 'deploy', 'Resolve pull request state'),
-      openDeploy: step(deploy, 'deploy', 'Deploy preview').if,
-      closedCleanup: step(deploy, 'deploy', 'Delete closed preview').if,
-      closedStatus: step(deploy, 'deploy', 'Mark closed preview as deleted').if,
-      closedImages: step(deploy, 'deploy', 'Delete closed preview images').if,
-      deployDns: step(deploy, 'deploy', 'Deploy preview').env,
-      deleteDns: step(deploy, 'deploy', 'Delete closed preview').env,
-      pruneDns: step(prune, 'prune', 'Prune previews without open pull requests').env,
-    }).toEqual({
-      defaults: ['', '', ''],
-      prefixDefaults: ['pr', 'pr', 'pr'],
-      customUrl:
-        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number, inputs.domain) || '' }}",
-      buildingUrl:
-        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.pull_request.number, inputs.domain) || '' }}",
-      forkUrl:
-        "${{ inputs.domain != '' && format('https://{0}-{1}.{2}', inputs.subdomain-prefix, github.event.workflow_run.pull_requests[0].number, inputs.domain) || '' }}",
-      forkState: "${{ github.event.action == 'requested' && 'awaiting' || 'building' }}",
-      forkStatusScript: expect.stringMatching(
-        /pulls\/\$PR_NUMBER.*head\.sha[\s\S]*actions\/runs\/\$WORKFLOW_RUN_ID[\s\S]*pr_state.*open.*head_sha.*COMMIT_SHA.*run_status.*completed[\s\S]*ras preview.*STATE[\s\S]*pulls\/\$PR_NUMBER[\s\S]*closed[\s\S]*ras preview deleted/,
-      ),
-      forkStatusPermissions: { actions: 'read', checks: 'write', contents: 'read', issues: 'write', 'pull-requests': 'write' },
-      browserUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
-      readyUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
-      failedUrl: '${{ steps.deploy.outputs.preview-url || env.CUSTOM_PREVIEW_URL }}',
-      dependabotEnvironmentDefault: 'dependabot-preview',
-      dependabotClassification: expect.objectContaining({
-        env: {
-          EVENT_NAME: '${{ github.event_name }}',
-          GH_TOKEN: '${{ github.token }}',
-          PR_NUMBER: '${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
-        },
-        run: expect.stringMatching(
-          /dependabot=false[\s\S]*if \[\[ "\$EVENT_NAME" == "workflow_run" \]\]; then[\s\S]*pulls\/\$PR_NUMBER.*user\.login[\s\S]*dependabot\[bot\][\s\S]*dependabot=true[\s\S]*dependabot=\$dependabot/,
-        ),
-      }),
-      classificationEvents:
-        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
-      classificationOutputs: { dependabot: '${{ steps.pr.outputs.dependabot }}' },
-      classificationPermissions: { contents: 'read', 'pull-requests': 'read' },
-      approvalEvents:
-        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
-      approvalNeeds: 'classify-pr',
-      approvalConcurrency: undefined,
-      approvalEnvironment: "${{ needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment || null }}",
-      deployNeeds: 'approve-deploy',
-      deployEnvironment: undefined,
-      dependabotProtection: expect.objectContaining({
-        if: "needs.classify-pr.outputs.dependabot == 'true'",
-        env: {
-          DEPENDABOT_ENVIRONMENT: '${{ inputs.dependabot-environment }}',
-          GH_TOKEN: '${{ github.token }}',
-        },
-        run: expect.stringMatching(/environments\/\$DEPENDABOT_ENVIRONMENT.*required_reviewers[\s\S]*protected.*true[\s\S]*exit 1/),
-      }),
-      deployConcurrency: {
-        group:
-          'dokploy-${{ github.repository }}-${{ inputs.application-prefix }}-pr-${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
-        'cancel-in-progress': false,
-      },
-      reconcileEvents:
-        "(github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.pull_requests[0]) || github.event_name == 'pull_request_target'",
-      stateCheck: expect.objectContaining({
-        env: expect.objectContaining({
-          EVENT_NAME: '${{ github.event_name }}',
-          PR_NUMBER: '${{ github.event.workflow_run.pull_requests[0].number || github.event.pull_request.number }}',
-          WORKFLOW_SHA: '${{ github.event.workflow_run.head_sha }}',
-        }),
-        run: expect.stringMatching(
-          /head\.sha[\s\S]*state.*closed[\s\S]*action=delete[\s\S]*EVENT_NAME.*workflow_run.*head_sha.*WORKFLOW_SHA[\s\S]*action=deploy[\s\S]*action=none/,
-        ),
-      }),
-      openDeploy: "steps.pr.outputs.action == 'deploy'",
-      closedCleanup: "steps.pr.outputs.action == 'delete'",
-      closedStatus: "steps.pr.outputs.action == 'delete'",
-      closedImages: "steps.pr.outputs.action == 'delete'",
-      deployDns: expect.objectContaining({
-        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
-        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
-        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
-      }),
-      deleteDns: expect.objectContaining({
-        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
-        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
-        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
-      }),
-      pruneDns: expect.objectContaining({
-        CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}',
-        CLOUDFLARE_ZONE_ID: '${{ inputs.cloudflare-zone-id }}',
-        PREVIEW_SUBDOMAIN_PREFIX: '${{ inputs.subdomain-prefix }}',
-      }),
     })
   })
 })

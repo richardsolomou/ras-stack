@@ -2,9 +2,8 @@ import { execFileSync } from 'node:child_process'
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const root = fileURLToPath(new URL('../', import.meta.url))
+const root = join(import.meta.dirname, '..')
 const consumer = mkdtempSync(join(tmpdir(), 'ras-config-'))
 try {
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))

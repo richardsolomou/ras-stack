@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 
 const surfaces = [
   ['TypeScript modules', 'Auth, databases, realtime, email, uploads, PostHog, and TanStack helpers.'],
-  ['CLI', 'Create applications, run local realtime, sync production assets, and check repository policy.'],
+  ['CLI', 'Run local realtime, sync production assets, manage previews, and check repository policy.'],
   ['GitHub Actions', 'Set up tools, run checks and browser tests, manage previews, and publish releases.'],
   ['Runtime image', 'Verified Caddy and Centrifugo binaries for production images.'],
 ]
@@ -65,14 +65,7 @@ function Home() {
           <h2>Start</h2>
           <div className="commands">
             <div>
-              <strong>New application</strong>
-              <code>
-                <span aria-hidden="true">$</span> pnpm create ras-app my-app
-              </code>
-              <p>Generate the tested production reference as ordinary application code.</p>
-            </div>
-            <div>
-              <strong>Existing application</strong>
+              <strong>Add to an application</strong>
               <code>
                 <span aria-hidden="true">$</span> pnpm add ras-stack
               </code>

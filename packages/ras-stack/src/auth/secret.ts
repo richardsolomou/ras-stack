@@ -1,6 +1,8 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { errorHasCode } from '../server/errors.js'
+import { randomToken } from './random.js'
 
 export type PersistedSecretOptions = {
   directory: string
@@ -19,11 +21,11 @@ export function persistedSecret(options: PersistedSecretOptions) {
   try {
     return readSecret(file)
   } catch (error) {
-    if (!isErrnoException(error) || error.code !== 'ENOENT') throw error
+    if (!errorHasCode(error, 'ENOENT')) throw error
   }
 
   fs.mkdirSync(options.directory, { recursive: true })
-  const secret = crypto.randomBytes(options.bytes ?? 32).toString('base64url')
+  const secret = randomToken(options.bytes ?? 32)
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`
   try {
     fs.writeFileSync(temporary, secret, { mode: 0o600, flag: 'wx' })
@@ -31,7 +33,7 @@ export function persistedSecret(options: PersistedSecretOptions) {
       fs.linkSync(temporary, file)
       return secret
     } catch (error) {
-      if (!isErrnoException(error) || error.code !== 'EEXIST') throw error
+      if (!errorHasCode(error, 'EEXIST')) throw error
       return readSecret(file)
     }
   } finally {
@@ -43,8 +45,4 @@ function readSecret(file: string) {
   const secret = fs.readFileSync(file, 'utf8').trim()
   if (!secret) throw new Error(`Secret file is empty: ${file}`)
   return secret
-}
-
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && 'code' in error
 }

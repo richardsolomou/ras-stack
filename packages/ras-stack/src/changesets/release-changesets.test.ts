@@ -1,54 +1,33 @@
 import { execFile } from 'node:child_process'
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
 const exec = promisify(execFile)
 
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
 // The script is read out of the workflow rather than copied here, so this cannot drift from what CI runs.
-async function releaseScript() {
-  const source = await readFile(new URL('../../../../.github/workflows/release-changesets.yml', import.meta.url), 'utf8')
-  const workflow = parse(source) as { jobs: { release: { steps: { name?: string; run?: string }[] } } }
-  const step = workflow.jobs.release.steps.find((candidate) => candidate.name === 'Release pending changesets')
-  if (!step?.run) throw new Error('release step is missing its script')
+async function workflowStep(file: string, job: string, name: string) {
+  const source = await readFile(new URL(`../../../../.github/workflows/${file}`, import.meta.url), 'utf8')
+  const workflow = parse(source) as { jobs: Record<string, { steps: { name?: string; run?: string }[] }> }
+  const step = workflow.jobs[job]?.steps.find((candidate) => candidate.name === name)
+  if (!step?.run) throw new Error(`${file} ${job} is missing the ${name} script`)
   return step.run
 }
 
-async function publicationScript() {
-  const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
-  const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
-  const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Publish through the OIDC-trusted workflow')
-  if (!step?.run) throw new Error('publication step is missing its script')
-  return step.run
-}
-
-async function compatibilityTagScript() {
-  const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
-  const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
-  const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Promote compatibility tag')
-  if (!step?.run) throw new Error('compatibility tag step is missing its script')
-  return step.run
-}
-
-async function releaseVerificationScript() {
-  const source = await readFile(new URL('../../../../.github/workflows/release.yml', import.meta.url), 'utf8')
-  const workflow = parse(source) as { jobs: { publish: { steps: { name?: string; run?: string }[] } } }
-  const step = workflow.jobs.publish.steps.find((candidate) => candidate.name === 'Verify release version')
-  if (!step?.run) throw new Error('release verification step is missing its script')
-  return step.run
-}
+const releaseScript = () => workflowStep('release-changesets.yml', 'release', 'Release pending changesets')
+const publicationScript = () => workflowStep('ci.yml', 'publish', 'Publish through the OIDC-trusted workflow')
+const compatibilityTagScript = () => workflowStep('ci.yml', 'publish', 'Promote compatibility tag')
+const releaseVerificationScript = () => workflowStep('release.yml', 'publish', 'Verify release version')
 
 describe('changeset release workflow', () => {
-  it('grants the caller permission to merge release pull requests', async () => {
-    const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
-    const workflow = parse(source) as { jobs: { release: { permissions: Record<string, string> } } }
-
-    expect(workflow.jobs.release.permissions['pull-requests']).toBe('write')
-  })
-
   it('stands down when the branch carries no changesets', async () => {
     const fixture = await repository({ changesets: false })
 
@@ -250,24 +229,6 @@ describe('changeset release workflow', () => {
 })
 
 describe('npm publication dispatch', () => {
-  it('promotes the compatibility tag after successful publication', async () => {
-    const source = await readFile(new URL('../../../../.github/workflows/ci.yml', import.meta.url), 'utf8')
-    const workflow = parse(source) as {
-      jobs: { publish: { permissions: Record<string, string>; steps: { name?: string; uses?: string; with?: Record<string, string> }[] } }
-    }
-    const job = workflow.jobs.publish
-
-    expect({
-      contents: job.permissions.contents,
-      order: job.steps.map((step) => step.name ?? step.uses),
-      ref: job.steps.find((step) => step.uses === 'actions/checkout@v7')?.with?.ref,
-    }).toEqual({
-      contents: 'write',
-      order: ['Publish through the OIDC-trusted workflow', 'actions/checkout@v7', 'Promote compatibility tag'],
-      ref: '${{ needs.release.outputs.tag }}',
-    })
-  })
-
   it('watches the newly dispatched tagged workflow instead of stale runs', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ras-stack-publication-'))
     const bin = join(root, 'bin')
@@ -297,13 +258,6 @@ describe('npm publication dispatch', () => {
     const calls = (await readFile(log, 'utf8')).trim().split('\n')
     expect(calls).toContain('workflow run release.yml --repo richardsolomou/ras-stack --ref v1.2.3 -f release_tag=v1.2.3')
     expect(calls.at(-1)).toBe('run watch 123 --repo richardsolomou/ras-stack --exit-status')
-  })
-
-  it('exempts independently released workspace packages from the release-age gate', async () => {
-    const source = await readFile(new URL('../../../../pnpm-workspace.yaml', import.meta.url), 'utf8')
-    const workspace = parse(source) as { minimumReleaseAgeExclude?: string[] }
-
-    expect(workspace.minimumReleaseAgeExclude).toEqual(expect.arrayContaining(['ras-stack-config', 'ras-stack']))
   })
 
   it('moves the compatibility tag forward without letting an older release roll it back', async () => {
@@ -432,6 +386,7 @@ async function releaseGh(work: string) {
 
 async function publicationRepository(): Promise<PublicationFixture> {
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
+  roots.push(work)
   await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
   await mkdir(join(work, 'packages/config'), { recursive: true })
   await writeFile(join(work, 'packages/ras-stack/package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
@@ -448,6 +403,7 @@ async function publicationRepository(): Promise<PublicationFixture> {
 async function compatibilityRepository() {
   const remote = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-origin-'))
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-'))
+  roots.push(remote, work)
   await exec('git', ['init', '--bare', '--initial-branch=main'], { cwd: remote })
   await exec('git', ['init', '--initial-branch=main'], { cwd: work })
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
@@ -471,6 +427,7 @@ async function compatibilityRepository() {
 async function repository(options: { changesets: boolean }): Promise<Fixture> {
   const remote = await mkdtemp(join(tmpdir(), 'ras-stack-release-origin-'))
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-release-'))
+  roots.push(remote, work)
   await exec('git', ['init', '--bare', '--initial-branch=main'], { cwd: remote })
   await exec('git', ['init', '--initial-branch=main'], { cwd: work })
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })

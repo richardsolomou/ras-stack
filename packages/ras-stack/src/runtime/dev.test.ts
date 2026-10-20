@@ -24,34 +24,39 @@ describe('Docker-backed realtime development', () => {
     )
 
     expect(run).toHaveBeenCalledOnce()
-    expect(run).toHaveBeenCalledWith('docker', [
-      'run',
-      '--rm',
-      '--name',
-      'example-realtime',
-      '--add-host',
-      'host.docker.internal:host-gateway',
-      '-p',
-      '0.0.0.0:8123:8000',
-      '-e',
-      'CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY=development-secret',
-      '-e',
-      'CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_ENABLED=true',
-      '-e',
-      'CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY=development-secret',
-      '-e',
-      'CENTRIFUGO_HTTP_API_KEY=development-secret',
-      '-e',
-      'CENTRIFUGO_CLIENT_ALLOWED_ORIGINS=http://localhost:3100',
-      '-e',
-      'CENTRIFUGO_VAR_PROXY_SECRET=development-secret',
-      '-v',
-      `${configPath}:/centrifugo/config.json:ro`,
-      'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e',
-      '/usr/local/bin/centrifugo',
-      '--config=/centrifugo/config.json',
-      '--health.enabled',
-    ])
+    const [command, args] = run.mock.calls[0]! as [string, string[]]
+    const isEnvironment = (_argument: string, index: number) => args[index - 1] === '-e'
+    expect({
+      command,
+      args: args.filter((argument, index) => argument !== '-e' && !isEnvironment(argument, index)),
+      environment: args.filter(isEnvironment).toSorted(),
+    }).toEqual({
+      command: 'docker',
+      args: [
+        'run',
+        '--rm',
+        '--name',
+        'example-realtime',
+        '--add-host',
+        'host.docker.internal:host-gateway',
+        '-p',
+        '0.0.0.0:8123:8000',
+        '-v',
+        `${configPath}:/centrifugo/config.json:ro`,
+        'ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e',
+        '/usr/local/bin/centrifugo',
+        '--config=/centrifugo/config.json',
+      ],
+      environment: [
+        'CENTRIFUGO_CLIENT_ALLOWED_ORIGINS=http://localhost:3100',
+        'CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_ENABLED=true',
+        'CENTRIFUGO_CLIENT_SUBSCRIPTION_TOKEN_HMAC_SECRET_KEY=development-secret',
+        'CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY=development-secret',
+        'CENTRIFUGO_HEALTH_ENABLED=true',
+        'CENTRIFUGO_HTTP_API_KEY=development-secret',
+        'CENTRIFUGO_VAR_PROXY_SECRET=development-secret',
+      ],
+    })
     await rm(directory, { recursive: true })
   })
 
@@ -60,7 +65,6 @@ describe('Docker-backed realtime development', () => {
     const configPath = join(directory, 'realtime.json')
     await writeFile(configPath, '{}')
     const run = vi.fn().mockResolvedValue({ code: 0 })
-    const remove = vi.fn().mockResolvedValue(undefined)
 
     await runRealtimeDev(
       {
@@ -72,12 +76,12 @@ describe('Docker-backed realtime development', () => {
         detached: true,
         connectProxyEndpoint: 'http://host.docker.internal:3000/api/centrifugo/connect',
       },
-      { remove, run },
+      { run },
     )
 
-    expect(remove).toHaveBeenCalledWith('example-realtime')
-    expect(run.mock.calls[0]?.[1]).toContain('-d')
-    expect(run.mock.calls[0]?.[1]).toContain(
+    expect(run.mock.calls[0]).toEqual(['docker', ['rm', '--force', 'example-realtime'], 'ignore'])
+    expect(run.mock.calls[1]?.[1]).toContain('-d')
+    expect(run.mock.calls[1]?.[1]).toContain(
       'CENTRIFUGO_CLIENT_PROXY_CONNECT_ENDPOINT=http://host.docker.internal:3000/api/centrifugo/connect',
     )
     await rm(directory, { recursive: true })
@@ -147,7 +151,7 @@ describe('Docker-backed realtime development', () => {
       secret: 'secret',
       detached: true,
     })
-    expect(() => parseRealtimeDevArguments(['--wat'])).toThrow('unknown argument: --wat')
+    expect(() => parseRealtimeDevArguments(['--wat'])).toThrow("Unknown option '--wat'")
   })
 
   it('rejects a non-local bind address', async () => {

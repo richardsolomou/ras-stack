@@ -179,6 +179,11 @@ describe('persisted secrets', () => {
     fs.writeFileSync(path.join(directory, 'auth.secret'), '')
     expect(() => persistedSecret({ directory, environment: {} })).toThrow('Secret file is empty')
   })
+
+  it('refuses to generate an empty secret', () => {
+    const directory = temporaryDirectory()
+    expect(() => persistedSecret({ directory, environment: {}, bytes: 0 })).toThrow('Token bytes must be a positive integer')
+  })
 })
 
 describe('request origins', () => {

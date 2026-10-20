@@ -20,7 +20,7 @@ export class UploadStore {
       quotaBytes: number
       globalQuotaBytes: number
       globalMaxFiles: number
-      onError?: (error: unknown) => void
+      onError: (error: unknown) => void
     },
   ) {
     mkdirSync(options.directory, { recursive: true })
@@ -153,8 +153,7 @@ export class UploadStore {
     try {
       this.cleanupStale()
     } catch (error) {
-      if (this.options.onError) this.options.onError(error)
-      else console.error({ event: 'example_upload_cleanup_failed', error })
+      this.options.onError(error)
     }
   }
 

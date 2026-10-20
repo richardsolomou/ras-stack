@@ -26,14 +26,9 @@ describe('headless auth action state', () => {
       resolve({ error: { message: 'Account disabled.' } })
       await result
     })
-    const warnings = warning.mock.calls.map(([message]) => String(message))
     await act(async () => rendered.unmount())
     warning.mockRestore()
-    expect({ busy: action.busy, error: action.error, warnings }).toEqual({
-      busy: false,
-      error: 'Account disabled.',
-      warnings: ['react-test-renderer is deprecated. See https://react.dev/warnings/react-test-renderer'],
-    })
+    expect({ busy: action.busy, error: action.error }).toEqual({ busy: false, error: 'Account disabled.' })
   })
 
   it('turns thrown transport failures into action results', async () => {

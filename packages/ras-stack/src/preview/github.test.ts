@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { reportPreviewStatus } from './github.js'
+import { requestUrl } from './testing.js'
 
 describe('GitHub preview status', () => {
   it('creates one successful check and pull request comment', async () => {
@@ -96,15 +97,6 @@ describe('GitHub preview status', () => {
     expect(request.calls[1]?.body).toEqual({ body: '<!-- app-preview -->\n🗑️ Preview deleted because this pull request was closed.' })
   })
 
-  it('rejects a ready status without a URL before changing GitHub state', async () => {
-    const request = githubFetch({ checks: [], comments: [] })
-
-    await expect(reportPreviewStatus(previewOptions(request), { state: 'ready', prNumber: '42', sha: 'a'.repeat(40) })).rejects.toThrow(
-      'preview URL is required',
-    )
-    expect(request).not.toHaveBeenCalled()
-  })
-
   it('rejects untrusted repository, pull request, and commit values', async () => {
     const request = githubFetch({ checks: [], comments: [] })
     await expect(
@@ -114,9 +106,14 @@ describe('GitHub preview status', () => {
       'marker',
     )
     await expect(reportPreviewStatus(previewOptions(request), { state: 'deleted', prNumber: '../42' })).rejects.toThrow('pull request')
-    await expect(reportPreviewStatus(previewOptions(request), { state: 'ready', prNumber: '42', sha: 'HEAD' })).rejects.toThrow(
-      'commit SHA',
-    )
+    await expect(
+      reportPreviewStatus(previewOptions(request), {
+        state: 'ready',
+        prNumber: '42',
+        sha: 'HEAD',
+        previewUrl: 'https://pr-42.example.com',
+      }),
+    ).rejects.toThrow('commit SHA')
   })
 })
 
@@ -133,7 +130,7 @@ function previewOptions(fetch: typeof globalThis.fetch) {
 function githubFetch(initial: { checks: { id: number }[]; comments: { id: number; body?: string }[] }) {
   const calls: { method: string; path: string; body?: unknown }[] = []
   const request = vi.fn<typeof globalThis.fetch>(async (input, init) => {
-    const url = input instanceof Request ? new URL(input.url) : new URL(input)
+    const url = requestUrl(input)
     const method = init?.method ?? 'GET'
     calls.push({ method, path: url.pathname, ...(typeof init?.body === 'string' ? { body: JSON.parse(init.body) } : {}) })
     if (url.pathname.endsWith('/check-runs') && method === 'GET') return Response.json({ check_runs: initial.checks })

@@ -1,33 +1,35 @@
 import { execFile } from 'node:child_process'
-import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { promisify } from 'node:util'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 const exec = promisify(execFile)
 const script = new URL('../../../../actions/prune-preview-images/prune.sh', import.meta.url).pathname
+
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
 
 describe('preview image pruning action', () => {
   it('deletes only the closed pull request preview version', async () => {
     const fixture = await githubFixture()
     await run(fixture, { PREVIEW_PR_NUMBER: '42' })
-    expect(await readFile(fixture.deletions, 'utf8')).toContain('/versions/1')
-    expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/2')
-    expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/3')
-    expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/4')
+    expect(await deletedVersions(fixture)).toEqual(['1'])
   })
 
   it('keeps open pull request versions during an orphan sweep', async () => {
     const fixture = await githubFixture()
     await run(fixture, { PREVIEW_OPEN_PR_NUMBERS: '42' })
-    expect(await readFile(fixture.deletions, 'utf8')).toContain('/versions/2')
-    expect(await readFile(fixture.deletions, 'utf8')).not.toContain('/versions/1')
+    expect(await deletedVersions(fixture)).toEqual(['2'])
   })
 })
 
 async function githubFixture() {
   const directory = await mkdtemp(join(tmpdir(), 'ras-stack-preview-images-'))
+  roots.push(directory)
   const deletions = join(directory, 'deletions')
   await writeFile(deletions, '')
   const gh = join(directory, 'gh')
@@ -45,6 +47,13 @@ exit 1
   )
   await chmod(gh, 0o755)
   return { deletions, directory }
+}
+
+async function deletedVersions(fixture: Awaited<ReturnType<typeof githubFixture>>) {
+  return (await readFile(fixture.deletions, 'utf8'))
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split('/').at(-1))
 }
 
 function run(fixture: Awaited<ReturnType<typeof githubFixture>>, overrides: Record<string, string>) {
