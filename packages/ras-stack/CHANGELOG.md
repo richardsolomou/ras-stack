@@ -1,5 +1,11 @@
 # ras-stack
 
+## 4.4.1
+
+### Patch Changes
+
+- 627f085: Allow preview workflows to build a single target platform and select a matching deployment runner for ARM hosts while retaining the x86 defaults.
+
 ## 4.4.0
 
 ### Minor Changes
