@@ -10,10 +10,22 @@ type Workflow = {
       secrets?: Record<string, { required?: boolean }>
     }
   }
-  jobs: Record<string, { steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
+  jobs: Record<string, { 'runs-on'?: string; steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
 }
 
 describe('Dokploy preview workflows', () => {
+  it('lets deployment hooks use a runner matching the image architecture', async () => {
+    const deploy = await workflow('deploy-dokploy-preview.yml')
+
+    expect({
+      defaultRunner: deploy.on.workflow_call.inputs.runner?.default,
+      deploymentRunner: deploy.jobs.deploy?.['runs-on'],
+    }).toEqual({
+      defaultRunner: 'ubuntu-latest',
+      deploymentRunner: '${{ inputs.runner }}',
+    })
+  })
+
   it('forwards one target platform to trusted images and fork artifacts', async () => {
     const dokploy = await workflow('build-dokploy-preview.yml')
     const image = await workflow('build-preview-image.yml')
