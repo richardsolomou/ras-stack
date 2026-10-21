@@ -27,12 +27,12 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && echo "${CADDY_SOURCE_SHA256}  source.tar.gz" | sha256sum -c - \
     && tar -xzf source.tar.gz \
     && cd "caddy-${CADDY_VERSION}" \
-    && go get google.golang.org/grpc@v1.83.2 golang.org/x/text@v0.42.0 golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.60.0 \
+    && go get google.golang.org/grpc@v1.83.2 golang.org/x/text@v0.42.0 golang.org/x/crypto@v0.57.0 golang.org/x/net@v0.60.0 github.com/klauspost/compress@v1.18.7 \
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/caddyserver/caddy/v2.CustomVersion=v${CADDY_VERSION}" -o /out/caddy ./cmd/caddy \
     && cp LICENSE /out/CADDY-LICENSE
 
 FROM scratch
-ARG RUNTIME_VERSION=1.0.5
+ARG RUNTIME_VERSION=1.0.6
 ARG CADDY_VERSION
 ARG CENTRIFUGO_VERSION
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
