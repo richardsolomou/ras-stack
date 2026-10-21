@@ -87,7 +87,7 @@ The provider owns a stable client for its mounted lifetime and accepts an existi
 
 ## Ordinary manifests and committed configuration
 
-Commit `ras.config.ts`, `package.json`, `pnpm-lock.yaml`, generated `.ras/` files, and any pnpm or Dependabot policy changes. Do not ignore `.ras/`. A fresh clone uses ordinary `pnpm install --frozen-lockfile`; no install hook, lifecycle script, generated pnpmfile, bootstrap package, custom links, or hoisting configuration is needed.
+Commit `ras.config.ts`, `package.json`, `pnpm-lock.yaml`, generated `.ras/` files, and any pnpm or Dependabot policy changes. Do not ignore `.ras/`. A fresh clone uses ordinary `pnpm install --frozen-lockfile`; no consumer install hook, lifecycle script, generated pnpmfile, bootstrap package, custom links, or hoisting configuration is needed.
 
 `ras.managedDependencies` in `package.json` records package names owned by RAS. This lets a later sync remove deselected packages without deleting unrelated application dependencies. Versions come from the executing RAS release. Sync preserves the existing RAS dependency specifier, so packed and Git-source candidates can be tested normally. An upgrade pins the target release's exact RAS version.
 
@@ -157,4 +157,4 @@ The default target is `latest`. Specify `next` or an exact version when reviewin
 
 Remove `ras-stack-config`, select its equivalent presets in `ras.config.ts`, and point compiler/linter configuration at `.ras`. Keep application-specific dependencies and configuration. Run the target RAS release's `sync` command to adopt selected dependencies and generate ordinary project files. Review upstream API changes and test builds, tests, and runtime flows as part of migration.
 
-Unpublished candidates can be installed as normal packed archives or Git dependencies, then synchronized through their installed CLI. There is no registry-only bootstrap requirement. RAS shared code and documentation contain no consumer repository inventory.
+Unpublished candidates can be installed as normal packed archives or Git dependencies, then synchronized through their installed CLI. Git installations build RAS through its standard package `prepare` script and need a source-scoped pnpm build approval. There is no registry-only bootstrap requirement. RAS shared code and documentation contain no consumer repository inventory.

@@ -148,7 +148,8 @@
     "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkManagedPackage.mjs",
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check",
+    "prepare": "pnpm run build"
   },
   "dependencies": {
     "@changesets/parse": "1.0.0",
