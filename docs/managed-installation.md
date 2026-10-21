@@ -32,9 +32,32 @@ import { QueryClient, useQuery } from '@tanstack/react-query'
 import { Identity } from 'spacetimedb'
 ```
 
-The built-in integrations are `react`, `tanstackQuery`, `tanstackStart`, `spacetimeDB`, `betterAuth`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, and `posthog.browser`, `posthog.react`, and `posthog.server`. The catalogue records exact tested versions in the RAS release. Conflicting version selections fail before installation.
+The catalogue records exact tested versions in the RAS release. Conflicting version selections fail before installation. Select the capabilities an application uses:
 
-The tool selections are `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack`, `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`, `oxfmt`, `vite`, `vitest`, and `playwright`. Choose one TypeScript preset. Oxlint presets compose, for example `[oxlint.application, oxlint.tanstack, oxlint.domain]`.
+| Family                 | Selections                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| React and TanStack     | `react`, `tanstackQuery`, `tanstackStart`, `tanstackForm`, `tanstackTable`, `tanstackVirtual` |
+| Authentication         | `betterAuth`, `betterAuth.stripe`, `betterAuth.oauth`, `betterAuth.mcp`                       |
+| Data and services      | `spacetimeDB`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, `mcp`          |
+| UI                     | `ui.primitives`, `ui.variants`, `ui.classes`, `ui.cn`, `ui.icons`, `confetti`, `qrcode`       |
+| Graphics and utilities | `three`, `three.stdlib`, `zod`, `fflate`, `pRetry`                                            |
+| PostHog                | `posthog.browser`, `posthog.react`, `posthog.server`, `posthog.mcp`                           |
+
+Auth plugins include the core SDK on the same release. `betterAuth.oauth` includes the OAuth provider and its client metadata discovery plugin. Select the Stripe SDK separately when using the Stripe auth plugin. UI primitives, icons, variants, and class utilities are independent selections; `ui.cn` selects the compiled class utility without installing `clsx` or `tailwind-merge` through RAS.
+
+Tool selections include:
+
+| Family               | Selections                                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Compiler             | `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack` |
+| Linter               | `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`                   |
+| Build and scripts    | `vite`, `nitro`, `esbuild`, `tsx`, `tailwind`, `tailwind.animations`                                       |
+| Tests and formatting | `vitest`, `playwright`, `oxfmt`, `markdownlint`                                                            |
+| Development services | `changesets`, `drizzleKit`, `posthog.build`, `posthog.cli`, `ui.scaffold`                                  |
+
+Choose one TypeScript preset. Oxlint presets compose, for example `[oxlint.application, oxlint.tanstack, oxlint.domain]`. `tailwind.animations` includes the Tailwind compiler and Vite plugin; `tailwind` alone excludes animation styles. `three.stdlib` includes Three and its types. `posthog.build` selects the Rollup plugin, while `posthog.cli` selects the standalone upload CLI. Package binaries remain available to package scripts and `ras exec -- <binary>`.
+
+Application-specific dependencies such as fonts, domain engines, and private SDKs stay in the application manifest. Adding a dependency to a local custom descriptor only relocates its version declaration; shared selections put version ownership and compatibility checks in RAS.
 
 For a custom pinned integration:
 

@@ -29,7 +29,7 @@ try {
   )
   writeFileSync(
     path.join(consumer, 'ras.config.ts'),
-    "import {defineConfig,tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest]})\n",
+    "import {defineConfig,tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,ui,zod,typescript,oxlint,oxfmt,vite,vitest,tsx,tailwind,changesets} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server,ui.classes,ui.icons,zod],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest,tsx,tailwind,changesets]})\n",
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   exec('pnpm', ['exec', 'ras', 'install'])
@@ -70,6 +70,10 @@ try {
 import {QueryClient,QueryClientProvider,useQuery} from '@tanstack/react-query'
 import {Identity} from 'spacetimedb'
 import {FaCheck} from 'react-icons/fa'
+import {Check} from 'lucide-react'
+import {clsx} from 'clsx'
+import {twMerge} from 'tailwind-merge'
+import {z} from 'zod'
 import {useAuthAction} from 'ras-stack/auth/react'
 import {classifySignInFailure} from 'ras-stack/auth/client'
 import {PostHogBetterAuthIdentity,PostHogIntegration} from 'ras-stack/posthog/react'
@@ -83,18 +87,24 @@ void useConnectedRealtimeClient
 export function Probe(){const {busy}=useAuthAction();const query=useQuery({queryKey:['probe'],queryFn:async()=>42,initialData:42});return createElement('div',null,String(query.data)+String(busy),createElement(FaCheck))}
 export const tree=createElement(QueryClientProvider,{client:new QueryClient()},createElement(Probe))
 export const identity: Identity = Identity.fromString('0'.repeat(64))
+export const classes = twMerge(clsx('p-2', z.string().parse('p-4')))
+export const icon = createElement(Check)
 `,
   )
   writeFileSync(
     path.join(consumer, 'main.test.ts'),
     `import {expect,it} from 'vitest'
 import {renderToString} from 'react-dom/server'
-import {tree,identity} from './main'
+import {tree,identity,classes,icon} from './main'
 it('shares React across application, Query, third-party peers, and RAS hooks',()=>expect(renderToString(tree)).toContain('42false'))
 it('loads the original SpacetimeDB import',()=>expect(identity.toHexString()).toBe('0'.repeat(64)))
+it('shares the selected UI and schema packages',()=>expect(classes).toBe('p-4'))
+it('renders selected icons with the application React instance',()=>expect(renderToString(icon)).toContain('<svg'))
 `,
   )
   exec('pnpm', ['exec', 'ras', 'typecheck'])
+  exec('pnpm', ['exec', 'ras', 'exec', '--', 'tsx', '--eval', "import {z} from 'zod'; if (z.number().parse(42) !== 42) process.exit(1)"])
+  exec('pnpm', ['exec', 'ras', 'exec', '--', 'changeset', '--version'])
   exec('pnpm', ['exec', 'ras', 'test'])
   writeFileSync(
     path.join(consumer, 'vite.config.ts'),
@@ -182,6 +192,8 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/posthog-js')), false)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/react')), false)
   assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('spacetimedb'), false)
+  assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('@better-auth/stripe'), false)
+  assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('tailwindcss'), false)
 } finally {
   rmSync(serverOnly, { recursive: true, force: true })
   rmSync(consumer, { recursive: true, force: true })
