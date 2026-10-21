@@ -98,6 +98,20 @@ it('loads the original SpacetimeDB import',()=>expect(identity.toHexString()).to
   )
   exec('pnpm', ['exec', 'ras', 'typecheck'])
   exec('pnpm', ['exec', 'ras', 'test'])
+  const previous = path.join(consumer, 'previous')
+  mkdirSync(previous)
+  execFileSync('tar', ['-xf', archive, '-C', previous])
+  const previousManifest = path.join(previous, 'package/package.json')
+  const previousPackage = JSON.parse(readFileSync(previousManifest, 'utf8'))
+  previousPackage.version = '0.0.0-previous'
+  writeFileSync(previousManifest, json(previousPackage))
+  const previousCatalog = path.join(previous, 'package/dist/managed/catalog.js')
+  const currentCatalog = readFileSync(previousCatalog, 'utf8')
+  const currentPosthog = currentCatalog.match(/'posthog-node': '([^']+)'/)[1]
+  assert.notEqual(currentPosthog, '5.52.1')
+  writeFileSync(previousCatalog, currentCatalog.replace(/'posthog-node': '[^']+'/, "'posthog-node': '5.52.1'"))
+  const previousArchive = path.join(consumer, 'previous-ras-stack.tgz')
+  execFileSync('tar', ['-czf', previousArchive, '-C', previous, 'package'])
   writeFileSync(
     path.join(consumer, 'vite.config.ts'),
     `import {defineConfig} from 'vite'
@@ -165,7 +179,7 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
       private: true,
       type: 'module',
       packageManager: 'pnpm@11.15.0',
-      dependencies: { 'ras-stack': `file:${archive}` },
+      dependencies: { 'ras-stack': `file:${previousArchive}` },
     }),
   )
   writeFileSync(path.join(serverOnly, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\n')
@@ -181,6 +195,23 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
     ['exec', 'ras', 'typecheck'],
   ])
     execFileSync('pnpm', args, { cwd: serverOnly, stdio: 'inherit' })
+  const previousHook = readFileSync(path.join(serverOnly, '.pnpmfile.cjs'), 'utf8')
+  const serverManifest = JSON.parse(readFileSync(path.join(serverOnly, 'package.json'), 'utf8'))
+  serverManifest.dependencies['ras-stack'] = `file:${archive}`
+  writeFileSync(path.join(serverOnly, 'package.json'), json(serverManifest))
+  execFileSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: serverOnly, stdio: 'inherit' })
+  const stale = spawnSync('pnpm', ['exec', 'ras', 'prepare'], { cwd: serverOnly, encoding: 'utf8' })
+  assert.notEqual(stale.status, 0)
+  assert.ok(stale.stderr.includes('Managed dependencies are outdated'))
+  execFileSync('pnpm', ['exec', 'ras', 'install'], { cwd: serverOnly, stdio: 'inherit' })
+  assert.notEqual(readFileSync(path.join(serverOnly, '.pnpmfile.cjs'), 'utf8'), previousHook)
+  assert.equal(JSON.parse(readFileSync(path.join(serverOnly, 'node_modules/posthog-node/package.json'), 'utf8')).version, currentPosthog)
+  const upgradedHook = readFileSync(path.join(serverOnly, '.pnpmfile.cjs'), 'utf8')
+  const upgradedLock = readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8')
+  execFileSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: serverOnly, stdio: 'inherit' })
+  execFileSync('pnpm', ['exec', 'ras', 'install'], { cwd: serverOnly, stdio: 'inherit' })
+  assert.equal(readFileSync(path.join(serverOnly, '.pnpmfile.cjs'), 'utf8'), upgradedHook)
+  assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8'), upgradedLock)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/posthog-js')), false)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/react')), false)
   assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('spacetimedb'), false)

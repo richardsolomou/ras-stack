@@ -189,4 +189,24 @@ The shared `setup-js` action prepares RAS automatically when `ras.config.ts` exi
 
 When updating RAS, run `ras install` after upgrading its package version and commit the resulting lockfile/hook changes with that upgrade. CI rejects a selection contract from an older incompatible RAS catalogue. No separate routine direct dependency updates are required for the managed libraries.
 
+To regenerate those files on Dependabot RAS upgrades, add `.github/workflows/update-managed-dependencies.yml`:
+
+```yaml
+name: Update managed RAS dependencies
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    paths: [package.json, pnpm-lock.yaml]
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  update:
+    uses: richardsolomou/ras-stack/.github/workflows/update-managed-dependencies.yml@v1
+```
+
+The workflow handles open, same-repository Dependabot PRs whose root RAS version changes, including grouped updates. It installs the updated RAS, runs `ras install`, and commits only `.pnpmfile.cjs` and `pnpm-lock.yaml` into that PR. Unchanged output produces no commit. The installation job has read-only permissions and no persisted checkout credentials. A separate job receives write permission, reads the two generated files without executing PR code, and uses GitHub's expected-head constraint to reject a branch changed during regeneration. Failed regeneration does not update the branch.
+
+With the default `GITHUB_TOKEN`, GitHub can require **Approve workflows to run** before CI runs on the generated commit. For unattended CI, pass the optional `update-token` reusable-workflow secret using a GitHub App installation token or bot token with repository contents write and pull requests read access. The token is used only by the commit job. The reusable workflow and actions must be released before enabling the caller on the application's default branch.
+
 Dependabot continues updating RAS and application-owned dependencies. Managed libraries remain ordinary entries in the standard pnpm lockfile, preserving dependency-graph and vulnerability visibility. Security fixes still require an appropriate RAS upgrade; pinning a tested version set does not make it immune to vulnerabilities. `ras audit` checks the installed graph through pnpm.
