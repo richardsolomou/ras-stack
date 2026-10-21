@@ -32,7 +32,7 @@ async function checkConsumer(root: string, plan: InstallationPlan): Promise<void
       if (Object.hasOwn(manifest[field] ?? {}, name)) throw new Error(`${name} is declared in ${field}; remove it before RAS can own it`)
     }
   }
-  for (const name of ['.ras', 'node_modules', 'ras.lock', 'pnpm-lock.yaml', '.pnpmfile.cjs', '.prettierignore']) {
+  for (const name of ['.ras', 'node_modules', 'ras.lock', 'pnpm-lock.yaml', '.pnpmfile.cjs']) {
     if ((await exists(join(root, name))) && (await lstat(join(root, name))).isSymbolicLink())
       throw new Error(`${name} must not be a symbolic link`)
   }
@@ -64,10 +64,6 @@ async function optionalFile(file: string): Promise<string | undefined> {
   }
 }
 
-function hasFormatterIgnore(contents: string | undefined): boolean {
-  return contents?.trimEnd().split('\n').at(-1)?.trim() === '/.pnpmfile.cjs'
-}
-
 function lockContents(plan: InstallationPlan): string {
   return json({ version: 1, fingerprint: planFingerprint(plan), plan })
 }
@@ -87,24 +83,17 @@ export async function installManaged(
   let installing = false
   try {
     await checkConsumer(root, plan)
-    for (const file of ['.pnpmfile.cjs', 'ras.lock', 'pnpm-lock.yaml', '.prettierignore'])
-      backups.set(file, await optionalFile(join(root, file)))
+    for (const file of ['.pnpmfile.cjs', 'ras.lock', 'pnpm-lock.yaml']) backups.set(file, await optionalFile(join(root, file)))
     if (options.frozen) {
       if (
         backups.get('ras.lock') !== lockContents(plan) ||
         backups.get('.pnpmfile.cjs') !== pnpmHook(plan) ||
-        !backups.get('pnpm-lock.yaml') ||
-        !hasFormatterIgnore(backups.get('.prettierignore'))
+        !backups.get('pnpm-lock.yaml')
       )
-        throw new Error(
-          'Managed lockfiles are missing or outdated; run ras install and commit ras.lock, .pnpmfile.cjs, .prettierignore, and pnpm-lock.yaml',
-        )
+        throw new Error('Managed lockfiles are missing or outdated; run ras install and commit ras.lock, .pnpmfile.cjs, and pnpm-lock.yaml')
     } else {
       await writeAtomic(join(root, '.pnpmfile.cjs'), pnpmHook(plan))
       await writeAtomic(join(root, 'ras.lock'), lockContents(plan))
-      const ignored = backups.get('.prettierignore') ?? ''
-      if (!hasFormatterIgnore(ignored))
-        await writeAtomic(join(root, '.prettierignore'), `${ignored}${ignored && !ignored.endsWith('\n') ? '\n' : ''}/.pnpmfile.cjs\n`)
     }
     installing = true
     await runPnpm(

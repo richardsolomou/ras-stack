@@ -58,10 +58,11 @@ Commit these files:
 - `ras.config.ts`: the selections and explicit build approvals.
 - `ras.lock`: the resolved selection and tooling contract.
 - `.pnpmfile.cjs`: the generated, self-contained pnpm hook, usable before RAS is installed on a fresh machine.
-- `.prettierignore`: the generated hook is excluded from Oxfmt/Prettier because pnpm checksums its exact bytes; existing ignore entries are preserved.
 - `pnpm-lock.yaml`: pnpm's standard lockfile with integrity hashes for the full dependency graph.
 
 Ignore `.ras/`, `.ras-*/`, and `.ras-install.lock/`. `.ras` contains generated compiler/linter configuration and local preparation state. It does not contain another dependency installation.
+
+Add `"/.pnpmfile.cjs"` to `ignorePatterns` in your Oxfmt configuration. pnpm checksums the generated hook's exact bytes, so formatters must leave it unchanged. Formatter configuration stays application-owned; RAS does not create or modify `.prettierignore`.
 
 `ras install --frozen-lockfile` rejects changed selections and missing or stale generated lockfiles. It runs pnpm with a frozen lockfile. `ras install` updates the selected graph and generated files. Installations are serialized by `.ras-install.lock`; a failed installation restores the previous tracked files and attempts an offline restoration of the previous installation. A stopped process can leave the guard directory behind; remove it only after confirming the installer has stopped.
 

@@ -172,10 +172,15 @@ describe('managed installation against an npm registry', () => {
     await expect(installManaged(root, await loadPlan(root))).rejects.toThrow('remove it before RAS can own it')
   })
 
-  it('preserves existing formatter ignores and protects the generated hook', async () => {
+  it('does not create a Prettier ignore file', async () => {
+    await installManaged(root, await loadPlan(root))
+    expect(await exists(join(root, '.prettierignore'))).toBe(false)
+  })
+
+  it('preserves consumer-owned formatter ignores', async () => {
     await writeFile(join(root, '.prettierignore'), 'generated/\n')
     await installManaged(root, await loadPlan(root))
-    expect(await readFile(join(root, '.prettierignore'), 'utf8')).toBe('generated/\n/.pnpmfile.cjs\n')
+    expect(await readFile(join(root, '.prettierignore'), 'utf8')).toBe('generated/\n')
   })
 
   it('does not overwrite a consumer-owned pnpm hook', async () => {
