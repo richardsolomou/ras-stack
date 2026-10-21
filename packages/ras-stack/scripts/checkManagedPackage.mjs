@@ -57,7 +57,11 @@ try {
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   assert.equal(existsSync(path.join(consumer, '.prettierignore')), false)
-  exec('pnpm', ['dlx', `ras-stack@${version}`, 'sync'])
+  execFileSync('pnpm', ['dlx', `ras-stack@${version}`, 'sync'], {
+    cwd: consumer,
+    stdio: 'inherit',
+    env: { ...process.env, CI: 'true' },
+  })
   assert.equal(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')).dependencies['ras-stack'], version)
   const packageJson = JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8'))
   assert.ok(Object.values(packageJson.peerDependenciesMeta).every((peer) => peer.optional))

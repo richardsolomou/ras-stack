@@ -23,7 +23,7 @@ Use Node 24 and pin pnpm 11 or newer in `package.json`'s `packageManager` field.
 pnpm dlx ras-stack@5 sync
 ```
 
-If RAS is already installed, run `pnpm exec ras sync`. RAS writes exact selected versions into the application's ordinary `dependencies` and `devDependencies`, generates configuration in `.ras/`, and runs `pnpm install`. Runtime integrations and development tools are classified individually, including type definitions. Dependencies required by an integration install normally.
+If RAS is already installed, run `pnpm exec ras sync`. RAS writes exact selected versions into the application's ordinary `dependencies` and `devDependencies`, generates configuration in `.ras/`, and runs `pnpm install --no-frozen-lockfile` so the lockfile can change, including in CI. Runtime integrations and development tools are classified individually, including type definitions. Dependencies required by an integration install normally.
 
 Keep original imports such as `@tanstack/react-query`. Query includes React and React DOM, with their types as development dependencies. Application-specific configuration, credentials, routes, React composition points, and cache policies remain local.
 

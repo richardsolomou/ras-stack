@@ -126,7 +126,7 @@ export async function syncProject(root: string, options: { check?: boolean; upgr
   await mkdir(join(root, '.ras'), { recursive: true })
   await Promise.all(changed.map((file) => writeAtomic(join(root, file), outputs[file]!)))
   await Promise.all(stale.map((file) => rm(join(root, file))))
-  await runPnpm(['install'], root)
+  await runPnpm(['install', '--no-frozen-lockfile'], root)
 }
 
 export async function updateProject(root: string, arguments_: string[]): Promise<void> {
