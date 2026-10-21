@@ -1,5 +1,5 @@
 ---
-'ras-stack': minor
+'ras-stack': major
 ---
 
-Manage selected integration and tooling versions through typed configuration while preserving upstream imports and a single pnpm dependency graph.
+Require managed installation through typed configuration, bundle compiler and linter presets into RAS, and replace direct peer ownership and the standalone configuration package.

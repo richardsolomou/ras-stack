@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { json, readJson } from './files.js'
 import type { InstallationPlan } from './plan.js'
@@ -8,7 +8,7 @@ export async function writeEnvironment(directory: string, plan: InstallationPlan
     await writeFile(
       join(directory, 'tsconfig.json'),
       json({
-        extends: `../node_modules/ras-stack-config/config/typescript/${plan.presets.typescript}.json`,
+        extends: `../node_modules/ras-stack/config/typescript/${plan.presets.typescript}.json`,
         include: ['../src', '../ras.config.ts'],
         exclude: ['../node_modules', '.'],
       }),
@@ -19,7 +19,7 @@ export async function writeEnvironment(directory: string, plan: InstallationPlan
       join(directory, 'oxlint.json'),
       json({
         extends: plan.presets.oxlint.map(
-          (preset) => `../node_modules/ras-stack-config/config/${preset === 'base' ? 'oxlint.json' : `oxlint/${preset}.json`}`,
+          (preset) => `../node_modules/ras-stack/config/${preset === 'base' ? 'oxlint.json' : `oxlint/${preset}.json`}`,
         ),
       }),
     )
@@ -36,7 +36,7 @@ export async function writeEnvironment(directory: string, plan: InstallationPlan
 
 export async function commandPath(directory: string, packageName: string, bin: string): Promise<string> {
   const root = join(directory, 'node_modules', packageName)
-  const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')) as { bin?: string | Record<string, string> }
+  const manifest = await readJson<{ bin?: string | Record<string, string> }>(join(root, 'package.json'))
   const target = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin?.[bin]
   if (!target || target.includes('..') || target.startsWith('/'))
     throw new Error(`${packageName} does not publish a safe ${bin} executable`)

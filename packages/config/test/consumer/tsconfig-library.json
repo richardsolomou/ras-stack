@@ -1,7 +1,0 @@
-{
-  "extends": "ras-stack-config/config/typescript/library",
-  "compilerOptions": {
-    "noEmit": true
-  },
-  "include": ["library.ts"]
-}

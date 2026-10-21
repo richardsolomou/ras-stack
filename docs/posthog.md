@@ -8,14 +8,17 @@ PostHog application metrics is currently in open alpha and distributed tracing i
 
 ## Install
 
-Install only the SDKs used by the application:
+Select the PostHog surfaces in `ras.config.ts`:
 
-```sh
-pnpm add posthog-js @posthog/react
-pnpm add posthog-node @opentelemetry/api-logs @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources @opentelemetry/sdk-logs
+```ts
+import { defineConfig, posthog } from 'ras-stack/config'
+
+export default defineConfig({
+  integrations: [posthog.react, posthog.server],
+})
 ```
 
-The SDKs and OpenTelemetry log packages are optional ras-stack peers. Install only the browser or server surfaces the application uses.
+Run `pnpm exec ras install`. RAS installs the SDKs and OpenTelemetry packages at the catalogue's versions. Choose `posthog.browser` for browser code without React, or only `posthog.server` for a server application. Keep using the original SDK imports.
 
 ## Deployment configuration
 

@@ -20,22 +20,22 @@ describe('generated tooling environment', () => {
     await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [typescript.browser] })))
     const file = join(root, '.ras/tsconfig.json')
     const config = JSON.parse(await readFile(file, 'utf8')) as { extends: string }
-    expect(resolve(dirname(file), config.extends)).toBe(join(root, 'node_modules/ras-stack-config/config/typescript/browser.json'))
+    expect(resolve(dirname(file), config.extends)).toBe(join(root, 'node_modules/ras-stack/config/typescript/browser.json'))
   })
 
   it('composes linter presets in selection order', async () => {
     await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [oxlint.application, oxlint.domain] })))
     const config = JSON.parse(await readFile(join(root, '.ras/oxlint.json'), 'utf8')) as { extends: string[] }
     expect(config.extends).toEqual([
-      '../node_modules/ras-stack-config/config/oxlint/application.json',
-      '../node_modules/ras-stack-config/config/oxlint/domain.json',
+      '../node_modules/ras-stack/config/oxlint/application.json',
+      '../node_modules/ras-stack/config/oxlint/domain.json',
     ])
   })
 
-  it('uses the standalone base preset without an extra path segment', async () => {
+  it('uses the base preset without an extra path segment', async () => {
     await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [oxlint.base] })))
     const config = JSON.parse(await readFile(join(root, '.ras/oxlint.json'), 'utf8')) as { extends: string[] }
-    expect(config.extends).toEqual(['../node_modules/ras-stack-config/config/oxlint.json'])
+    expect(config.extends).toEqual(['../node_modules/ras-stack/config/oxlint.json'])
   })
 
   it('points editors to the normally installed compiler', async () => {

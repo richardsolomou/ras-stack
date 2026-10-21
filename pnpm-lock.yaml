@@ -60,9 +60,6 @@ importers:
       oxlint-tsgolint:
         specifier: ^7.0.2001
         version: 7.0.2001
-      ras-stack-config:
-        specifier: workspace:*
-        version: link:../../packages/config
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -172,30 +169,6 @@ importers:
       oxlint-tsgolint:
         specifier: ^7.0.2001
         version: 7.0.2001
-      ras-stack-config:
-        specifier: workspace:*
-        version: link:../../packages/config
-      typescript:
-        specifier: ^7.0.2
-        version: 7.0.2
-      vite:
-        specifier: 8.2.1
-        version: 8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0)
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0))
-
-  packages/config:
-    devDependencies:
-      '@types/node':
-        specifier: ^26.2.0
-        version: 26.2.0
-      oxlint:
-        specifier: ^1.74.0
-        version: 1.78.0(oxlint-tsgolint@7.0.2001)
-      ras-stack-config:
-        specifier: workspace:*
-        version: 'link:'
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -284,9 +257,6 @@ importers:
       posthog-node:
         specifier: 5.52.1
         version: 5.52.1
-      ras-stack-config:
-        specifier: workspace:*
-        version: link:../config
       react:
         specifier: 19.2.8
         version: 19.2.8

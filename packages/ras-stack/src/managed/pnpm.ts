@@ -27,10 +27,6 @@ module.exports = {
     readPackage(pkg) {
       if (pkg.name === 'ras-stack') {
         pkg.dependencies = { ...pkg.dependencies, ...dependencies }
-        for (const name of Object.keys(dependencies)) {
-          if (pkg.peerDependencies) delete pkg.peerDependencies[name]
-          if (pkg.peerDependenciesMeta) delete pkg.peerDependenciesMeta[name]
-        }
       }
       return pkg
     },

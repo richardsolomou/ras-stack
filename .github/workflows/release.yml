@@ -32,20 +32,18 @@ jobs:
           test "$GITHUB_REF" = "refs/tags/$RELEASE_TAG"
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           runtime_tag="v$(node -p "require('./packages/ras-stack/package.json').version")"
-          config_tag="config-v$(node -p "require('./packages/config/package.json').version")"
-          test "$RELEASE_TAG" = "$runtime_tag" || test "$RELEASE_TAG" = "$config_tag"
-      - name: Publish packages
+          test "$RELEASE_TAG" = "$runtime_tag"
+      - name: Publish package
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/npm-packages"
-          for directory in packages/ras-stack packages/config; do
-            package_name="$(node -p "require('./$directory/package.json').name")"
-            package_version="$(node -p "require('./$directory/package.json').version")"
-            if npm view "$package_name@$package_version" version >/dev/null 2>&1; then
-              echo "$package_name@$package_version is already published"
-              continue
-            fi
-            archive="$RUNNER_TEMP/npm-packages/$package_name-$package_version.tgz"
-            (cd "$directory" && pnpm pack --out "$archive")
-            npm publish "$archive" --access public --provenance
-          done
+          directory=packages/ras-stack
+          package_name="$(node -p "require('./$directory/package.json').name")"
+          package_version="$(node -p "require('./$directory/package.json').version")"
+          if npm view "$package_name@$package_version" version >/dev/null 2>&1; then
+            echo "$package_name@$package_version is already published"
+            exit 0
+          fi
+          archive="$RUNNER_TEMP/npm-packages/$package_name-$package_version.tgz"
+          (cd "$directory" && pnpm pack --out "$archive")
+          npm publish "$archive" --access public --provenance

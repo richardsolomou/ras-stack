@@ -18,16 +18,16 @@ A helper belongs here when it removes a repeated decision or failure mode withou
 
 ## What you get 📦
 
-It ships as independently versioned packages and deployment tooling:
+The stack ships as one npm package with deployment tooling:
 
 - **TypeScript modules** under narrow import paths such as `ras-stack/database/sqlite`, `ras-stack/realtime/react`, and `ras-stack/tanstack/server`.
 - **Managed integrations and tooling** selected with typed descriptors from `ras-stack/config`, installed into one pnpm dependency graph.
-- **Configuration presets** in the dependency-free `ras-stack-config` package for TypeScript and Oxlint.
+- **Configuration presets** bundled with `ras-stack` for its selected TypeScript and Oxlint tools.
 - **Command-line tools** for changeset validation, production assets, preview status, and a local Centrifugo container.
 - **GitHub Actions and reusable workflows** for toolchain setup, checks, browser tests, previews, and Changesets releases.
 - **A separate OCI image** containing verified Caddy and Centrifugo binaries for production images.
 
-An application can use one surface without adopting the others. The published npm package leaves web, database, email, and realtime integrations as optional peers. Applications can install them directly or let the managed installer select their versions.
+Applications select the integrations and tools they use through managed installation. RAS owns their versions, and application code keeps the original upstream imports.
 
 ## The stack 🧰
 
@@ -39,7 +39,7 @@ An application can use one surface without adopting the others. The published np
 | Data                | Drizzle, `better-sqlite3`, libsql, Postgres.js | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks         |
 | Realtime            | Centrifuge, Centrifugo, Caddy                  | Publishing, tokens, browser/React lifecycle, proxy configuration, binaries, and supervision         |
 | Realtime database   | SpacetimeDB                                    | Server calls, migration-planned module publishing, environment headers, and binding checks          |
-| Email and uploads   | Nodemailer 9/10, `tus-js-client`               | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                    |
+| Email and uploads   | Nodemailer, `tus-js-client`                    | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                    |
 | Observability       | PostHog JS, React, Node, and OpenTelemetry     | Analytics, replay, errors, logs, metrics, tracing, correlation, proxying, and shutdown              |
 | Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                 |
 
@@ -76,7 +76,7 @@ Run `pnpm exec ras install`. RAS selects exact versions, generates a pnpm hook, 
 
 Use `ras typecheck`, `ras lint`, `ras dev`, `ras build`, and the other selected tooling commands. Applications retain their own compiler/linter overrides. See [Managed installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) for presets, migration, CI, upgrades, and ownership boundaries.
 
-Applications that want only helpers can continue installing upstream peers directly. Configuration-only repositories can use the independent `ras-stack-config` package without adopting the installer.
+Version 5 requires managed installation. Remove `ras-stack-config` and any directly declared packages selected in `ras.config.ts`, then point compiler and linter overrides at `.ras`. Direct peer installation and the separate configuration package are no longer supported; see the migration guide before upgrading.
 
 ## Dokploy previews 🚀
 

@@ -2,7 +2,7 @@
 
 RAS can own the upstream dependency versions used by an application, alongside its compiler and linter. Applications choose integrations through typed descriptors from `ras-stack/config`. Unselected integrations are not added to the dependency graph. Applications still use the upstream APIs and original imports.
 
-This is an opt-in pnpm installation mode. The published package's optional-peer behavior and the standalone `ras-stack-config` package remain available.
+Managed installation is the supported installation model from RAS 5 onward. Direct peer installation and the separate `ras-stack-config` package are retired. Presets ship inside `ras-stack` and version with its integration catalogue.
 
 ## Select integrations and tools
 
@@ -83,7 +83,7 @@ An application `tsconfig.json` can retain its own paths, includes, and exception
 }
 ```
 
-An application `.oxlintrc.json` can extend `./.ras/oxlint.json` and retain local rules, ignores, and overrides. RAS does not replace either application-owned file. The generated presets use the managed `ras-stack-config` version, so it is no longer a separate consumer dependency.
+An application `.oxlintrc.json` can extend `./.ras/oxlint.json` and retain local rules, ignores, and overrides. RAS does not replace either application-owned file. The generated presets extend the configuration bundled in the installed `ras-stack` release. No separate configuration package is installed.
 
 Commands use the selected package's executable and run in the consuming directory:
 
@@ -117,7 +117,9 @@ export default defineConfig({
 
 An explicit consumer denial or conflicting version override is an error. Approvals for unrelated application packages remain in the consumer's pnpm configuration. RAS does not suppress pnpm errors for unreviewed transitive build scripts.
 
-## Migrate a consumer
+## Migrate from RAS 4
+
+Remove `ras-stack-config` from the manifest and replace its TypeScript and Oxlint inheritance paths with `./.ras/tsconfig.json` and `./.ras/oxlint.json`. Choose the corresponding typed presets in `ras.config.ts`. Configuration-only repositories also install `ras-stack` and select their tools through this file.
 
 Remove managed packages from the application's `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`; RAS rejects duplicate ownership. Keep packages that RAS does not manage. Select the integrations and tools in `ras.config.ts`, then run `ras install`.
 

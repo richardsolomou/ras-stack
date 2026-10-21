@@ -1,5 +1,5 @@
 {
-  "extends": "ras-stack-config/config/typescript/library",
+  "extends": "./config/typescript/library.json",
   "compilerOptions": {
     "types": ["node", "vitest/globals"]
   },

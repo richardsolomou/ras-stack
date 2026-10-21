@@ -10,8 +10,6 @@ import { pnpmHook } from './pnpm.js'
 interface Manifest {
   name: string
   dependencies?: Record<string, string>
-  peerDependencies?: Record<string, string>
-  peerDependenciesMeta?: Record<string, unknown>
 }
 interface Settings {
   registry?: string
@@ -69,14 +67,8 @@ describe('native pnpm hook contract', () => {
     expect(hooks.readPackage(pkg)).toEqual(pkg)
   })
 
-  it('converts selected optional peers into pinned dependencies on RAS', () => {
-    const pkg = hooks.readPackage({
-      name: 'ras-stack',
-      peerDependencies: { react: '>=19 <20', postgres: '>=3 <4' },
-      peerDependenciesMeta: { react: { optional: true } },
-    })
-    expect(pkg.dependencies?.react).toBe('19.3.0')
-    expect(pkg.peerDependencies).toEqual({ postgres: '>=3 <4' })
+  it('attaches selected dependencies to RAS', () => {
+    expect(hooks.readPackage({ name: 'ras-stack' }).dependencies?.react).toBe('19.3.0')
   })
 
   it('does not publicly hoist an unselected SDK', () => {

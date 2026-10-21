@@ -42,13 +42,12 @@ export const posthog = {
   }),
 } as const
 
-const configPackage = { 'ras-stack-config': '3.0.0' }
 export const typescript = Object.fromEntries(
   ['base', 'bundler', 'browser', 'library', 'tanstack'].map((preset) => [
     preset,
     defineIntegration({
       name: `typescript-${preset}`,
-      packages: { ...configPackage, typescript: '7.0.2', '@types/node': '26.2.0' },
+      packages: { typescript: '7.0.2', '@types/node': '26.2.0' },
       presets: { typescript: preset },
       commands: { typecheck: { package: 'typescript', bin: 'tsc', args: ['--noEmit'] } },
     }),
@@ -59,7 +58,7 @@ export const oxlint = Object.fromEntries(
     preset,
     defineIntegration({
       name: `oxlint-${preset}`,
-      packages: { ...configPackage, oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
+      packages: { oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
       presets: { oxlint: [preset] },
       commands: { lint: { package: 'oxlint', bin: 'oxlint', args: ['--type-aware', '--deny-warnings'] } },
     }),

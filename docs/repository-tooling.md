@@ -4,15 +4,25 @@
 
 These configs, commands, actions, and workflows keep repository mechanics consistent without taking ownership of application-specific paths, services, permissions, or deployment policy.
 
-Managed projects select compatible tool versions and presets through `ras-stack/config`; see [Managed installation](managed-installation.md). The standalone presets below remain available for repositories that manage their tools directly.
+Select compatible tools and presets through `ras-stack/config`; see [Managed installation](managed-installation.md) for installation and migration from RAS 4. Presets are bundled with the RAS release.
 
 ## Shared project configuration
 
-Extend the supplied configuration and override anything specific to the application:
+Choose the presets in `ras.config.ts`:
+
+```ts
+import { defineConfig, typescript, oxlint } from 'ras-stack/config'
+
+export default defineConfig({
+  tooling: [typescript.tanstack, oxlint.application, oxlint.tanstack],
+})
+```
+
+After `ras install`, keep application-specific overrides in files that extend the generated configuration:
 
 ```json
 {
-  "extends": ["./node_modules/ras-stack-config/config/oxlint.json"],
+  "extends": ["./.ras/oxlint.json"],
   "rules": {
     "application-specific-rule": "off"
   }
@@ -21,47 +31,27 @@ Extend the supplied configuration and override anything specific to the applicat
 
 ```json
 {
-  "extends": "ras-stack-config/config/typescript/tanstack",
+  "extends": "./.ras/tsconfig.json",
   "include": ["src", "vite.config.ts"]
 }
 ```
 
-TypeScript bases are also available at `ras-stack-config/config/typescript/browser` and `ras-stack-config/config/typescript/library`.
+The TypeScript presets compose by runtime role:
 
-The TypeScript configs compose by runtime role:
+- `typescript.base` contains runtime-neutral strictness and module-safety options.
+- `typescript.bundler` adds ESM bundler resolution without assuming DOM or Node globals.
+- `typescript.browser` adds DOM, JSX, and no-emit defaults.
+- `typescript.tanstack` adds Vite and Node types to the browser role.
+- `typescript.library` uses NodeNext resolution and declaration-friendly strictness.
 
-- `base` contains runtime-neutral strictness and module-safety options.
-- `bundler` adds ESM bundler resolution without assuming DOM or Node globals.
-- `browser` adds DOM, JSX, and no-emit defaults.
-- `tanstack` adds Vite and Node types to the browser role.
-- `library` uses NodeNext resolution and declaration-friendly strictness.
+Oxlint presets compose in selection order. `oxlint.application` supplies shared application preferences, and `oxlint.tanstack` handles generated TanStack files. Keep application aliases, includes, custom generated directories, worker globals, and exceptions in the consuming repository.
 
-Oxlint applications can extend the strict default plus independent layers for shared application preferences and generated TanStack files:
+Two additional import-boundary presets are available:
 
-```json
-{
-  "extends": [
-    "./node_modules/ras-stack-config/config/oxlint/application.json",
-    "./node_modules/ras-stack-config/config/oxlint/tanstack.json"
-  ],
-  "rules": {
-    "application-specific-rule": "off"
-  }
-}
-```
+- `oxlint.domain` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**`. Pure libraries such as Zod remain available. Applications with other domain directories repeat the override for those paths in their own configuration.
+- `oxlint.layers` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
 
-These configs do not set include paths, aliases, generated directories outside TanStack's route tree, or framework-specific worker globals. Keep those differences in the consuming repository.
-
-Two opt-in import-boundary presets can be added to the same `extends` list:
-
-- `./node_modules/ras-stack-config/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**`. Pure libraries such as Zod remain available. Applications with other domain directories repeat the override for those paths in their own configuration.
-- `./node_modules/ras-stack-config/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
-
-Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither preset is enabled by `application` or `tanstack` automatically.
-
-## Adopting the tooling
-
-Install `ras-stack-config` as a development dependency and extend only the presets the repository needs. The examples above are complete inheritance contracts. Application aliases, includes, toolchain versions, exceptions, and committed release/dependency policies remain repository-owned. Configuration releases are independent of `ras-stack` runtime releases.
+Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither boundary preset is selected automatically.
 
 ## Changeset validation
 
@@ -154,7 +144,7 @@ The release job opens a pull request for the version commit. It validates the ex
 
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
-Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Configuration-only releases leave it unchanged. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
+Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 
 Reusable workflows refer to ras-stack actions through the stable major compatibility tag, because GitHub requires a remote action to use an `owner/repository/path@ref` reference even when a reusable workflow calls it. A nested reusable workflow can use a local `./.github/workflows/` path, which GitHub resolves from the same commit as its caller.
 

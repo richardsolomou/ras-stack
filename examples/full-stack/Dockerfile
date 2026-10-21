@@ -6,12 +6,10 @@ RUN apk add --no-cache python3 make g++
 RUN corepack enable && corepack install --global pnpm@11.15.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/ras-stack/package.json ./packages/ras-stack/package.json
-COPY packages/config/package.json ./packages/config/package.json
 COPY apps/web/package.json ./apps/web/package.json
 COPY examples/full-stack/package.json ./examples/full-stack/package.json
 RUN pnpm fetch --frozen-lockfile
 COPY packages/ras-stack ./packages/ras-stack
-COPY packages/config ./packages/config
 COPY examples/full-stack ./examples/full-stack
 RUN pnpm install --offline --frozen-lockfile
 RUN pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack build

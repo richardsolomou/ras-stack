@@ -21,7 +21,8 @@
     "ras": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "config"
   ],
   "type": "module",
   "sideEffects": false,
@@ -137,8 +138,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run --config vitest.config.ts",
-    "package:check": "node scripts/checkPackedPackage.mjs && node scripts/checkManagedPackage.mjs",
-    "peer:floor": "node scripts/checkPeerFloor.mjs",
+    "package:check": "node scripts/checkManagedPackage.mjs",
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
   },
@@ -170,7 +170,6 @@
     "postgres": "3.4.9",
     "posthog-js": "1.430.3",
     "posthog-node": "5.52.1",
-    "ras-stack-config": "workspace:*",
     "react": "19.2.8",
     "react-test-renderer": "19.2.8",
     "tus-js-client": "^4.3.1",
@@ -178,74 +177,6 @@
     "vite": "8.2.1",
     "vitest": "^4.1.10",
     "yaml": "^2.8.2"
-  },
-  "peerDependencies": {
-    "@libsql/client": ">=0.18 <1",
-    "@opentelemetry/api-logs": ">=0.221.0 <0.224.0",
-    "@opentelemetry/exporter-logs-otlp-http": ">=0.221.0 <0.224.0",
-    "@opentelemetry/resources": "^2.10.0",
-    "@opentelemetry/sdk-logs": ">=0.221.0 <0.224.0",
-    "@posthog/react": ">=1.1 <2",
-    "@tanstack/react-start": ">=1.168.10 <2",
-    "better-sqlite3": ">=12 <14",
-    "centrifuge": ">=5 <6",
-    "drizzle-orm": ">=0.45 <1",
-    "nodemailer": ">=9 <11",
-    "postgres": ">=3.4 <4",
-    "posthog-js": ">=1.430.3 <2",
-    "posthog-node": ">=5.52 <6",
-    "react": ">=19 <20",
-    "tus-js-client": ">=4 <5"
-  },
-  "peerDependenciesMeta": {
-    "@libsql/client": {
-      "optional": true
-    },
-    "@opentelemetry/api-logs": {
-      "optional": true
-    },
-    "@opentelemetry/exporter-logs-otlp-http": {
-      "optional": true
-    },
-    "@opentelemetry/resources": {
-      "optional": true
-    },
-    "@opentelemetry/sdk-logs": {
-      "optional": true
-    },
-    "@posthog/react": {
-      "optional": true
-    },
-    "@tanstack/react-start": {
-      "optional": true
-    },
-    "better-sqlite3": {
-      "optional": true
-    },
-    "centrifuge": {
-      "optional": true
-    },
-    "drizzle-orm": {
-      "optional": true
-    },
-    "nodemailer": {
-      "optional": true
-    },
-    "postgres": {
-      "optional": true
-    },
-    "react": {
-      "optional": true
-    },
-    "tus-js-client": {
-      "optional": true
-    },
-    "posthog-js": {
-      "optional": true
-    },
-    "posthog-node": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=24 <25"
