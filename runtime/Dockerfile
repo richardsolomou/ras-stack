@@ -2,7 +2,7 @@
 ARG CADDY_VERSION=2.11.4
 ARG CENTRIFUGO_VERSION=6.9.6
 
-FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS centrifugo
+FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS centrifugo
 ARG TARGETOS
 ARG TARGETARCH
 ARG CENTRIFUGO_VERSION
@@ -17,7 +17,7 @@ RUN wget -q "https://github.com/centrifugal/centrifugo/archive/${CENTRIFUGO_COMM
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/centrifugal/centrifugo/v6/internal/build.Version=${CENTRIFUGO_VERSION}" -o /out/centrifugo . \
     && cp LICENSE /out/CENTRIFUGO-LICENSE
 
-FROM --platform=$BUILDPLATFORM golang:1.26.9-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS caddy
+FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS caddy
 ARG TARGETOS
 ARG TARGETARCH
 ARG CADDY_VERSION
