@@ -18,7 +18,7 @@ export default defineConfig({
 })
 ```
 
-Run `pnpm exec ras install`. RAS installs the SDKs and OpenTelemetry packages at the catalogue's versions. Choose `posthog.browser` for browser code without React, or only `posthog.server` for a server application. Keep using the original SDK imports.
+Run `pnpm exec ras sync`. RAS installs the SDKs and OpenTelemetry packages at the catalogue's versions. Choose `posthog.browser` for browser code without React, or only `posthog.server` for a server application. Keep using the original SDK imports.
 
 ## Deployment configuration
 

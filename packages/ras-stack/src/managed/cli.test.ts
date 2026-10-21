@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runManagedCli } from './cli.js'
 
@@ -85,8 +86,8 @@ describe('managed tool commands', () => {
     expect(await argumentsFor('format', ['.'])).toEqual(['--write', '.'])
   })
 
-  it('uses generated Vite configuration when none exists', async () => {
-    expect(await argumentsFor('build')).toEqual(['build', '--config', '.ras/vite.config.mjs'])
+  it('uses bundled Vite configuration when none exists', async () => {
+    expect(await argumentsFor('build')).toEqual(['build', '--config', fileURLToPath(new URL('../../config/vite.mjs', import.meta.url))])
   })
 
   it('preserves an application Vite configuration', async () => {

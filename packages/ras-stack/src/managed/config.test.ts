@@ -17,6 +17,25 @@ describe('managed configuration', () => {
     expect(plan.presets).toEqual({ typescript: 'browser', oxlint: ['application'], vite: [] })
   })
 
+  it('keeps compiler packages out of runtime dependencies', () => {
+    expect(installationPlan({ tooling: [typescript.browser] }).dependencies).toEqual({})
+  })
+
+  it('places React types in development dependencies', () => {
+    expect(installationPlan({ integrations: [tanstackQuery] }).devDependencies['@types/react']).toBe('19.3.0')
+  })
+
+  it('rejects different runtime and development versions of the same package', () => {
+    expect(() =>
+      defineConfig({ integrations: [{ name: 'conflict', packages: { react: '19.3.0' }, devPackages: { react: '18.0.0' } }] }),
+    ).toThrow('Conflicting versions')
+  })
+
+  it('prefers runtime ownership when a tool also selects the same package', () => {
+    const plan = installationPlan({ integrations: [{ name: 'shared', packages: { react: '19.3.0' }, devPackages: { react: '19.3.0' } }] })
+    expect(plan.devDependencies).not.toHaveProperty('react')
+  })
+
   it('rejects incompatible selections', () => {
     const conflicting = defineIntegration({ name: 'conflict', packages: { react: '1.0.0' } })
     expect(() => installationPlan(defineConfig({ integrations: [tanstackQuery, conflicting] }))).toThrow('Conflicting versions for react')

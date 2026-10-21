@@ -3,7 +3,8 @@ import type { Integration } from './model.js'
 
 const react = defineIntegration({
   name: 'react',
-  packages: { react: '19.3.0', 'react-dom': '19.3.0', '@types/react': '19.3.0', '@types/react-dom': '19.3.0' },
+  packages: { react: '19.3.0', 'react-dom': '19.3.0' },
+  devPackages: { '@types/react': '19.3.0', '@types/react-dom': '19.3.0' },
 })
 export const tanstackQuery = defineIntegration({
   name: 'tanstack-query',
@@ -19,11 +20,12 @@ export const tanstackStart = defineIntegration({
 })
 export const sqlite = defineIntegration({
   name: 'sqlite',
-  packages: { 'better-sqlite3': '13.0.3', '@types/better-sqlite3': '9.6.0', 'drizzle-orm': '0.45.4' },
+  packages: { 'better-sqlite3': '13.0.3', 'drizzle-orm': '0.45.4' },
+  devPackages: { '@types/better-sqlite3': '9.6.0' },
 })
 export const postgres = defineIntegration({ name: 'postgres', packages: { postgres: '3.4.9', 'drizzle-orm': '0.45.4' } })
 export const libsql = defineIntegration({ name: 'libsql', packages: { '@libsql/client': '0.18.0', 'drizzle-orm': '0.45.4' } })
-export const email = defineIntegration({ name: 'email', packages: { nodemailer: '10.1.0', '@types/nodemailer': '8.0.2' } })
+export const email = defineIntegration({ name: 'email', packages: { nodemailer: '10.1.0' }, devPackages: { '@types/nodemailer': '8.0.2' } })
 export const uploads = defineIntegration({ name: 'uploads', packages: { 'tus-js-client': '4.3.1' } })
 export const realtime = defineIntegration({ name: 'realtime', packages: { centrifuge: '5.7.4' } })
 const posthogBrowser = defineIntegration({ name: 'posthog-browser', packages: { 'posthog-js': '1.438.12' } })
@@ -42,14 +44,14 @@ export const posthog = {
   }),
   build: defineIntegration({
     name: 'posthog-build',
-    packages: { '@posthog/rollup-plugin': '1.6.1' },
+    devPackages: { '@posthog/rollup-plugin': '1.6.1' },
     presets: { vite: ['posthog'] },
   }),
 } as const
 
 const tailwindCore = defineIntegration({
   name: 'tailwind',
-  packages: { tailwindcss: '4.3.3', '@tailwindcss/vite': '4.3.3' },
+  devPackages: { tailwindcss: '4.3.3', '@tailwindcss/vite': '4.3.3' },
   presets: { vite: ['tailwind'] },
 })
 export const tailwind = {
@@ -57,13 +59,13 @@ export const tailwind = {
   animations: defineIntegration({
     name: 'tailwind-animations',
     includes: [tailwindCore],
-    packages: { 'tw-animate-css': '1.4.0' },
+    devPackages: { 'tw-animate-css': '1.4.0' },
     presets: { vite: ['tailwind-animations'] },
   }),
 } as const
 export const nitro = defineIntegration({
   name: 'nitro',
-  packages: { nitro: '3.0.260903-beta' },
+  devPackages: { nitro: '3.0.260903-beta' },
   presets: { vite: ['nitro'] },
 })
 
@@ -72,7 +74,7 @@ export const typescript = Object.fromEntries(
     preset,
     defineIntegration({
       name: `typescript-${preset}`,
-      packages: { typescript: '7.0.2', '@types/node': '26.2.0' },
+      devPackages: { typescript: '7.0.2', '@types/node': '26.2.0' },
       presets: { typescript: preset },
       commands: { typecheck: { package: 'typescript', bin: 'tsc', args: ['--noEmit'] } },
     }),
@@ -83,7 +85,7 @@ export const oxlint = Object.fromEntries(
     preset,
     defineIntegration({
       name: `oxlint-${preset}`,
-      packages: { oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
+      devPackages: { oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
       presets: { oxlint: [preset] },
       commands: { lint: { package: 'oxlint', bin: 'oxlint', args: ['--type-aware', '--deny-warnings'] } },
     }),
@@ -91,23 +93,23 @@ export const oxlint = Object.fromEntries(
 ) as Record<'base' | 'application' | 'tanstack' | 'domain' | 'layers', Integration>
 export const oxfmt = defineIntegration({
   name: 'oxfmt',
-  packages: { oxfmt: '0.72.0' },
+  devPackages: { oxfmt: '0.72.0' },
   commands: { format: { package: 'oxfmt', bin: 'oxfmt', args: ['--write'] } },
 })
 export const vite = defineIntegration({
   name: 'vite',
   includes: [react],
-  packages: { vite: '8.3.4', '@vitejs/plugin-react': '6.1.2' },
+  devPackages: { vite: '8.3.4', '@vitejs/plugin-react': '6.1.2' },
   presets: { vite: ['react'] },
   commands: { dev: { package: 'vite', bin: 'vite' }, build: { package: 'vite', bin: 'vite', args: ['build'] } },
 })
 export const vitest = defineIntegration({
   name: 'vitest',
-  packages: { vitest: '5.0.3', '@vitest/coverage-v8': '5.0.3' },
+  devPackages: { vitest: '5.0.3', '@vitest/coverage-v8': '5.0.3' },
   commands: { test: { package: 'vitest', bin: 'vitest', args: ['run'] } },
 })
 export const playwright = defineIntegration({
   name: 'playwright',
-  packages: { '@playwright/test': '1.64.0' },
+  devPackages: { '@playwright/test': '1.64.0' },
   commands: { e2e: { package: '@playwright/test', bin: 'playwright', args: ['test'] } },
 })

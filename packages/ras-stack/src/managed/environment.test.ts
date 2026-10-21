@@ -1,9 +1,9 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { defineConfig, oxlint, typescript } from '../config.js'
-import { commandPath, writeEnvironment } from './environment.js'
+import { commandPath, environmentFiles } from './environment.js'
 import { installationPlan } from './plan.js'
 
 describe('generated tooling environment', () => {
@@ -17,15 +17,15 @@ describe('generated tooling environment', () => {
   })
 
   it('resolves the compiler preset from the shared dependency graph', async () => {
-    await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [typescript.browser] })))
+    const files = environmentFiles(installationPlan(defineConfig({ tooling: [typescript.browser] })))
     const file = join(root, '.ras/tsconfig.json')
-    const config = JSON.parse(await readFile(file, 'utf8')) as { extends: string }
+    const config = JSON.parse(files['tsconfig.json']!) as { extends: string }
     expect(resolve(dirname(file), config.extends)).toBe(join(root, 'node_modules/ras-stack/config/typescript/browser.json'))
   })
 
   it('composes linter presets in selection order', async () => {
-    await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [oxlint.application, oxlint.domain] })))
-    const config = JSON.parse(await readFile(join(root, '.ras/oxlint.json'), 'utf8')) as { extends: string[] }
+    const files = environmentFiles(installationPlan(defineConfig({ tooling: [oxlint.application, oxlint.domain] })))
+    const config = JSON.parse(files['oxlint.json']!) as { extends: string[] }
     expect(config.extends).toEqual([
       '../node_modules/ras-stack/config/oxlint/application.json',
       '../node_modules/ras-stack/config/oxlint/domain.json',
@@ -33,14 +33,14 @@ describe('generated tooling environment', () => {
   })
 
   it('uses the base preset without an extra path segment', async () => {
-    await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [oxlint.base] })))
-    const config = JSON.parse(await readFile(join(root, '.ras/oxlint.json'), 'utf8')) as { extends: string[] }
+    const files = environmentFiles(installationPlan(defineConfig({ tooling: [oxlint.base] })))
+    const config = JSON.parse(files['oxlint.json']!) as { extends: string[] }
     expect(config.extends).toEqual(['../node_modules/ras-stack/config/oxlint.json'])
   })
 
   it('points editors to the normally installed compiler', async () => {
-    await writeEnvironment(join(root, '.ras'), installationPlan(defineConfig({ tooling: [typescript.library] })))
-    const settings = JSON.parse(await readFile(join(root, '.ras/vscode-settings.json'), 'utf8')) as Record<string, string>
+    const files = environmentFiles(installationPlan(defineConfig({ tooling: [typescript.library] })))
+    const settings = JSON.parse(files['vscode-settings.json']!) as Record<string, string>
     expect(settings['typescript.tsdk']).toBe('node_modules/typescript/lib')
   })
 

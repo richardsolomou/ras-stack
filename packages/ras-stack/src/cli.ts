@@ -2,10 +2,13 @@
 import { runAssetsCli } from './build/cli.js'
 import { runChangesetsCli } from './changesets/cli.js'
 import { runManagedCli } from './managed/cli.js'
+import { runSyncCli, updateProject } from './managed/sync.js'
 import { runPreviewCli } from './preview/cli.js'
 import { parseRealtimeDevArguments, runRealtimeDev } from './runtime/dev.js'
 
 const commands = {
+  sync: runSyncCli,
+  update: (arguments_: string[]) => updateProject(process.cwd(), arguments_),
   typecheck: (arguments_: string[]) => runManagedCli('typecheck', arguments_),
   lint: (arguments_: string[]) => runManagedCli('lint', arguments_),
   format: (arguments_: string[]) => runManagedCli('format', arguments_),
@@ -32,7 +35,9 @@ export function parseRasCommand(arguments_: string[]): { arguments: string[]; co
 export async function runRasCli(arguments_: string[]): Promise<void> {
   const parsed = parseRasCommand(arguments_)
   if (!parsed) {
-    console.error('usage: ras <typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]')
+    console.error(
+      'usage: ras <sync|update|typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]',
+    )
     process.exitCode = 2
     return
   }

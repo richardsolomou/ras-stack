@@ -1,10 +1,10 @@
 import path from 'node:path'
-import { loadEnv, mergeConfig } from 'vite'
 import type { ConfigEnv, PluginOption, UserConfig, UserConfigExport } from 'vite'
 import type { NitroPluginConfig } from 'nitro/vite'
 import type { default as posthogRollup, PostHogRollupPluginOptions } from '@posthog/rollup-plugin'
 import type { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { preparedPlan } from '../managed/install.js'
+import { loadTool } from '../managed/tools.js'
 
 export interface BuildIntegrations {
   stylesheet?: string
@@ -30,7 +30,7 @@ export async function postHogSourceMapPlugins(
         Boolean(personalApiKey && projectId)))
   if (!active) return []
   if (!personalApiKey || !projectId) throw new Error('PostHog source-map uploads require a personal API key and project ID')
-  const { default: posthog } = await import('@posthog/rollup-plugin')
+  const { default: posthog } = await loadTool<typeof import('@posthog/rollup-plugin')>('@posthog/rollup-plugin')
   return [
     posthog({
       ...overrides,
@@ -43,6 +43,7 @@ export async function postHogSourceMapPlugins(
 }
 
 export async function configureVite(config: RasViteConfig, presets: readonly string[], env: NodeJS.ProcessEnv): Promise<UserConfig> {
+  const { mergeConfig } = await loadTool<typeof import('vite')>('vite')
   const { ras = {}, ...overrides } = config
   const root = path.resolve(overrides.root ?? process.cwd())
   const plugins: PluginOption[] = []
@@ -62,19 +63,19 @@ export async function configureVite(config: RasViteConfig, presets: readonly str
     })
   }
   if (presets.includes('start')) {
-    const { tanstackStart } = await import('@tanstack/react-start/plugin/vite')
+    const { tanstackStart } = await loadTool<typeof import('@tanstack/react-start/plugin/vite')>('@tanstack/react-start/plugin/vite')
     plugins.push(tanstackStart(ras.start))
   }
   if (presets.includes('nitro')) {
-    const { nitro } = await import('nitro/vite')
+    const { nitro } = await loadTool<typeof import('nitro/vite')>('nitro/vite')
     plugins.push(nitro(ras.nitro))
   }
   if (presets.includes('react')) {
-    const { default: react } = await import('@vitejs/plugin-react')
+    const { default: react } = await loadTool<typeof import('@vitejs/plugin-react')>('@vitejs/plugin-react')
     plugins.push(react())
   }
   if (presets.includes('tailwind')) {
-    const { default: tailwind } = await import('@tailwindcss/vite')
+    const { default: tailwind } = await loadTool<typeof import('@tailwindcss/vite')>('@tailwindcss/vite')
     plugins.push(tailwind())
   }
   const sourceMaps = presets.includes('posthog') ? await postHogSourceMapPlugins(env, ras.posthog) : []
@@ -102,6 +103,7 @@ export function defineViteConfig(
   return async (context) => {
     const plan = await preparedPlan(process.cwd())
     const resolved = typeof config === 'function' ? await config(context) : config
+    const { loadEnv } = await loadTool<typeof import('vite')>('vite')
     const env = { ...loadEnv(context.mode, process.cwd(), ''), ...process.env }
     return configureVite(resolved, plan.presets.vite, env)
   }

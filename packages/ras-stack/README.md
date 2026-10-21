@@ -72,11 +72,13 @@ export default defineConfig({
 })
 ```
 
-Declare `ras-stack` under `configDependencies` in `pnpm-workspace.yaml` and set `pnpmfile` to `node_modules/.pnpm-config/ras-stack/pnpmfile.cjs`. Run `pnpm install` (pnpm 12.12+). RAS selects exact versions and installs only the selected integrations and their dependencies. Keep upstream imports such as `@tanstack/react-query`. Commit the workspace configuration and `pnpm-lock.yaml`; ignore `.ras/`. Upgrade with `pnpm update ras-stack`, followed by `pnpm install`.
+Run `pnpm dlx ras-stack@5 sync` to bootstrap, or `pnpm exec ras sync` when RAS is installed. RAS writes exact runtime and development dependencies into the ordinary application manifest, generates committed `.ras/` presets, and runs pnpm install. Keep upstream imports such as `@tanstack/react-query`. Only selected integrations are installed.
+
+Commit the generated files and lockfile. Fresh clones and CI use `pnpm install --frozen-lockfile`; `ras sync --check` verifies the selections without mutation. Upgrade the complete stack with `pnpm exec ras update [version-or-tag]`. Existing Dependabot npm rules receive generated ignores for managed packages, while application-owned libraries remain independently updateable.
 
 Use `ras typecheck`, `ras lint`, `ras dev`, `ras build`, and the other selected tooling commands. Applications retain their own compiler/linter overrides. See [Managed installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) for presets, migration, CI, upgrades, and ownership boundaries.
 
-Version 5 requires managed installation. Remove `ras-stack-config` and any directly declared packages selected in `ras.config.ts`, then point compiler and linter overrides at `.ras`. Direct peer installation and the separate configuration package are no longer supported; see the migration guide before upgrading.
+Version 5 includes the compiler and linter presets in `ras-stack`; remove `ras-stack-config` when migrating. There are no pnpm dependency-injection hooks or special bootstrap configuration.
 
 ## Dokploy previews 🚀
 

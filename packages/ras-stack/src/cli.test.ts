@@ -3,6 +3,8 @@ import { parseRasCommand, runRasCli } from './cli.js'
 
 describe('parseRasCommand', () => {
   it.each([
+    'sync',
+    'update',
     'assets',
     'changesets',
     'preview',
@@ -37,7 +39,7 @@ describe('runRasCli', () => {
     await runRasCli(['deploy'])
 
     expect(error).toHaveBeenCalledWith(
-      'usage: ras <typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]',
+      'usage: ras <sync|update|typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]',
     )
     expect(process.exitCode).toBe(2)
   })

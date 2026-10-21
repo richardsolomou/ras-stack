@@ -2,4 +2,4 @@
 'ras-stack': major
 ---
 
-Configure selected dependencies through native pnpm config dependencies, bundle compiler and linter presets into RAS, and replace direct peer ownership and the standalone configuration package.
+Synchronize opted-in runtime and development dependencies, bundled tooling presets, and coordinated upgrades through the RAS CLI.

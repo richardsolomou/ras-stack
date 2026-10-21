@@ -22,8 +22,7 @@
   },
   "files": [
     "dist",
-    "config",
-    "pnpmfile.cjs"
+    "config"
   ],
   "type": "module",
   "sideEffects": false,
@@ -141,7 +140,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/bundleChangesets.mjs",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",
@@ -151,10 +150,14 @@
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
   },
-  "devDependencies": {
+  "dependencies": {
     "@changesets/parse": "1.0.0",
-    "@libsql/client": "0.18.0",
     "@manypkg/get-packages": "3.1.0",
+    "import-meta-resolve": "4.2.0",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "@libsql/client": "0.18.0",
     "@opentelemetry/api-logs": "^0.223.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",
@@ -174,7 +177,6 @@
     "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.1",
     "drizzle-orm": "0.45.2",
-    "esbuild": "0.28.2",
     "nitro": "3.0.260903-beta",
     "nodemailer": "^10.0.11",
     "oxfmt": "^0.63.0",
@@ -188,8 +190,79 @@
     "tus-js-client": "^4.3.1",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
-    "vitest": "^4.1.10",
-    "yaml": "^2.8.2"
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "@libsql/client": ">=0.18 <1",
+    "@opentelemetry/api-logs": ">=0.221.0 <0.224.0",
+    "@opentelemetry/exporter-logs-otlp-http": ">=0.221.0 <0.224.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-logs": ">=0.221.0 <0.224.0",
+    "@posthog/react": ">=1.1 <2",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-start": ">=1.168.10 <2",
+    "better-sqlite3": ">=12 <14",
+    "centrifuge": ">=5 <6",
+    "drizzle-orm": ">=0.45 <1",
+    "nodemailer": ">=9 <11",
+    "postgres": ">=3.4 <4",
+    "posthog-js": ">=1.430.3 <2",
+    "posthog-node": ">=5.52 <6",
+    "react": ">=19 <20",
+    "tus-js-client": ">=4 <5"
+  },
+  "peerDependenciesMeta": {
+    "@libsql/client": {
+      "optional": true
+    },
+    "@opentelemetry/api-logs": {
+      "optional": true
+    },
+    "@opentelemetry/exporter-logs-otlp-http": {
+      "optional": true
+    },
+    "@opentelemetry/resources": {
+      "optional": true
+    },
+    "@opentelemetry/sdk-logs": {
+      "optional": true
+    },
+    "@posthog/react": {
+      "optional": true
+    },
+    "@tanstack/react-start": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "centrifuge": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    },
+    "nodemailer": {
+      "optional": true
+    },
+    "postgres": {
+      "optional": true
+    },
+    "posthog-js": {
+      "optional": true
+    },
+    "posthog-node": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "tus-js-client": {
+      "optional": true
+    },
+    "@tanstack/react-query": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=24 <25"

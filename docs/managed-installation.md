@@ -1,8 +1,8 @@
 # Managed installation
 
-RAS can own the upstream dependency versions used by an application, alongside its compiler and linter. Applications choose integrations through typed descriptors from `ras-stack/config`. Unselected integrations are not added to the dependency graph. Applications still use the upstream APIs and original imports.
+RAS owns the versions and configuration of selected integrations. Applications select typed descriptors in `ras.config.ts`, while pnpm installs ordinary dependencies from `package.json` and `pnpm-lock.yaml`. Unselected integrations are not installed. Plain libraries such as Zod and the SpacetimeDB SDK remain application-owned.
 
-Managed installation is the supported installation model from RAS 5 onward. Direct peer installation and the separate `ras-stack-config` package are retired. Presets ship inside `ras-stack` and version with its integration catalogue.
+RAS 5 includes compiler and linter presets in the main package. The separate `ras-stack-config` package is retired.
 
 ## Select integrations and tools
 
@@ -17,37 +17,23 @@ export default defineConfig({
 })
 ```
 
-Declare RAS once in `pnpm-workspace.yaml` (requires pnpm 12.12 or newer):
-
-```yaml
-configDependencies:
-  ras-stack: ^5.0.0
-pnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.cjs
-```
-
-Run the ordinary package manager command:
+Use Node 24 and pin pnpm 11 or newer in `package.json`'s `packageManager` field. Bootstrap with the RAS version you want:
 
 ```sh
-pnpm install
+pnpm dlx ras-stack@5 sync
 ```
 
-Query includes its shared React/React DOM versions and types. Other integrations are installed only when selected or required by a selection. Dependencies required by a selected integration are installed normally, including their platform-specific optional dependencies.
+If RAS is already installed, run `pnpm exec ras sync`. RAS writes exact selected versions into the application's ordinary `dependencies` and `devDependencies`, generates configuration in `.ras/`, and runs `pnpm install`. Runtime integrations and development tools are classified individually, including type definitions. Dependencies required by an integration install normally.
 
-Use original imports:
+Keep original imports such as `@tanstack/react-query`. Query includes React and React DOM, with their types as development dependencies. Application-specific configuration, credentials, routes, React composition points, and cache policies remain local.
 
-```ts
-import { QueryClient, useQuery } from '@tanstack/react-query'
-```
+The runtime integrations are `tanstackQuery`, `tanstackStart`, `betterAuth`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, and `posthog.browser`, `posthog.react`, and `posthog.server`.
 
-The built-in integrations are `tanstackQuery`, `tanstackStart`, `betterAuth`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, and `posthog.browser`, `posthog.react`, and `posthog.server`. The catalogue records exact tested versions in the RAS release. Conflicting version selections fail before installation.
-
-The tool selections are `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack`, `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`, `oxfmt`, `vite`, `vitest`, `playwright`, `tailwind`, `tailwind.animations`, `nitro`, and `posthog.build`. Choose one TypeScript preset. Oxlint presets compose, for example `[oxlint.application, oxlint.tanstack, oxlint.domain]`.
-
-RAS owns configured capabilities. Plain libraries such as Zod, icon libraries, class utilities, compression libraries, and the SpacetimeDB SDK remain dependencies of the application. React is included by the configured frontend integrations. A custom descriptor that only moves those version strings into another file does not provide an integration.
+Tool selections include `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack`, `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`, `oxfmt`, `vite`, `vitest`, `playwright`, `tailwind`, `tailwind.animations`, `nitro`, and `posthog.build`. Select one TypeScript preset; Oxlint presets compose.
 
 ## Configured builds
 
-Selecting `vite` configures React compilation and the `@` alias for `src/`. Selecting `tanstackStart`, `nitro`, `tailwind`, or `posthog.build` adds their build configuration automatically. `ras dev` and `ras build` use a generated Vite configuration when the application has no Vite config file.
+Selecting `vite` configures React compilation and the `@` alias for `src/`. Selecting `tanstackStart`, `nitro`, `tailwind`, or `posthog.build` adds their build configuration automatically. `ras dev` and `ras build` use the bundled default Vite configuration when the application has no Vite config file.
 
 Tailwind processes the application's global stylesheet at `src/styles.css`. Keep application styles and theme declarations there; RAS supplies the Tailwind import. `tailwind.animations` also supplies the animation stylesheet import. The app still imports its global stylesheet as part of its application entrypoint.
 
@@ -76,7 +62,7 @@ import { defineIntegration } from 'ras-stack/config'
 
 export const bundledLibrary = defineIntegration({
   name: 'bundled-library',
-  packages: { esbuild: '0.28.2' },
+  devPackages: { esbuild: '0.28.2' },
   commands: {
     build: { package: 'esbuild', bin: 'esbuild', args: ['src/index.ts', '--bundle', '--outdir=dist'] },
   },
@@ -99,107 +85,76 @@ export function App() {
 
 The provider owns a stable client for its mounted lifetime and accepts an existing `client` or dehydrated `state`. Applications still choose their React composition point, request data, credentials, and product-specific settings. Selecting a runtime integration supplies its configured API; installation does not rewrite application entrypoints. TanStack Start applications can use `createQueryClient` with their existing router SSR integration instead of mounting another provider.
 
-## Installation and locking
+## Ordinary manifests and committed configuration
 
-pnpm installs the RAS config dependency before resolving regular dependencies. RAS reads the typed selections using that release's configuration API, adds its own matching runtime version and the selected dependencies to the named root package, and adds the same selected dependencies to RAS. Native pnpm resolution supplies ordinary upstream imports and a shared React instance. Other workspace packages retain their own versions. RAS adds no hoisting rules, global overrides, custom import links, installer subprocess, or second lockfile.
+Commit `ras.config.ts`, `package.json`, `pnpm-lock.yaml`, generated `.ras/` files, and any pnpm or Dependabot policy changes. Do not ignore `.ras/`. A fresh clone uses ordinary `pnpm install --frozen-lockfile`; no install hook, lifecycle script, generated pnpmfile, bootstrap package, custom links, or hoisting configuration is needed.
 
-The hook ships inside RAS. There is no generated consumer `.pnpmfile.cjs`, formatter exclusion, or `.prettierignore`. `pnpm-lock.yaml` records the config dependency's version and integrity in its boot document, followed by the complete application dependency graph. A clean frozen install restores both.
+`ras.managedDependencies` in `package.json` records package names owned by RAS. This lets a later sync remove deselected packages without deleting unrelated application dependencies. Versions come from the executing RAS release. Sync preserves the existing RAS dependency specifier, so packed and Git-source candidates can be tested normally. An upgrade pins the target release's exact RAS version.
 
-Commit `ras.config.ts`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`. Ignore `.ras/`, which contains generated compiler, linter, Vite, and editor configuration. The configuration hook creates it during ordinary installs before application scripts run. RAS does not add install lifecycle scripts to applications.
+RAS runtime integrations use optional peers to share the application's installed SDK instances. Build helpers resolve their tools from the consuming application, so RAS itself does not retain development tooling in production installs. Native `pnpm install --prod --frozen-lockfile` excludes development-only selections; an upstream runtime framework may still have its own build-related dependencies.
 
-After changing selections, run `pnpm install`. A frozen install rejects dependency graph changes that have not been resolved and committed. pnpm owns installation, resolution, concurrency, failure reporting, and retries. Correct an installation failure and rerun the same pnpm command.
+After changing selections, run `pnpm exec ras sync` and review the diff. `pnpm exec ras sync --check` verifies manifests, generated configuration, and generated Dependabot rules without writing or installing. Add it to CI before the application's checks. A plain pnpm install does not interpret `ras.config.ts`; the check catches selections that have not been synchronized.
 
-Run from the workspace root that owns the configuration dependency and lockfile. The root package needs a unique name. RAS rejects duplicate ownership of itself or selected packages in application manifests and refuses to overwrite a consumer-owned `.ras` directory. A custom pnpm hook must be composed explicitly with the shipped hook; this configuration dedicates the `pnpmfile` setting to RAS.
+An installation failure leaves ordinary, reviewable files in place. Correct the pnpm error and rerun the same RAS command. Run sync and update from the owning workspace root. Other workspace packages keep their own manifests and versions.
+
+To transfer a package to application ownership, remove its selection and its name from `ras.managedDependencies` before syncing. RAS preserves other application dependencies and configuration. Avoid running concurrent sync/update commands in the same checkout.
 
 ## Compiler, linter, and commands
 
-An application `tsconfig.json` can retain its own paths, includes, and exceptions:
+An application `tsconfig.json` can extend `./.ras/tsconfig.json` and retain its own compiler options, paths, and includes. An application `.oxlintrc.json` can extend `./.ras/oxlint.json` and retain local rules, ignores, and overrides. These generated files reference presets bundled in RAS. Sync removes generated presets that are no longer selected.
 
-```json
-{
-  "extends": "./.ras/tsconfig.json",
-  "include": ["src"],
-  "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
-}
-```
+Commands run the selected tool's executable in the application directory:
 
-An application `.oxlintrc.json` can extend `./.ras/oxlint.json` and retain local rules, ignores, and overrides. RAS does not replace either application-owned file. The generated presets extend the configuration bundled in the installed `ras-stack` release. No separate configuration package is installed.
+| Command                             | Tool                                                 |
+| ----------------------------------- | ---------------------------------------------------- |
+| `ras sync`                          | Synchronize managed files and run pnpm install       |
+| `ras sync --check`                  | Verify managed files without mutation                |
+| `ras update [version-or-tag]`       | Synchronize and install using the target release     |
+| `ras typecheck`                     | TypeScript with `--noEmit`                           |
+| `ras lint`                          | Oxlint with type-aware checks and denied warnings    |
+| `ras format`                        | Oxfmt with `--write`; `--check` selects checking     |
+| `ras dev` / `ras build`             | Vite                                                 |
+| `ras test`                          | Vitest with `run`                                    |
+| `ras e2e`                           | Playwright with `test`                               |
+| `ras exec -- <program> [arguments]` | Program with the consumer binary directory on `PATH` |
+| `ras audit`                         | pnpm audit of the full lockfile                      |
 
-Commands use the selected package's executable and run in the consuming directory:
+Arguments are forwarded without shell evaluation. Tool commands check selected installed versions; they do not install dependencies or rewrite committed configuration. Application scripts may use the upstream executables directly.
 
-| Command                             | Tool                                                        |
-| ----------------------------------- | ----------------------------------------------------------- |
-| `ras typecheck`                     | Selected TypeScript, with `--noEmit`                        |
-| `ras lint`                          | Selected Oxlint, with type-aware checks and denied warnings |
-| `ras format`                        | Selected Oxfmt, with `--write`; `--check` selects checking  |
-| `ras dev` / `ras build`             | Selected Vite                                               |
-| `ras test`                          | Selected Vitest, with `run`                                 |
-| `ras e2e`                           | Selected Playwright, with `test`                            |
-| `ras exec -- <program> [arguments]` | A command with the consumer binary directory on `PATH`      |
-| `ras audit`                         | Native pnpm audit of the full lockfile                      |
+## Build and release policies
 
-Arguments are forwarded without shell evaluation. An unselected tool is an error rather than a fallback to an unrelated global installation. For application-specific build pipelines, keep the pipeline in the application's scripts and use the managed executables where appropriate.
+RAS retains caller registries, release-age policy, integrity checks, and build approvals. pnpm enforces these during installation. Explicit additional build approvals can be selected with `allowBuilds`, for example `allowBuilds: ['better-sqlite3']` alongside `sqlite`. Sync rejects an explicit consumer denial or a conflicting direct version override before changing files. It does not approve unreviewed transitive scripts.
 
-pnpm generates local configuration during installation. RAS tool commands verify their installed versions and regenerate missing local configuration without installing packages or changing tracked files. For VS Code, the generated `.ras/vscode-settings.json` shows the workspace TypeScript setting; the selected TypeScript is available at the normal `node_modules/typescript/lib` path.
+Consumer lockfiles pin the complete graph for frozen installs. RAS pins selected direct packages; consumer-owned updates can still move shared transitives. Compatibility-sensitive transitive overrides belong in the release or application that needs them. RAS does not replace consumer lockfiles with a shared transitive snapshot.
 
-## Build scripts and supply-chain policy
+## Dependabot
 
-RAS preserves the consumer's pnpm registry, release-age policy, integrity checks, and existing build approvals. Managed packages default to denied build scripts unless the consumer's existing policy approves them. Explicitly approve a selected native dependency when needed:
+When an existing `.github/dependabot.yml` or `.yaml` has an npm update rule for `/`, sync maintains ignored package names for RAS and its selections. Generated entries have a `Managed by RAS.` comment so sync can remove obsolete entries while retaining handwritten rules, schedules, groups, and other ecosystems. RAS does not enable Dependabot in repositories that have not configured it.
 
-```ts
-import { defineConfig, sqlite } from 'ras-stack/config'
+Name-based ignores apply to the whole matching Dependabot update rule, including matching packages in other workspace manifests. Split update policies where those packages need independent bot updates. Application-owned packages outside these ignores remain eligible for updates.
 
-export default defineConfig({
-  integrations: [sqlite],
-  allowBuilds: ['better-sqlite3'],
-})
-```
-
-An explicit consumer denial or conflicting version override is an error. Approvals for unrelated application packages remain in the consumer's pnpm configuration. RAS does not suppress pnpm errors for unreviewed transitive build scripts.
-
-## Migrate from RAS 4
-
-Remove `ras-stack-config` from the manifest and replace its TypeScript and Oxlint inheritance paths with `./.ras/tsconfig.json` and `./.ras/oxlint.json`. Choose the corresponding typed presets in `ras.config.ts`. Configuration-only repositories also install `ras-stack` and select their tools through this file.
-
-Remove `ras-stack` and managed packages from the application's `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`; RAS rejects duplicate ownership. Keep packages that RAS does not manage. Select the integrations and tools in `ras.config.ts`, declare RAS under `configDependencies`, point `pnpmfile` at its shipped hook, and run `pnpm install`. Remove the previously generated `.pnpmfile.cjs` and its formatter exclusion.
-
-Changing to the catalogue can upgrade upstream APIs; make any required application changes and test them as part of migration. Selections affect the root application and RAS; other workspace packages keep their own dependencies.
-
-Point the application compiler/linter files at `.ras` if adopting managed presets, and replace tool scripts with the corresponding RAS commands where useful. Existing scripts and upstream imports can continue using the publicly available package names.
-
-The configuration hook does not publish a new RAS release or change other repositories. Test a packed candidate and verify the consuming application's build, tests, and runtime flows before releasing or migrating it.
+Managed packages and RAS require coordinated upgrades through `ras update`; Dependabot cannot upgrade them separately. Vulnerability alerts remain visible, but ignored security fixes require a RAS release or a deliberate application change. Pinning versions does not remove vulnerabilities.
 
 ## CI and upgrades
 
-A clean CI job uses ordinary pnpm commands:
+A clean CI job needs only native installation and read-only verification:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm exec ras sync --check
 pnpm check
 ```
 
-Update RAS and its managed graph together:
+Update RAS, selected dependencies, configuration, and the lockfile with one command:
 
 ```sh
-pnpm update ras-stack
-pnpm install
+pnpm exec ras update
 ```
 
-Use `pnpm update ras-stack --latest` for a new major version. pnpm updates the config dependency separately; the following install applies its selected application graph. Commit the resulting `pnpm-workspace.yaml` and `pnpm-lock.yaml` changes. There is one RAS version declaration, with no custom install/update command and no regeneration workflow.
+The default target is `latest`. Specify `next` or an exact version when reviewing a candidate. The command delegates to `pnpm dlx ras-stack@<target>`, which runs the target release's synchronization and native installation. Registry authentication remains with pnpm. Commit the resulting diff and run the application's checks before merging.
 
-Config dependencies must come from an npm registry; Git URLs and local tarball specifiers are unsupported. Test unpublished candidates through a local registry fixture. Consumer PRs require a published RAS candidate before their committed configuration can produce a valid frozen lockfile.
+## Migrate from RAS 4
 
-Dependabot currently reads application manifests and pnpm catalogs, but does not update `configDependencies`. Handle RAS upgrade PRs separately using the native command above. Limit consumer Dependabot updates to manifest-owned packages:
+Remove `ras-stack-config`, select its equivalent presets in `ras.config.ts`, and point compiler/linter configuration at `.ras`. Keep application-specific dependencies and configuration. Run the target RAS release's `sync` command to adopt selected dependencies and generate ordinary project files. Review upstream API changes and test builds, tests, and runtime flows as part of migration.
 
-```yaml
-allow:
-  - dependency-type: direct
-```
-
-This excludes standalone updates to RAS-managed packages, including lockfile-only security updates. Dependencies added by a pnpm hook have no manifest requirements and are indirect to Dependabot. Application-owned dependency updates can still change their transitive graph in the shared lockfile. If an application explicitly owns the same library elsewhere in its workspace, that declaration remains eligible for updates.
-
-The dependency graph and vulnerability alerts remain visible. Security fixes for managed packages require an appropriate RAS release and consumer upgrade; pinning tested versions does not make them immune to vulnerabilities. `ras audit` checks the installed graph through pnpm. Keep the shared catalogue and dependency-update policy in the RAS repository, and consumer policy in each application.
+Unpublished candidates can be installed as normal packed archives or Git dependencies, then synchronized through their installed CLI. There is no registry-only bootstrap requirement. RAS shared code and documentation contain no consumer repository inventory.

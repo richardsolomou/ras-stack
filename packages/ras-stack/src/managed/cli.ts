@@ -1,4 +1,5 @@
 import { delimiter, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { exists } from './files.js'
 import { commandPath } from './environment.js'
 import { preparedPlan } from './install.js'
@@ -32,7 +33,7 @@ export async function runManagedCli(command: string, arguments_: string[]): Prom
       Boolean,
     )
   )
-    args.push('--config', '.ras/vite.config.mjs')
+    args.push('--config', fileURLToPath(new URL('../../config/vite.mjs', import.meta.url)))
   if (
     command === 'typecheck' &&
     !arguments_.some((argument) => ['-p', '--project', '-b', '--build'].includes(argument) || argument.startsWith('--project='))

@@ -1,9 +1,10 @@
 import { lstat, readFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { registerHooks } from 'node:module'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { exists, readJson } from './files.js'
-import { environmentMarker, writeEnvironment } from './environment.js'
+import { environmentMarker } from './environment.js'
 import { installationPlan } from './plan.js'
 import type { RasConfig } from './model.js'
 import type { InstallationPlan } from './plan.js'
@@ -16,14 +17,14 @@ export async function loadPlan(root: string): Promise<InstallationPlan> {
     },
   })
   try {
-    const config = (await import(`${pathToFileURL(join(root, 'ras.config.ts')).href}?load=${Date.now()}`)) as { default: RasConfig }
+    const config = (await import(`${pathToFileURL(join(root, 'ras.config.ts')).href}?load=${randomUUID()}`)) as { default: RasConfig }
     return installationPlan(config.default)
   } finally {
     resolver.deregister()
   }
 }
 
-export async function checkConsumer(root: string, plan: InstallationPlan): Promise<string> {
+export async function checkConsumer(root: string): Promise<string> {
   const manifest = await readJson<{
     name?: string
     packageManager?: string
@@ -34,13 +35,7 @@ export async function checkConsumer(root: string, plan: InstallationPlan): Promi
   }>(join(root, 'package.json'))
   if (!manifest.name || manifest.name === 'ras-stack') throw new Error('The consuming package needs a unique name in package.json')
   const manager = manifest.packageManager?.match(/^pnpm@(\d+)\.(\d+)\./)
-  if (!manager || Number(manager[1]) < 12 || (Number(manager[1]) === 12 && Number(manager[2]) < 12))
-    throw new Error('Managed integrations require pnpm 12.12 or newer')
-  for (const name of ['ras-stack', ...Object.keys(plan.dependencies)]) {
-    for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
-      if (Object.hasOwn(manifest[field] ?? {}, name)) throw new Error(`${name} is declared in ${field}; remove it before RAS can own it`)
-    }
-  }
+  if (!manager || Number(manager[1]) < 11) throw new Error('Managed integrations require pnpm 11 or newer')
   await Promise.all(
     ['.ras', 'node_modules', 'pnpm-lock.yaml'].map(async (name) => {
       if ((await exists(join(root, name))) && (await lstat(join(root, name))).isSymbolicLink())
@@ -60,13 +55,12 @@ export async function checkConsumer(root: string, plan: InstallationPlan): Promi
 
 export async function preparedPlan(root: string): Promise<InstallationPlan> {
   const plan = await loadPlan(root)
-  await checkConsumer(root, plan)
+  await checkConsumer(root)
   await Promise.all(
-    Object.entries(plan.dependencies).map(async ([name, version]) => {
+    Object.entries({ ...plan.dependencies, ...plan.devDependencies }).map(async ([name, version]) => {
       const installed = await readJson<{ version: string }>(join(root, 'node_modules', name, 'package.json')).catch(() => undefined)
-      if (installed?.version !== version) throw new Error(`Managed ${name}@${version} is not installed; run pnpm install`)
+      if (installed?.version !== version) throw new Error(`Managed ${name}@${version} is not installed; run ras sync`)
     }),
   )
-  await writeEnvironment(join(root, '.ras'), plan)
   return plan
 }
