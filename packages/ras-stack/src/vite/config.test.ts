@@ -45,6 +45,15 @@ it('leaves other stylesheets unchanged', async () => {
   expect(Reflect.apply(plugin.transform, undefined, ['.app {}', '/app/other.css'])).toBeUndefined()
 })
 
+it.each(['url', 'raw', 'worker', 'sharedworker'])('leaves the %s stylesheet wrapper unchanged', async (query) => {
+  const config = await configureVite({}, ['tailwind'], {})
+  const plugin = config.plugins?.find((candidate) => (candidate as Plugin)?.name === 'ras:tailwind-entry') as Plugin
+  if (typeof plugin.transform !== 'function') throw new Error('Missing stylesheet transform')
+  expect(
+    Reflect.apply(plugin.transform, undefined, ['export default "/styles.css"', `${path.resolve('src/styles.css')}?${query}`]),
+  ).toBeUndefined()
+})
+
 it('does not enable uploads for a local build with credentials', async () => {
   expect(await postHogSourceMapPlugins({ POSTHOG_API_KEY: 'test', POSTHOG_PROJECT_ID: '1' })).toEqual([])
 })

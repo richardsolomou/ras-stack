@@ -56,7 +56,7 @@ export async function configureVite(config: RasViteConfig, presets: readonly str
       name: 'ras:tailwind-entry',
       enforce: 'pre',
       transform(code, id) {
-        if (path.resolve(id.split('?')[0]!) !== stylesheet) return
+        if (/[?&](?:worker|sharedworker|raw|url)\b/.test(id) || path.resolve(id.split('?')[0]!) !== stylesheet) return
         return { code: `${imports.join('\n')}\n${code}`, map: null }
       },
     })

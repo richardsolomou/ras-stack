@@ -196,7 +196,7 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   writeFileSync(path.join(configured, 'index.html'), '<div id="app"></div><script type="module" src="/src/main.tsx"></script>\n')
   writeFileSync(
     path.join(configured, 'src/main.tsx'),
-    "import {createRoot} from 'react-dom/client'\nimport './styles.css'\ncreateRoot(document.getElementById('app')!).render(<div className=\"probe\">Configured</div>)\n",
+    "import {createRoot} from 'react-dom/client'\nimport styles from './styles.css?url'\ncreateRoot(document.getElementById('app')!).render(<><link rel=\"stylesheet\" href={styles}/><div className=\"probe\">Configured</div></>)\n",
   )
   writeFileSync(path.join(configured, 'src/styles.css'), '.probe { @apply p-4; }\n')
   for (const args of [
