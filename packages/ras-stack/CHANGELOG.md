@@ -1,5 +1,11 @@
 # ras-stack
 
+## 4.4.2
+
+### Patch Changes
+
+- db711ec: Key the cached Playwright browser by runner architecture so ARM runners do not restore an x86 browser.
+
 ## 4.4.1
 
 ### Patch Changes
