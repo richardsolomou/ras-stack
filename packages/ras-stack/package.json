@@ -121,6 +121,10 @@
     "./uploads": {
       "types": "./dist/uploads/index.d.ts",
       "default": "./dist/uploads/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
     }
   },
   "publishConfig": {
@@ -133,7 +137,7 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run --config vitest.config.ts",
-    "package:check": "node scripts/checkPackedPackage.mjs",
+    "package:check": "node scripts/checkPackedPackage.mjs && node scripts/checkManagedPackage.mjs",
     "peer:floor": "node scripts/checkPeerFloor.mjs",
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"

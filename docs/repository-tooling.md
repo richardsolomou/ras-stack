@@ -4,6 +4,8 @@
 
 These configs, commands, actions, and workflows keep repository mechanics consistent without taking ownership of application-specific paths, services, permissions, or deployment policy.
 
+Managed projects select compatible tool versions and presets through `ras-stack/config`; see [Managed installation](managed-installation.md). The standalone presets below remain available for repositories that manage their tools directly.
+
 ## Shared project configuration
 
 Extend the supplied configuration and override anything specific to the application:

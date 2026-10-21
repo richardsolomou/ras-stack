@@ -13,13 +13,13 @@ just check
 
 Repository release and dependency policies are committed and owned here. `just check` validates existing changesets without requiring a release for every edit.
 
-Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade. An extraction should remove concrete duplicate mechanics in two consumers, or protect a consequential security or lifecycle invariant in one. Preserve upstream objects, explain what code disappears, and identify the coordination that remains. Keep product policy local.
+Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade for runtime behavior. The opt-in managed installer owns dependency/tool versions and generated repository configuration; application behavior remains outside it. An extraction should remove concrete duplicate mechanics in two consumers, or protect a consequential security or lifecycle invariant in one. Preserve upstream objects, explain what code disappears, and identify the coordination that remains. Keep product policy local.
 
 `build`, `changesets`, and `preview` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
 
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `packages/ras-stack/src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
-Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published.
+Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published. `package:check` verifies managed bare imports, React identity across third-party peers and RAS hooks, SpacetimeDB, compiler/linter execution, browser builds, and clean frozen installation.
 
 ## Releases
 

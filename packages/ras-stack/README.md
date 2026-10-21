@@ -21,12 +21,13 @@ A helper belongs here when it removes a repeated decision or failure mode withou
 It ships as independently versioned packages and deployment tooling:
 
 - **TypeScript modules** under narrow import paths such as `ras-stack/database/sqlite`, `ras-stack/realtime/react`, and `ras-stack/tanstack/server`.
+- **Managed integrations and tooling** selected with typed descriptors from `ras-stack/config`, installed into one pnpm dependency graph.
 - **Configuration presets** in the dependency-free `ras-stack-config` package for TypeScript and Oxlint.
 - **Command-line tools** for changeset validation, production assets, preview status, and a local Centrifugo container.
 - **GitHub Actions and reusable workflows** for toolchain setup, checks, browser tests, previews, and Changesets releases.
 - **A separate OCI image** containing verified Caddy and Centrifugo binaries for production images.
 
-An application can use one surface without adopting the others. The npm package has no runtime dependency on the web, database, email, or realtime libraries; those integrations are optional peers.
+An application can use one surface without adopting the others. The published npm package leaves web, database, email, and realtime integrations as optional peers. Applications can install them directly or let the managed installer select their versions.
 
 ## The stack 🧰
 
@@ -50,18 +51,32 @@ Applications still configure every upstream library directly. This table describ
 
 The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
 
-The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration fixture; applications own their integration code and dependency versions.
+The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration fixture; applications own their integration code and choose whether RAS manages upstream dependency versions.
 
 ## Installation
 
-`ras-stack` requires Node 24. Install the runtime package for application helpers and the configuration package for compiler/linter presets:
+`ras-stack` requires Node 24. Managed installation requires pnpm 11 or newer:
 
 ```sh
 pnpm add ras-stack
-pnpm add -D ras-stack-config
 ```
 
-Import helpers from their narrow entrypoints and install the upstream peer libraries required by the integrations you use. Configuration-only repositories need just `ras-stack-config`.
+Create `ras.config.ts`:
+
+```ts
+import { defineConfig, tanstackQuery, spacetimeDB, typescript, oxlint, vite } from 'ras-stack/config'
+
+export default defineConfig({
+  integrations: [tanstackQuery, spacetimeDB],
+  tooling: [typescript.browser, oxlint.application, vite],
+})
+```
+
+Run `pnpm exec ras install`. RAS selects exact versions, generates a pnpm hook, and installs only the selected integrations and their dependencies. Keep importing the upstream packages by their original names, such as `@tanstack/react-query` and `spacetimedb`. Commit `ras.config.ts`, `ras.lock`, `.pnpmfile.cjs`, `.prettierignore`, and `pnpm-lock.yaml`; ignore `.ras/` and `.ras-*/`.
+
+Use `ras typecheck`, `ras lint`, `ras dev`, `ras build`, and the other selected tooling commands. Applications retain their own compiler/linter overrides. See [Managed installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) for presets, migration, CI, upgrades, and ownership boundaries.
+
+Applications that want only helpers can continue installing upstream peers directly. Configuration-only repositories can use the independent `ras-stack-config` package without adopting the installer.
 
 ## Dokploy previews 🚀
 

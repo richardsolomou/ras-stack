@@ -41,7 +41,12 @@ try {
   if (JSON.stringify(Object.keys(packageJson.bin)) !== JSON.stringify(['ras']))
     throw new Error('package must install only the ras executable')
   const cli = spawnSync('npx', ['ras'], { cwd: temporary, encoding: 'utf8' })
-  if (cli.status !== 2 || !cli.stderr.includes('usage: ras <assets|changesets|preview|realtime>'))
+  if (
+    cli.status !== 2 ||
+    !cli.stderr.includes(
+      'usage: ras <install|prepare|typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime>',
+    )
+  )
     throw new Error(`installed ras executable returned an unexpected result: ${cli.status}\n${cli.stderr}`)
 
   const imports = Object.keys(packageJson.exports)
