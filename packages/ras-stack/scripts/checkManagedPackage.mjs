@@ -44,7 +44,7 @@ try {
       private: true,
       type: 'module',
       packageManager: 'pnpm@12.13.0',
-      dependencies: { 'ras-stack': version, 'react-icons': '5.7.0', spacetimedb: '2.12.0' },
+      dependencies: { 'ras-stack': '4.4.1', 'react-icons': '5.7.0', spacetimedb: '2.12.0' },
     }),
   )
   writeFileSync(
@@ -57,7 +57,8 @@ try {
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   assert.equal(existsSync(path.join(consumer, '.prettierignore')), false)
-  exec('pnpm', ['exec', 'ras', 'sync'])
+  exec('pnpm', ['dlx', `ras-stack@${version}`, 'sync'])
+  assert.equal(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')).dependencies['ras-stack'], version)
   const packageJson = JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8'))
   assert.ok(Object.values(packageJson.peerDependenciesMeta).every((peer) => peer.optional))
   assert.equal(packageJson.peerDependencies.vite, undefined)

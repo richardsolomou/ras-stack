@@ -64,8 +64,21 @@ describe('ordinary manifest synchronization', () => {
     const pkg = await manifest()
     pkg.dependencies['ras-stack'] = 'file:./candidate.tgz'
     await writeFile(join(root, 'package.json'), JSON.stringify(pkg))
+    await mkdir(join(root, 'node_modules/ras-stack'), { recursive: true })
+    await writeFile(join(root, 'node_modules/ras-stack/package.json'), await readFile(new URL('../../package.json', import.meta.url)))
     await syncProject(root)
     expect((await manifest()).dependencies['ras-stack']).toBe('file:./candidate.tgz')
+  })
+
+  it('upgrades an older RAS version when bootstrapping with the target CLI', async () => {
+    const pkg = await manifest()
+    pkg.dependencies['ras-stack'] = '^0.0.1'
+    await writeFile(join(root, 'package.json'), JSON.stringify(pkg))
+    await mkdir(join(root, 'node_modules/ras-stack'), { recursive: true })
+    await writeFile(join(root, 'node_modules/ras-stack/package.json'), '{"version":"0.0.1"}')
+    await syncProject(root)
+    const target = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'))
+    expect((await manifest()).dependencies['ras-stack']).toBe(target.version)
   })
 
   it('commits usable presets without an ignore-all rule', async () => {

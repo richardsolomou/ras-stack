@@ -89,7 +89,7 @@ The provider owns a stable client for its mounted lifetime and accepts an existi
 
 Commit `ras.config.ts`, `package.json`, `pnpm-lock.yaml`, generated `.ras/` files, and any pnpm or Dependabot policy changes. Do not ignore `.ras/`. A fresh clone uses ordinary `pnpm install --frozen-lockfile`; no consumer install hook, lifecycle script, generated pnpmfile, bootstrap package, custom links, or hoisting configuration is needed.
 
-`ras.managedDependencies` in `package.json` records package names owned by RAS. This lets a later sync remove deselected packages without deleting unrelated application dependencies. Versions come from the executing RAS release. Sync preserves the existing RAS dependency specifier, so packed and Git-source candidates can be tested normally. An upgrade pins the target release's exact RAS version.
+`ras.managedDependencies` in `package.json` records package names owned by RAS. This lets a later sync remove deselected packages without deleting unrelated application dependencies. Versions come from the executing RAS release. Sync preserves the dependency specifier when the same RAS version is already installed, so packed and Git-source candidates can be tested normally. Bootstrapping with a different release or running an upgrade pins the executing release's exact RAS version.
 
 RAS runtime integrations use optional peers to share the application's installed SDK instances. Build helpers resolve their tools from the consuming application, so RAS itself does not retain development tooling in production installs. Native `pnpm install --prod --frozen-lockfile` excludes development-only selections; an upstream runtime framework may still have its own build-related dependencies.
 

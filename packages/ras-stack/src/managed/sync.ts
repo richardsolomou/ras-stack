@@ -67,12 +67,17 @@ export async function syncProject(root: string, options: { check?: boolean; upgr
   const previous = manifest.ras?.managedDependencies ?? []
   if (!Array.isArray(previous)) throw new Error('ras.managedDependencies must be an array')
   for (const name of previous) assertPackageName(name)
-  const rasSpecifier = manifest.dependencies?.['ras-stack'] ?? manifest.devDependencies?.['ras-stack'] ?? version
+  const installedPath = join(root, 'node_modules/ras-stack/package.json')
+  const installedVersion = (await exists(installedPath)) ? (await readJson<{ version: string }>(installedPath)).version : undefined
+  const rasSpecifier =
+    !options.upgrade && installedVersion === version
+      ? (manifest.dependencies?.['ras-stack'] ?? manifest.devDependencies?.['ras-stack'] ?? version)
+      : version
   for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
     const group = { ...manifest[field] }
     delete group['ras-stack']
     for (const name of new Set([...previous, ...Object.keys(packages)])) delete group[name]
-    if (field === 'dependencies') Object.assign(group, plan.dependencies, { 'ras-stack': options.upgrade ? version : rasSpecifier })
+    if (field === 'dependencies') Object.assign(group, plan.dependencies, { 'ras-stack': rasSpecifier })
     if (field === 'devDependencies') Object.assign(group, plan.devDependencies)
     if (Object.keys(group).length) manifest[field] = Object.fromEntries(Object.entries(group).toSorted(([a], [b]) => a.localeCompare(b)))
     else delete manifest[field]
