@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defineConfig, defineIntegration, oxlint, react, spacetimeDB, tanstackQuery, typescript } from '../config.js'
+import { defineConfig, defineIntegration, oxlint, tanstackQuery, typescript } from '../config.js'
 import { installationPlan } from './plan.js'
 
 describe('managed configuration', () => {
@@ -8,12 +8,8 @@ describe('managed configuration', () => {
   })
 
   it('includes a single React version for Query and application code', () => {
-    const plan = installationPlan(defineConfig({ integrations: [react, tanstackQuery, tanstackQuery] }))
+    const plan = installationPlan(defineConfig({ integrations: [tanstackQuery, tanstackQuery] }))
     expect(Object.keys(plan.dependencies).filter((name) => name === 'react')).toEqual(['react'])
-  })
-
-  it('selects the SpacetimeDB SDK through a typed descriptor', () => {
-    expect(installationPlan(defineConfig({ integrations: [spacetimeDB] })).dependencies.spacetimedb).toMatch(/^\d+\.\d+\.\d+$/)
   })
 
   it('selects compiler and linter versions with their presets', () => {
@@ -23,7 +19,7 @@ describe('managed configuration', () => {
 
   it('rejects incompatible selections', () => {
     const conflicting = defineIntegration({ name: 'conflict', packages: { react: '1.0.0' } })
-    expect(() => installationPlan(defineConfig({ integrations: [react, conflicting] }))).toThrow('Conflicting versions for react')
+    expect(() => installationPlan(defineConfig({ integrations: [tanstackQuery, conflicting] }))).toThrow('Conflicting versions for react')
   })
 
   it('rejects conflicting compiler presets', () => {

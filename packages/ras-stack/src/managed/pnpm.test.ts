@@ -31,7 +31,7 @@ describe('native pnpm hook contract', () => {
       }),
     )
     const file = join(root, '.pnpmfile.cjs')
-    await writeFile(file, pnpmHook(plan))
+    await writeFile(file, pnpmHook(plan, 'application'))
     hooks = createRequire(import.meta.url)(file).hooks as Hooks
   })
   afterEach(async () => {
@@ -63,7 +63,7 @@ describe('native pnpm hook contract', () => {
   })
 
   it('does not replace application package dependencies', () => {
-    const pkg = { name: 'application', dependencies: { lodash: '4.17.21' } }
+    const pkg = { name: 'unrelated', dependencies: { lodash: '4.17.21' } }
     expect(hooks.readPackage(pkg)).toEqual(pkg)
   })
 
@@ -71,11 +71,15 @@ describe('native pnpm hook contract', () => {
     expect(hooks.readPackage({ name: 'ras-stack' }).dependencies?.react).toBe('19.3.0')
   })
 
-  it('does not publicly hoist an unselected SDK', () => {
-    expect(hooks.updateConfig({ publicHoistPattern: ['existing'] }).publicHoistPattern).toEqual([
-      'existing',
-      '@tanstack/react-query',
-      'react',
-    ])
+  it('attaches selected dependencies to the consuming application', () => {
+    expect(hooks.readPackage({ name: 'application' }).dependencies?.react).toBe('19.3.0')
+  })
+
+  it('leaves native hoisting configuration unchanged', () => {
+    expect(hooks.updateConfig({ publicHoistPattern: ['existing'] }).publicHoistPattern).toEqual(['existing'])
+  })
+
+  it('does not introduce workspace-wide overrides', () => {
+    expect(hooks.updateConfig({}).overrides).toBeUndefined()
   })
 })

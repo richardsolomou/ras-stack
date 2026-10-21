@@ -21,7 +21,7 @@ try {
       private: true,
       type: 'module',
       packageManager: 'pnpm@11.15.0',
-      dependencies: { 'ras-stack': `file:${archive}`, 'react-icons': '5.7.0' },
+      dependencies: { 'ras-stack': `file:${archive}`, 'react-icons': '5.7.0', spacetimedb: '2.12.0' },
     }),
   )
   writeFileSync(
@@ -30,7 +30,7 @@ try {
   )
   writeFileSync(
     path.join(consumer, 'ras.config.ts'),
-    "import {defineConfig,tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest]})\n",
+    "import {defineConfig,tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest]})\n",
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   exec('pnpm', ['exec', 'ras', 'install'])
@@ -68,7 +68,8 @@ try {
   writeFileSync(
     path.join(consumer, 'main.tsx'),
     `import {createElement} from 'react'
-import {QueryClient,QueryClientProvider,useQuery} from '@tanstack/react-query'
+import {useQuery} from '@tanstack/react-query'
+import {QueryProvider} from 'ras-stack/query'
 import {Identity} from 'spacetimedb'
 import {FaCheck} from 'react-icons/fa'
 import {useAuthAction} from 'ras-stack/auth/react'
@@ -82,7 +83,7 @@ void PostHogIntegration
 void createSameOriginRealtimeClient
 void useConnectedRealtimeClient
 export function Probe(){const {busy}=useAuthAction();const query=useQuery({queryKey:['probe'],queryFn:async()=>42,initialData:42});return createElement('div',null,String(query.data)+String(busy),createElement(FaCheck))}
-export const tree=createElement(QueryClientProvider,{client:new QueryClient()},createElement(Probe))
+export const tree=createElement(QueryProvider,null,createElement(Probe))
 export const identity: Identity = Identity.fromString('0'.repeat(64))
 `,
   )
@@ -150,7 +151,7 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
     .join('\n')
   assert.equal(browserBundle.includes('node:crypto'), false)
   const manifest = JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8'))
-  assert.deepEqual(Object.keys(manifest.dependencies), ['ras-stack', 'react-icons'])
+  assert.deepEqual(Object.keys(manifest.dependencies), ['ras-stack', 'react-icons', 'spacetimedb'])
   const before = readFileSync(path.join(consumer, 'pnpm-lock.yaml'), 'utf8')
   rmSync(path.join(consumer, 'node_modules'), { recursive: true, force: true })
   exec('pnpm', ['install', '--frozen-lockfile'])
@@ -185,12 +186,18 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('spacetimedb'), false)
   writeFileSync(
     path.join(configured, 'package.json'),
-    json({ private: true, type: 'module', packageManager: 'pnpm@11.15.0', dependencies: { 'ras-stack': `file:${archive}` } }),
+    json({
+      name: 'configured-consumer',
+      private: true,
+      type: 'module',
+      packageManager: 'pnpm@11.15.0',
+      dependencies: { 'ras-stack': `file:${archive}` },
+    }),
   )
   writeFileSync(path.join(configured, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\nallowBuilds:\n  esbuild: true\n')
   writeFileSync(
     path.join(configured, 'ras.config.ts'),
-    "import {defineConfig,react,vite,tailwind} from 'ras-stack/config'\nexport default defineConfig({integrations:[react],tooling:[vite,tailwind.animations]})\n",
+    "import {defineConfig,vite,tailwind} from 'ras-stack/config'\nexport default defineConfig({tooling:[vite,tailwind.animations]})\n",
   )
   mkdirSync(path.join(configured, 'src'))
   writeFileSync(path.join(configured, 'index.html'), '<div id="app"></div><script type="module" src="/src/main.tsx"></script>\n')

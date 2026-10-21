@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { defineIntegration } from './model.js'
 import type { Integration, RasConfig } from './model.js'
 
@@ -66,8 +65,4 @@ export function installationPlan(config: RasConfig): InstallationPlan {
     presets,
     allowBuilds,
   }
-}
-
-export function planFingerprint(plan: InstallationPlan): string {
-  return createHash('sha256').update(JSON.stringify(plan)).digest('hex')
 }

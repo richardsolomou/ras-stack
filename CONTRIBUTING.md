@@ -17,11 +17,11 @@ Keep exports composable. Shared code may implement duplicated infrastructure mec
 
 `build`, `changesets`, `managed`, `preview`, and `vite` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
 
-The Vite integration uses upstream React, Tailwind, Nitro, and PostHog plugins as development dependencies for their types and real configuration tests. Managed consumers install those plugins only when selected. Plain libraries without RAS-owned configuration remain application dependencies.
+The Vite integration uses upstream React, Tailwind, Nitro, and PostHog plugins as development dependencies for their types and real configuration tests. Managed consumers install those plugins only when selected. Plain libraries without RAS-owned configuration remain application dependencies. The Query development dependency supplies native types and real provider/cache tests; it is installed in consumers only when selected.
 
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `packages/ras-stack/src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 
-Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published. `package:check` verifies managed bare imports, React identity across third-party peers and RAS hooks, SpacetimeDB, compiler/linter execution, browser builds, and clean frozen installation.
+Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published. `package:check` verifies managed bare imports, React identity across third-party peers and RAS hooks, compiler/linter execution, browser builds, configured Query defaults, independent workspace dependency versions, and clean frozen installation.
 
 Workspace builds bootstrap the installer from source with direct development dependencies and bundled presets. Packed-package tests exercise the supported consumer installation path.
 

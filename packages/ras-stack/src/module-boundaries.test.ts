@@ -9,6 +9,7 @@ const application = [
   'database',
   'email',
   'posthog',
+  'query',
   'realtime',
   'runtime',
   'server',

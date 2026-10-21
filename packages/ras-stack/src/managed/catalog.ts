@@ -1,7 +1,7 @@
 import { defineIntegration } from './model.js'
 import type { Integration } from './model.js'
 
-export const react = defineIntegration({
+const react = defineIntegration({
   name: 'react',
   packages: { react: '19.3.0', 'react-dom': '19.3.0', '@types/react': '19.3.0', '@types/react-dom': '19.3.0' },
 })
@@ -10,7 +10,6 @@ export const tanstackQuery = defineIntegration({
   includes: [react],
   packages: { '@tanstack/react-query': '5.104.1' },
 })
-export const spacetimeDB = defineIntegration({ name: 'spacetimedb', packages: { spacetimedb: '2.12.0' } })
 export const betterAuth = defineIntegration({ name: 'better-auth', packages: { 'better-auth': '1.7.10' } })
 export const tanstackStart = defineIntegration({
   name: 'tanstack-start',
@@ -97,6 +96,7 @@ export const oxfmt = defineIntegration({
 })
 export const vite = defineIntegration({
   name: 'vite',
+  includes: [react],
   packages: { vite: '8.3.4', '@vitejs/plugin-react': '6.1.2' },
   presets: { vite: ['react'] },
   commands: { dev: { package: 'vite', bin: 'vite' }, build: { package: 'vite', bin: 'vite', args: ['build'] } },

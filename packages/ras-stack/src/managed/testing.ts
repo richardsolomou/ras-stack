@@ -16,6 +16,7 @@ export async function testRegistry() {
     (
       [
         ['@ras-test/alpha', { '@ras-test/child': '1.0.0' }],
+        ['@ras-test/alpha-old', {}],
         ['@ras-test/child', {}],
         ['@ras-test/beta', {}],
         ['ras-stack', {}],
@@ -23,9 +24,11 @@ export async function testRegistry() {
     ).map(async ([name, dependencies]) => {
       const parent = join(directory, name.split('/').at(-1)!)
       await mkdir(join(parent, 'package'), { recursive: true })
+      const packageName = name === '@ras-test/alpha-old' ? '@ras-test/alpha' : name
+      const version = name === '@ras-test/alpha-old' ? '0.9.0' : '1.0.0'
       const manifest = {
-        name,
-        version: '1.0.0',
+        name: packageName,
+        version,
         type: 'module',
         exports: { '.': { types: './index.d.ts', default: './index.js' }, './extra': './extra.js' },
         dependencies,
@@ -69,7 +72,28 @@ export async function testRegistry() {
       },
     }
     response.writeHead(200, { 'content-type': 'application/json' })
-    response.end(json({ name, 'dist-tags': { latest: '1.0.0' }, versions: { '1.0.0': manifest } }))
+    response.end(
+      json({
+        name,
+        'dist-tags': { latest: '1.0.0' },
+        versions: {
+          '1.0.0': manifest,
+          ...(name === '@ras-test/alpha'
+            ? {
+                '0.9.0': {
+                  ...manifest,
+                  version: '0.9.0',
+                  dist: {
+                    ...manifest.dist,
+                    tarball: manifest.dist.tarball.replace('alpha/-/', 'alpha-old/-/'),
+                    integrity: `sha512-${createHash('sha512').update(packages.get('@ras-test/alpha-old')!.archive).digest('base64')}`,
+                  },
+                },
+              }
+            : {}),
+        },
+      }),
+    )
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const address = server.address()

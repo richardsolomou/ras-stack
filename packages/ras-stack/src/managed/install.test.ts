@@ -94,9 +94,9 @@ describe('managed installation against an npm registry', () => {
   it('reinstalls from the frozen lock without changing it', async () => {
     const plan = await loadPlan(root)
     await installManaged(root, plan)
-    const before = await readFile(join(root, 'ras.lock'), 'utf8')
+    const before = await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')
     await installManaged(root, plan, { frozen: true })
-    expect(await readFile(join(root, 'ras.lock'), 'utf8')).toBe(before)
+    expect(await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe(before)
   })
 
   it('rejects a missing frozen lock before making registry requests', async () => {
@@ -116,26 +116,40 @@ describe('managed installation against an npm registry', () => {
     expect(await exists(join(root, 'node_modules/@ras-test/alpha'))).toBe(false)
   })
 
-  it('repairs managed links removed by the consumer package manager', async () => {
+  it('lets a forced native install restore a removed direct dependency', async () => {
     const plan = await loadPlan(root)
     await installManaged(root, plan)
     await rm(join(root, 'node_modules/@ras-test/alpha'))
-    await installManaged(root, plan, { frozen: true })
+    await installManaged(root, plan, { update: true })
     expect(await readlink(join(root, 'node_modules/@ras-test/alpha'))).toContain('.pnpm/')
   })
 
-  it.each([true, false])('repairs a stale public link when its target exists: %s', async (targetExists) => {
-    const plan = await loadPlan(root)
-    await installManaged(root, plan)
-    const previous = join(root, 'previous-alpha')
-    if (targetExists) {
-      await mkdir(previous)
-      await writeFile(join(previous, 'package.json'), json({ name: '@ras-test/alpha', version: '0.9.0' }))
-    }
-    await rm(join(root, 'node_modules/@ras-test/alpha'))
-    await symlink(previous, join(root, 'node_modules/@ras-test/alpha'))
-    await installManaged(root, plan, { frozen: true })
-    expect((await readJson<{ version: string }>(join(root, 'node_modules/@ras-test/alpha/package.json'))).version).toBe('1.0.0')
+  it('does not change another workspace package dependency', async () => {
+    await mkdir(join(root, 'mobile'))
+    await writeFile(
+      join(root, 'mobile/package.json'),
+      json({ name: 'mobile', private: true, dependencies: { '@ras-test/alpha': '0.9.0' } }),
+    )
+    const workspace = await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8')
+    await writeFile(join(root, 'pnpm-workspace.yaml'), workspace + 'packages:\n  - mobile\nhoist: false\n')
+    await installManaged(root, await loadPlan(root))
+    expect((await readJson<{ version: string }>(join(root, 'mobile/node_modules/@ras-test/alpha/package.json'))).version).toBe('0.9.0')
+  })
+
+  it('shares the selected module instance between RAS and the application without hoisting', async () => {
+    const workspace = await readFile(join(root, 'pnpm-workspace.yaml'), 'utf8')
+    await writeFile(join(root, 'pnpm-workspace.yaml'), workspace + 'hoist: false\n')
+    await installManaged(root, await loadPlan(root))
+    const result = await exec(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "import {identity} from '@ras-test/alpha';import {createRequire} from 'node:module';const require=createRequire(import.meta.resolve('ras-stack'));console.log(identity===(await import(require.resolve('@ras-test/alpha'))).identity)",
+      ],
+      { cwd: root },
+    )
+    expect(result.stdout.trim()).toBe('true')
   })
 
   it('rejects a managed package whose manifest is missing', async () => {
@@ -150,25 +164,27 @@ describe('managed installation against an npm registry', () => {
     await rm(destination)
     await mkdir(destination)
     await writeFile(join(destination, 'consumer-file'), 'keep')
-    await expect(preparedPlan(root)).rejects.toThrow('Refusing to replace a consumer-owned')
+    await expect(preparedPlan(root)).rejects.toThrow('Managed @ras-test/alpha@1.0.0 is not installed')
     expect(await readFile(join(destination, 'consumer-file'), 'utf8')).toBe('keep')
   })
 
-  it('leaves the previous environment and lock usable after a failed upgrade', async () => {
+  it('leaves the native lockfile unchanged when resolution fails', async () => {
     await installManaged(root, await loadPlan(root))
-    const before = await readFile(join(root, 'ras.lock'), 'utf8')
+    const before = await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')
     await expect(
       installManaged(
         root,
         installationPlan({ integrations: [defineIntegration({ name: 'missing', packages: { '@ras-test/alpha': '2.0.0' } })] }),
       ),
     ).rejects.toThrow('failed')
-    expect(await readFile(join(root, 'ras.lock'), 'utf8')).toBe(before)
-    expect(await preparedPlan(root)).toEqual(await loadPlan(root))
+    expect(await readFile(join(root, 'pnpm-lock.yaml'), 'utf8')).toBe(before)
   })
 
   it('rejects dependencies still owned by the consumer', async () => {
-    await writeFile(join(root, 'package.json'), json({ dependencies: { 'ras-stack': '1.0.0', '@ras-test/alpha': '1.0.0' } }))
+    await writeFile(
+      join(root, 'package.json'),
+      json({ name: 'consumer', dependencies: { 'ras-stack': '1.0.0', '@ras-test/alpha': '1.0.0' } }),
+    )
     await expect(installManaged(root, await loadPlan(root))).rejects.toThrow('remove it before RAS can own it')
   })
 
@@ -231,11 +247,10 @@ describe('managed installation against an npm registry', () => {
     await expect(installManaged(root, await loadPlan(root), { frozen: true, update: true })).rejects.toThrow('cannot be combined')
   })
 
-  it('prepares managed links after consumer package-manager cleanup', async () => {
+  it('asks pnpm to reinstall a missing managed dependency', async () => {
     await installManaged(root, await loadPlan(root))
     await rm(join(root, 'node_modules/@ras-test/alpha'))
-    await preparedPlan(root)
-    expect(await readlink(join(root, 'node_modules/@ras-test/alpha'))).toContain('.pnpm/')
+    await expect(preparedPlan(root)).rejects.toThrow('Managed @ras-test/alpha@1.0.0 is not installed')
   })
 
   it('installs through the public CLI command', async () => {
@@ -251,7 +266,7 @@ describe('managed installation against an npm registry', () => {
     vi.spyOn(process, 'cwd').mockReturnValue(root)
     await runManagedCli('prepare', [])
     expect(registry.requests()).toBe(before)
-    expect(await exists(join(root, '.ras/state.json'))).toBe(true)
+    expect(await exists(join(root, '.ras/.gitignore'))).toBe(true)
   })
 
   it('executes an explicitly requested command with forwarded arguments', async () => {
@@ -336,13 +351,18 @@ describe('managed installation against an npm registry', () => {
     },
   )
 
-  it('refreshes generated files from a previous RAS release', async () => {
-    await installManaged(root, await loadPlan(root))
-    const state = await readJson<{ rasVersion: string }>(join(root, '.ras/state.json'))
-    state.rasVersion = '0.0.0'
-    await writeFile(join(root, '.ras/state.json'), json(state))
+  it('regenerates tooling configuration from the current selection', async () => {
+    const plan = installationPlan({ tooling: [defineIntegration({ ...alpha, presets: { typescript: 'browser' } })] })
+    await writeFile(
+      join(root, 'ras.config.ts'),
+      `export default ${json({ tooling: [defineIntegration({ ...alpha, presets: { typescript: 'browser' } })] })}`,
+    )
+    await installManaged(root, plan)
+    await writeFile(join(root, '.ras/tsconfig.json'), '{}')
     await preparedPlan(root)
-    expect((await readJson<{ rasVersion: string }>(join(root, '.ras/state.json'))).rasVersion).not.toBe('0.0.0')
+    expect(await readJson(join(root, '.ras/tsconfig.json'))).toMatchObject({
+      extends: '../node_modules/ras-stack/config/typescript/browser.json',
+    })
   })
 
   it('does not replace an existing directory it does not own', async () => {
