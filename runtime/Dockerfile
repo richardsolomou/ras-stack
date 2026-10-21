@@ -32,7 +32,7 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && cp LICENSE /out/CADDY-LICENSE
 
 FROM scratch
-ARG RUNTIME_VERSION=1.0.6
+ARG RUNTIME_VERSION=1.0.7
 ARG CADDY_VERSION
 ARG CENTRIFUGO_VERSION
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
