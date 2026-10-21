@@ -72,7 +72,7 @@ export default defineConfig({
 })
 ```
 
-Run `pnpm exec ras install`. RAS selects exact versions, generates a pnpm hook, and installs only the selected integrations and their dependencies. Keep importing the upstream packages by their original names, such as `@tanstack/react-query`. Commit `ras.config.ts`, `.pnpmfile.cjs`, and `pnpm-lock.yaml`; ignore `.ras/` and `.ras-install.lock/`. Add `"/.pnpmfile.cjs"` to your Oxfmt config's `ignorePatterns` so formatting preserves pnpm's hook checksum.
+Declare `ras-stack` under `configDependencies` in `pnpm-workspace.yaml` and set `pnpmfile` to `node_modules/.pnpm-config/ras-stack/pnpmfile.cjs`. Run `pnpm install` (pnpm 12.12+). RAS selects exact versions and installs only the selected integrations and their dependencies. Keep upstream imports such as `@tanstack/react-query`. Commit the workspace configuration and `pnpm-lock.yaml`; ignore `.ras/`. Upgrade with `pnpm update ras-stack`, followed by `pnpm install`.
 
 Use `ras typecheck`, `ras lint`, `ras dev`, `ras build`, and the other selected tooling commands. Applications retain their own compiler/linter overrides. See [Managed installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) for presets, migration, CI, upgrades, and ownership boundaries.
 

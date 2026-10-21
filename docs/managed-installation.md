@@ -6,7 +6,7 @@ Managed installation is the supported installation model from RAS 5 onward. Dire
 
 ## Select integrations and tools
 
-Install `ras-stack`, then create `ras.config.ts`:
+Create `ras.config.ts`:
 
 ```ts
 import { defineConfig, tanstackQuery, typescript, oxlint, vite, vitest } from 'ras-stack/config'
@@ -17,10 +17,18 @@ export default defineConfig({
 })
 ```
 
-Run:
+Declare RAS once in `pnpm-workspace.yaml` (requires pnpm 12.12 or newer):
+
+```yaml
+configDependencies:
+  ras-stack: ^5.0.0
+pnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.cjs
+```
+
+Run the ordinary package manager command:
 
 ```sh
-pnpm exec ras install
+pnpm install
 ```
 
 Query includes its shared React/React DOM versions and types. Other integrations are installed only when selected or required by a selection. Dependencies required by a selected integration are installed normally, including their platform-specific optional dependencies.
@@ -93,25 +101,15 @@ The provider owns a stable client for its mounted lifetime and accepts an existi
 
 ## Installation and locking
 
-RAS uses pnpm's documented `readPackage` hook to declare selected dependencies on the named consuming package and on `ras-stack`. pnpm installs and links those ordinary dependencies; RAS does not hoist packages, repair links, or introduce version overrides. Other workspace packages retain their own versions. The app and RAS share the selected React instance through native resolution.
+pnpm installs the RAS config dependency before resolving regular dependencies. RAS reads the typed selections using that release's configuration API, adds its own matching runtime version and the selected dependencies to the named root package, and adds the same selected dependencies to RAS. Native pnpm resolution supplies ordinary upstream imports and a shared React instance. Other workspace packages retain their own versions. RAS adds no hoisting rules, global overrides, custom import links, installer subprocess, or second lockfile.
 
-`pnpm-lock.yaml` is the only lockfile. Its importer records selected packages and their full dependency graph. The generated hook's checksum ties a frozen install to its exact installation inputs. `ras prepare` validates the hook against `ras.config.ts`, verifies installed versions, and regenerates tooling files. There is no separate selection lockfile or preparation cache.
+The hook ships inside RAS. There is no generated consumer `.pnpmfile.cjs`, formatter exclusion, or `.prettierignore`. `pnpm-lock.yaml` records the config dependency's version and integrity in its boot document, followed by the complete application dependency graph. A clean frozen install restores both.
 
-Commit these files:
+Commit `ras.config.ts`, `pnpm-workspace.yaml`, and `pnpm-lock.yaml`. Ignore `.ras/`, which contains generated compiler, linter, Vite, and editor configuration. The configuration hook creates it during ordinary installs before application scripts run. RAS does not add install lifecycle scripts to applications.
 
-- `ras.config.ts`: the selections and explicit build approvals.
-- `.pnpmfile.cjs`: the generated, self-contained pnpm hook, usable before RAS is installed on a fresh machine.
-- `pnpm-lock.yaml`: pnpm's standard lockfile with integrity hashes for the full dependency graph.
+After changing selections, run `pnpm install`. A frozen install rejects dependency graph changes that have not been resolved and committed. pnpm owns installation, resolution, concurrency, failure reporting, and retries. Correct an installation failure and rerun the same pnpm command.
 
-Ignore `.ras/` and `.ras-install.lock/`. `.ras` contains generated compiler/linter and Vite configuration. It does not contain another dependency installation.
-
-Add `"/.pnpmfile.cjs"` to `ignorePatterns` in your Oxfmt configuration. pnpm checksums the generated hook's exact bytes, so formatters must leave it unchanged. Formatter configuration stays application-owned; RAS does not create or modify `.prettierignore`.
-
-`ras install --frozen-lockfile` rejects a changed selection hook or missing lockfile, then runs pnpm with a frozen lockfile. `ras install` regenerates the hook and lets pnpm update its lockfile. Installations are serialized by `.ras-install.lock`; a stopped process can leave the guard behind, so remove it only after confirming the installer has stopped.
-
-Failed installs leave the requested hook in place and report pnpm's failure. Correct the selection or installation problem and rerun `ras install`. RAS does not attempt a second offline install or claim transactional rollback. Use `ras install --update` to force pnpm to rebuild an incomplete installation.
-
-RAS refuses to overwrite a consumer-owned pnpm hook and rejects a `.pnpmfile.mjs` that would take precedence over its hook. This mode currently requires exclusive ownership of `.pnpmfile.cjs`; projects must migrate their custom hooks before adopting RAS 5. Run managed commands from the package/workspace root that owns the pnpm lockfile and declares `ras-stack`.
+Run from the workspace root that owns the configuration dependency and lockfile. The root package needs a unique name. RAS rejects duplicate ownership of itself or selected packages in application manifests and refuses to overwrite a consumer-owned `.ras` directory. A custom pnpm hook must be composed explicitly with the shipped hook; this configuration dedicates the `pnpmfile` setting to RAS.
 
 ## Compiler, linter, and commands
 
@@ -146,7 +144,7 @@ Commands use the selected package's executable and run in the consuming director
 
 Arguments are forwarded without shell evaluation. An unselected tool is an error rather than a fallback to an unrelated global installation. For application-specific build pipelines, keep the pipeline in the application's scripts and use the managed executables where appropriate.
 
-`ras prepare` verifies the installed versions and regenerates local configuration without installing packages or changing tracked files. Tool commands also prepare missing local configuration. For VS Code, the generated `.ras/vscode-settings.json` shows the workspace TypeScript setting; the selected TypeScript is available at the normal `node_modules/typescript/lib` path.
+pnpm generates local configuration during installation. RAS tool commands verify their installed versions and regenerate missing local configuration without installing packages or changing tracked files. For VS Code, the generated `.ras/vscode-settings.json` shows the workspace TypeScript setting; the selected TypeScript is available at the normal `node_modules/typescript/lib` path.
 
 ## Build scripts and supply-chain policy
 
@@ -167,46 +165,41 @@ An explicit consumer denial or conflicting version override is an error. Approva
 
 Remove `ras-stack-config` from the manifest and replace its TypeScript and Oxlint inheritance paths with `./.ras/tsconfig.json` and `./.ras/oxlint.json`. Choose the corresponding typed presets in `ras.config.ts`. Configuration-only repositories also install `ras-stack` and select their tools through this file.
 
-Remove managed packages from the application's `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`; RAS rejects duplicate ownership. Keep packages that RAS does not manage. Select the integrations and tools in `ras.config.ts`, then run `ras install`.
+Remove `ras-stack` and managed packages from the application's `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`; RAS rejects duplicate ownership. Keep packages that RAS does not manage. Select the integrations and tools in `ras.config.ts`, declare RAS under `configDependencies`, point `pnpmfile` at its shipped hook, and run `pnpm install`. Remove the previously generated `.pnpmfile.cjs` and its formatter exclusion.
 
 Changing to the catalogue can upgrade upstream APIs; make any required application changes and test them as part of migration. Selections affect the root application and RAS; other workspace packages keep their own dependencies.
 
 Point the application compiler/linter files at `.ras` if adopting managed presets, and replace tool scripts with the corresponding RAS commands where useful. Existing scripts and upstream imports can continue using the publicly available package names.
 
-The installer does not publish a new RAS release or change other repositories. Test a packed candidate and verify the consuming application's build, tests, and runtime flows before releasing or migrating it.
+The configuration hook does not publish a new RAS release or change other repositories. Test a packed candidate and verify the consuming application's build, tests, and runtime flows before releasing or migrating it.
 
 ## CI and upgrades
 
-A clean CI job runs:
+A clean CI job uses ordinary pnpm commands:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm exec ras prepare
 pnpm check
 ```
 
-The shared `setup-js` action prepares RAS automatically when `ras.config.ts` exists. The generated hook and pnpm lockfile are committed, so the initial install already knows the selected packages.
+Update RAS and its managed graph together:
 
-When updating RAS, run `ras install` after upgrading its package version and commit the resulting lockfile/hook changes with that upgrade. CI rejects a selection contract from an older incompatible RAS catalogue. No separate routine direct dependency updates are required for the managed libraries.
-
-To regenerate those files on Dependabot RAS upgrades, add `.github/workflows/update-managed-dependencies.yml`:
-
-```yaml
-name: Update managed RAS dependencies
-on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-    paths: [package.json, pnpm-lock.yaml]
-permissions:
-  contents: write
-  pull-requests: read
-jobs:
-  update:
-    uses: richardsolomou/ras-stack/.github/workflows/update-managed-dependencies.yml@v1
+```sh
+pnpm update ras-stack
+pnpm install
 ```
 
-The workflow handles open, same-repository Dependabot PRs whose root RAS version changes, including grouped updates. It installs the updated RAS, runs `ras install`, and commits only `.pnpmfile.cjs` and `pnpm-lock.yaml` into that PR. Unchanged output produces no commit. The installation job has read-only permissions and no persisted checkout credentials. A separate job receives write permission, reads the two generated files without executing PR code, and uses GitHub's expected-head constraint to reject a branch changed during regeneration. Failed regeneration does not update the branch.
+Use `pnpm update ras-stack --latest` for a new major version. pnpm updates the config dependency separately; the following install applies its selected application graph. Commit the resulting `pnpm-workspace.yaml` and `pnpm-lock.yaml` changes. There is one RAS version declaration, with no custom install/update command and no regeneration workflow.
 
-With the default `GITHUB_TOKEN`, GitHub can require **Approve workflows to run** before CI runs on the generated commit. For unattended CI, pass the optional `update-token` reusable-workflow secret using a GitHub App installation token or bot token with repository contents write and pull requests read access. The token is used only by the commit job. The reusable workflow and actions must be released before enabling the caller on the application's default branch.
+Config dependencies must come from an npm registry; Git URLs and local tarball specifiers are unsupported. Test unpublished candidates through a local registry fixture. Consumer PRs require a published RAS candidate before their committed configuration can produce a valid frozen lockfile.
 
-Dependabot continues updating RAS and application-owned dependencies. Managed libraries remain ordinary entries in the standard pnpm lockfile, preserving dependency-graph and vulnerability visibility. Security fixes still require an appropriate RAS upgrade; pinning a tested version set does not make it immune to vulnerabilities. `ras audit` checks the installed graph through pnpm.
+Dependabot currently reads application manifests and pnpm catalogs, but does not update `configDependencies`. Handle RAS upgrade PRs separately using the native command above. Limit consumer Dependabot updates to manifest-owned packages:
+
+```yaml
+allow:
+  - dependency-type: direct
+```
+
+This excludes standalone updates to RAS-managed packages, including lockfile-only security updates. Dependencies added by a pnpm hook have no manifest requirements and are indirect to Dependabot. Application-owned dependency updates can still change their transitive graph in the shared lockfile. If an application explicitly owns the same library elsewhere in its workspace, that declaration remains eligible for updates.
+
+The dependency graph and vulnerability alerts remain visible. Security fixes for managed packages require an appropriate RAS release and consumer upgrade; pinning tested versions does not make them immune to vulnerabilities. `ras audit` checks the installed graph through pnpm. Keep the shared catalogue and dependency-update policy in the RAS repository, and consumer policy in each application.

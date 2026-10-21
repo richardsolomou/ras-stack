@@ -13,7 +13,7 @@ just check
 
 Repository release and dependency policies are committed and owned here. `just check` validates existing changesets without requiring a release for every edit.
 
-Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade for runtime behavior. The managed installer owns dependency/tool versions and generated repository configuration; application behavior remains outside it. An extraction should remove concrete duplicate mechanics in two consumers, or protect a consequential security or lifecycle invariant in one. Preserve upstream objects, explain what code disappears, and identify the coordination that remains. Keep product policy local.
+Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade for runtime behavior. The native pnpm configuration hook owns dependency/tool versions and generated repository configuration; application behavior remains outside it. An extraction should remove concrete duplicate mechanics in two consumers, or protect a consequential security or lifecycle invariant in one. Preserve upstream objects, explain what code disappears, and identify the coordination that remains. Keep product policy local.
 
 `build`, `changesets`, `managed`, `preview`, and `vite` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
 
@@ -23,10 +23,12 @@ Every exported behavior needs a contract test, including the `ras` commands. Vit
 
 Keep consumer names, repository revisions, and application-specific integration checks in the consuming repositories. Validate shared contracts here through the packed-package checks and the full-stack example; consumer migrations should test a packed candidate before the new version is published. `package:check` verifies managed bare imports, React identity across third-party peers and RAS hooks, compiler/linter execution, browser builds, configured Query defaults, independent workspace dependency versions, and clean frozen installation.
 
-Workspace builds bootstrap the installer from source with direct development dependencies and bundled presets. Packed-package tests exercise the supported consumer installation path.
+Workspace builds use direct development dependencies and bundled presets. Registry-backed packed-package tests exercise the supported consumer installation path.
 
 ## Releases
 
 Add a Changeset for each release-worthy package, action, or reusable-workflow change. `ras-stack` includes the integration catalogue and compiler/linter presets in one versioned package. Package releases use `v<version>` tags. The separate configuration package and its release tags are retired. The runtime binary image has its own release tags. The release workflow publishes each missing RAS version from a packed archive with provenance bound to the released commit.
 
 A new npm package needs an initial manual publication before its trusted GitHub Actions publisher can be configured. Review and publish the packed archive, then configure `release.yml` as its trusted publisher. Never publish a workspace directory directly.
+
+RAS is also a pnpm config dependency, so its published manifest has no runtime dependencies or lifecycle scripts. Esbuild bundles the Changesets parser/workspace helpers into the CLI module; these packages remain development dependencies, and the public runtime modules retain their native upstream imports. Registry-backed package checks exercise fresh native installs, frozen reinstalls, opt-in builds, and RAS upgrades through `pnpm update`.

@@ -1,41 +1,19 @@
-import { createRequire } from 'node:module'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { defineConfig, defineIntegration } from '../config.js'
 import { installationPlan } from './plan.js'
-import { pnpmHook } from './pnpm.js'
+import { createHooks } from './pnpm.js'
 
-interface Manifest {
-  name: string
-  dependencies?: Record<string, string>
-}
-interface Settings {
-  registry?: string
-  minimumReleaseAge?: number
-  publicHoistPattern?: string[]
-  overrides?: Record<string, string>
-  allowBuilds?: Record<string, boolean>
-}
-type Hooks = { updateConfig(config: Settings): Settings; readPackage(pkg: Manifest): Manifest }
+type Hooks = ReturnType<typeof createHooks>
 
 describe('native pnpm hook contract', () => {
-  let root: string
   let hooks: Hooks
-  beforeEach(async () => {
-    root = await mkdtemp(join(tmpdir(), 'ras-pnpm-'))
+  beforeEach(() => {
     const plan = installationPlan(
       defineConfig({
         integrations: [defineIntegration({ name: 'query', packages: { '@tanstack/react-query': '5.104.1', react: '19.3.0' } })],
       }),
     )
-    const file = join(root, '.pnpmfile.cjs')
-    await writeFile(file, pnpmHook(plan, 'application'))
-    hooks = createRequire(import.meta.url)(file).hooks as Hooks
-  })
-  afterEach(async () => {
-    await rm(root, { recursive: true, force: true })
+    hooks = createHooks(plan, 'application', '5.0.0')
   })
 
   it('preserves the caller release-age policy', () => {
@@ -68,7 +46,15 @@ describe('native pnpm hook contract', () => {
   })
 
   it('attaches selected dependencies to RAS', () => {
-    expect(hooks.readPackage({ name: 'ras-stack' }).dependencies?.react).toBe('19.3.0')
+    expect(hooks.readPackage({ name: 'ras-stack', version: '5.0.0' }).dependencies?.react).toBe('19.3.0')
+  })
+
+  it('leaves a different workspace RAS version alone', () => {
+    expect(hooks.readPackage({ name: 'ras-stack', version: '4.0.0' }).dependencies).toBeUndefined()
+  })
+
+  it('rejects an override that changes the RAS runtime version', () => {
+    expect(() => hooks.updateConfig({ overrides: { 'ras-stack': '4.0.0' } })).toThrow('conflicts with managed ras-stack')
   })
 
   it('attaches selected dependencies to the consuming application', () => {
@@ -82,4 +68,9 @@ describe('native pnpm hook contract', () => {
   it('does not introduce workspace-wide overrides', () => {
     expect(hooks.updateConfig({}).overrides).toBeUndefined()
   })
+})
+
+it('installs the runtime RAS version matching the config dependency', () => {
+  const hooks = createHooks(installationPlan({}), 'application', '5.1.0')
+  expect(hooks.readPackage({ name: 'application' }).dependencies?.['ras-stack']).toBe('5.1.0')
 })

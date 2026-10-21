@@ -18,7 +18,7 @@ export default defineConfig({
 })
 ```
 
-After `ras install`, keep application-specific overrides in files that extend the generated configuration:
+After `pnpm install`, keep application-specific overrides in files that extend the generated configuration:
 
 ```json
 {

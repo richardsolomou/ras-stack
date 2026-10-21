@@ -22,7 +22,8 @@
   },
   "files": [
     "dist",
-    "config"
+    "config",
+    "pnpmfile.cjs"
   ],
   "type": "module",
   "sideEffects": false,
@@ -140,7 +141,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/bundleChangesets.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",
@@ -148,15 +149,12 @@
     "test": "vitest run --config vitest.config.ts",
     "package:check": "node scripts/checkManagedPackage.mjs",
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check",
-    "prepare": "pnpm build"
-  },
-  "dependencies": {
-    "@changesets/parse": "1.0.0",
-    "@manypkg/get-packages": "3.1.0"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
   },
   "devDependencies": {
+    "@changesets/parse": "1.0.0",
     "@libsql/client": "0.18.0",
+    "@manypkg/get-packages": "3.1.0",
     "@opentelemetry/api-logs": "^0.223.0",
     "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",
@@ -176,6 +174,7 @@
     "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.1",
     "drizzle-orm": "0.45.2",
+    "esbuild": "0.28.2",
     "nitro": "3.0.260903-beta",
     "nodemailer": "^10.0.11",
     "oxfmt": "^0.63.0",

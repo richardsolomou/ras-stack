@@ -7,8 +7,6 @@ describe('parseRasCommand', () => {
     'changesets',
     'preview',
     'realtime',
-    'install',
-    'prepare',
     'typecheck',
     'lint',
     'format',
@@ -22,7 +20,7 @@ describe('parseRasCommand', () => {
     expect(parseRasCommand([command, 'argument'])).toEqual({ command, arguments: ['argument'] })
   })
 
-  it.each(['unknown', 'toString', 'create', 'init'])('rejects the %s command', (command) => {
+  it.each(['unknown', 'toString', 'create', 'init', 'install', 'prepare'])('rejects the %s command', (command) => {
     expect(parseRasCommand([command])).toBeUndefined()
   })
 })
@@ -39,7 +37,7 @@ describe('runRasCli', () => {
     await runRasCli(['deploy'])
 
     expect(error).toHaveBeenCalledWith(
-      'usage: ras <install|prepare|typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]',
+      'usage: ras <typecheck|lint|format|dev|build|test|e2e|exec|audit|assets|changesets|preview|realtime> [arguments]',
     )
     expect(process.exitCode).toBe(2)
   })

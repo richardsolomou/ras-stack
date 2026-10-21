@@ -1,35 +1,12 @@
 import { delimiter, join, resolve } from 'node:path'
 import { exists } from './files.js'
 import { commandPath } from './environment.js'
-import { installManaged, loadPlan, preparedPlan } from './install.js'
+import { preparedPlan } from './install.js'
 import { runPnpm, runProcess } from './process.js'
 
 export async function runManagedCli(command: string, arguments_: string[]): Promise<void> {
   const root = process.cwd()
-  if (command === 'install') {
-    if (arguments_.some((argument) => !['--frozen-lockfile', '--update'].includes(argument)))
-      throw new Error('usage: ras install [--frozen-lockfile|--update]')
-    const controller = new AbortController()
-    const abort = () => controller.abort()
-    process.once('SIGINT', abort)
-    process.once('SIGTERM', abort)
-    try {
-      await installManaged(root, await loadPlan(root), {
-        frozen: arguments_.includes('--frozen-lockfile'),
-        update: arguments_.includes('--update'),
-        signal: controller.signal,
-      })
-    } finally {
-      process.off('SIGINT', abort)
-      process.off('SIGTERM', abort)
-    }
-    return
-  }
   const plan = await preparedPlan(root)
-  if (command === 'prepare') {
-    if (arguments_.length) throw new Error('usage: ras prepare')
-    return
-  }
   if (command === 'audit') {
     await runPnpm(['audit', ...arguments_], root)
     return
