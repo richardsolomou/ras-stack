@@ -7,6 +7,7 @@ import path from 'node:path'
 const root = path.resolve(import.meta.dirname, '..')
 const consumer = mkdtempSync(path.join(tmpdir(), 'ras-managed-package-'))
 const serverOnly = mkdtempSync(path.join(tmpdir(), 'ras-managed-server-'))
+const configured = mkdtempSync(path.join(tmpdir(), 'ras-configured-vite-'))
 const archive = path.join(consumer, 'ras-stack.tgz')
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`
 const exec = (command, args) => execFileSync(command, args, { cwd: consumer, stdio: 'inherit' })
@@ -29,7 +30,7 @@ try {
   )
   writeFileSync(
     path.join(consumer, 'ras.config.ts'),
-    "import {defineConfig,tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,ui,zod,typescript,oxlint,oxfmt,vite,vitest,tsx,tailwind,changesets} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server,ui.classes,ui.icons,zod],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest,tsx,tailwind,changesets]})\n",
+    "import {defineConfig,tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,spacetimeDB,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest]})\n",
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   exec('pnpm', ['exec', 'ras', 'install'])
@@ -70,10 +71,6 @@ try {
 import {QueryClient,QueryClientProvider,useQuery} from '@tanstack/react-query'
 import {Identity} from 'spacetimedb'
 import {FaCheck} from 'react-icons/fa'
-import {Check} from 'lucide-react'
-import {clsx} from 'clsx'
-import {twMerge} from 'tailwind-merge'
-import {z} from 'zod'
 import {useAuthAction} from 'ras-stack/auth/react'
 import {classifySignInFailure} from 'ras-stack/auth/client'
 import {PostHogBetterAuthIdentity,PostHogIntegration} from 'ras-stack/posthog/react'
@@ -87,24 +84,18 @@ void useConnectedRealtimeClient
 export function Probe(){const {busy}=useAuthAction();const query=useQuery({queryKey:['probe'],queryFn:async()=>42,initialData:42});return createElement('div',null,String(query.data)+String(busy),createElement(FaCheck))}
 export const tree=createElement(QueryClientProvider,{client:new QueryClient()},createElement(Probe))
 export const identity: Identity = Identity.fromString('0'.repeat(64))
-export const classes = twMerge(clsx('p-2', z.string().parse('p-4')))
-export const icon = createElement(Check)
 `,
   )
   writeFileSync(
     path.join(consumer, 'main.test.ts'),
     `import {expect,it} from 'vitest'
 import {renderToString} from 'react-dom/server'
-import {tree,identity,classes,icon} from './main'
+import {tree,identity} from './main'
 it('shares React across application, Query, third-party peers, and RAS hooks',()=>expect(renderToString(tree)).toContain('42false'))
 it('loads the original SpacetimeDB import',()=>expect(identity.toHexString()).toBe('0'.repeat(64)))
-it('shares the selected UI and schema packages',()=>expect(classes).toBe('p-4'))
-it('renders selected icons with the application React instance',()=>expect(renderToString(icon)).toContain('<svg'))
 `,
   )
   exec('pnpm', ['exec', 'ras', 'typecheck'])
-  exec('pnpm', ['exec', 'ras', 'exec', '--', 'tsx', '--eval', "import {z} from 'zod'; if (z.number().parse(42) !== 42) process.exit(1)"])
-  exec('pnpm', ['exec', 'ras', 'exec', '--', 'changeset', '--version'])
   exec('pnpm', ['exec', 'ras', 'test'])
   writeFileSync(
     path.join(consumer, 'vite.config.ts'),
@@ -192,9 +183,37 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/posthog-js')), false)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/react')), false)
   assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('spacetimedb'), false)
-  assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('@better-auth/stripe'), false)
-  assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('tailwindcss'), false)
+  writeFileSync(
+    path.join(configured, 'package.json'),
+    json({ private: true, type: 'module', packageManager: 'pnpm@11.15.0', dependencies: { 'ras-stack': `file:${archive}` } }),
+  )
+  writeFileSync(path.join(configured, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\nallowBuilds:\n  esbuild: true\n')
+  writeFileSync(
+    path.join(configured, 'ras.config.ts'),
+    "import {defineConfig,react,vite,tailwind} from 'ras-stack/config'\nexport default defineConfig({integrations:[react],tooling:[vite,tailwind.animations]})\n",
+  )
+  mkdirSync(path.join(configured, 'src'))
+  writeFileSync(path.join(configured, 'index.html'), '<div id="app"></div><script type="module" src="/src/main.tsx"></script>\n')
+  writeFileSync(
+    path.join(configured, 'src/main.tsx'),
+    "import {createRoot} from 'react-dom/client'\nimport './styles.css'\ncreateRoot(document.getElementById('app')!).render(<div className=\"probe\">Configured</div>)\n",
+  )
+  writeFileSync(path.join(configured, 'src/styles.css'), '.probe { @apply p-4; }\n')
+  for (const args of [
+    ['install', '--no-frozen-lockfile'],
+    ['exec', 'ras', 'install'],
+    ['exec', 'ras', 'build'],
+  ])
+    execFileSync('pnpm', args, { cwd: configured, stdio: 'inherit' })
+  assert.equal(existsSync(path.join(configured, 'vite.config.ts')), false)
+  const css = readdirSync(path.join(configured, 'dist/assets'))
+    .filter((file) => file.endsWith('.css'))
+    .map((file) => readFileSync(path.join(configured, 'dist/assets', file), 'utf8'))
+    .join('\n')
+  assert.match(css, /\.probe\{[^}]*padding:/)
+  assert.equal(css.includes('@apply'), false)
 } finally {
+  rmSync(configured, { recursive: true, force: true })
   rmSync(serverOnly, { recursive: true, force: true })
   rmSync(consumer, { recursive: true, force: true })
 }

@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { isBuiltin } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
-const tooling = ['build', 'changesets', 'managed', 'preview']
+const tooling = ['build', 'changesets', 'managed', 'preview', 'vite']
 const application = [
   'auth',
   'conformance',

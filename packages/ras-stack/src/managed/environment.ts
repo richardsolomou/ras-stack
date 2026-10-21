@@ -4,6 +4,11 @@ import { json, readJson } from './files.js'
 import type { InstallationPlan } from './plan.js'
 
 export async function writeEnvironment(directory: string, plan: InstallationPlan): Promise<void> {
+  if (plan.dependencies.vite)
+    await writeFile(
+      join(directory, 'vite.config.mjs'),
+      "import { defineViteConfig } from 'ras-stack/vite'\nexport default defineViteConfig()\n",
+    )
   if (plan.presets.typescript) {
     await writeFile(
       join(directory, 'tsconfig.json'),

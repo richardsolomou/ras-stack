@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import * as config from './config.js'
+import * as vite from './vite/index.js'
 import * as auth from './auth/index.js'
 import type { ProviderEnvironmentOptions, SessionOptions, StandardAccountOptions, StandardEmailAndPasswordOptions } from './auth/index.js'
 import * as authClient from './auth/client.js'
@@ -46,44 +47,29 @@ void betterAuthAccountOptions
 const surface = {
   './config': [
     'betterAuth',
-    'changesets',
-    'confetti',
     'defineConfig',
     'defineIntegration',
-    'drizzleKit',
     'email',
-    'esbuild',
-    'fflate',
     'libsql',
-    'markdownlint',
-    'mcp',
     'nitro',
     'oxfmt',
     'oxlint',
-    'pRetry',
     'playwright',
     'postgres',
     'posthog',
-    'qrcode',
     'react',
     'realtime',
     'spacetimeDB',
     'sqlite',
     'tailwind',
-    'tanstackForm',
     'tanstackQuery',
     'tanstackStart',
-    'tanstackTable',
-    'tanstackVirtual',
-    'three',
-    'tsx',
     'typescript',
-    'ui',
     'uploads',
     'vite',
     'vitest',
-    'zod',
   ],
+  './vite': ['defineViteConfig', 'postHogSourceMapPlugins'],
   './auth': [
     'configuredProviderOptions',
     'configuredProviders',
@@ -148,6 +134,7 @@ const surface = {
 
 const entrypoints: Record<keyof typeof surface, object> = {
   './config': config,
+  './vite': vite,
   './auth': auth,
   './auth/client': authClient,
   './auth/react': authReact,

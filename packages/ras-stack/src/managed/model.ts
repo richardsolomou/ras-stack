@@ -5,7 +5,7 @@ export interface Integration {
   readonly packages: Readonly<Record<string, string>>
   readonly includes?: readonly Integration[]
   readonly commands?: Readonly<Record<string, { readonly package: string; readonly bin: string; readonly args?: readonly string[] }>>
-  readonly presets?: { readonly typescript?: string; readonly oxlint?: readonly string[] }
+  readonly presets?: { readonly typescript?: string; readonly oxlint?: readonly string[]; readonly vite?: readonly string[] }
 }
 
 export interface RasConfig {

@@ -32,41 +32,47 @@ import { QueryClient, useQuery } from '@tanstack/react-query'
 import { Identity } from 'spacetimedb'
 ```
 
-The catalogue records exact tested versions in the RAS release. Conflicting version selections fail before installation. Select the capabilities an application uses:
+The built-in integrations are `react`, `tanstackQuery`, `tanstackStart`, `spacetimeDB`, `betterAuth`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, and `posthog.browser`, `posthog.react`, and `posthog.server`. The catalogue records exact tested versions in the RAS release. Conflicting version selections fail before installation.
 
-| Family                 | Selections                                                                                    |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| React and TanStack     | `react`, `tanstackQuery`, `tanstackStart`, `tanstackForm`, `tanstackTable`, `tanstackVirtual` |
-| Authentication         | `betterAuth`, `betterAuth.stripe`, `betterAuth.oauth`, `betterAuth.mcp`                       |
-| Data and services      | `spacetimeDB`, `sqlite`, `postgres`, `libsql`, `email`, `uploads`, `realtime`, `mcp`          |
-| UI                     | `ui.primitives`, `ui.variants`, `ui.classes`, `ui.cn`, `ui.icons`, `confetti`, `qrcode`       |
-| Graphics and utilities | `three`, `three.stdlib`, `zod`, `fflate`, `pRetry`                                            |
-| PostHog                | `posthog.browser`, `posthog.react`, `posthog.server`, `posthog.mcp`                           |
+The tool selections are `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack`, `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`, `oxfmt`, `vite`, `vitest`, `playwright`, `tailwind`, `tailwind.animations`, `nitro`, and `posthog.build`. Choose one TypeScript preset. Oxlint presets compose, for example `[oxlint.application, oxlint.tanstack, oxlint.domain]`.
 
-Auth plugins include the core SDK on the same release. `betterAuth.oauth` includes the OAuth provider and its client metadata discovery plugin. Select the Stripe SDK separately when using the Stripe auth plugin. UI primitives, icons, variants, and class utilities are independent selections; `ui.cn` selects the compiled class utility without installing `clsx` or `tailwind-merge` through RAS.
+RAS owns configured capabilities. Plain libraries such as Zod, icon libraries, class utilities, and compression libraries remain dependencies of the application. A custom descriptor that only moves those version strings into another file does not provide an integration.
 
-Tool selections include:
+## Configured builds
 
-| Family               | Selections                                                                                                 |
-| -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Compiler             | `typescript.base`, `typescript.bundler`, `typescript.browser`, `typescript.library`, `typescript.tanstack` |
-| Linter               | `oxlint.base`, `oxlint.application`, `oxlint.tanstack`, `oxlint.domain`, `oxlint.layers`                   |
-| Build and scripts    | `vite`, `nitro`, `esbuild`, `tsx`, `tailwind`, `tailwind.animations`                                       |
-| Tests and formatting | `vitest`, `playwright`, `oxfmt`, `markdownlint`                                                            |
-| Development services | `changesets`, `drizzleKit`, `posthog.build`, `posthog.cli`, `ui.scaffold`                                  |
+Selecting `vite` configures React compilation and the `@` alias for `src/`. Selecting `tanstackStart`, `nitro`, `tailwind`, or `posthog.build` adds their build configuration automatically. `ras dev` and `ras build` use a generated Vite configuration when the application has no Vite config file.
 
-Choose one TypeScript preset. Oxlint presets compose, for example `[oxlint.application, oxlint.tanstack, oxlint.domain]`. `tailwind.animations` includes the Tailwind compiler and Vite plugin; `tailwind` alone excludes animation styles. `three.stdlib` includes Three and its types. `posthog.build` selects the Rollup plugin, while `posthog.cli` selects the standalone upload CLI. Package binaries remain available to package scripts and `ras exec -- <binary>`.
+Tailwind processes the application's global stylesheet at `src/styles.css`. Keep application styles and theme declarations there; RAS supplies the Tailwind import. `tailwind.animations` also supplies the animation stylesheet import. The app still imports its global stylesheet as part of its application entrypoint.
 
-Application-specific dependencies such as fonts, domain engines, and private SDKs stay in the application manifest. Adding a dependency to a local custom descriptor only relocates its version declaration; shared selections put version ownership and compatibility checks in RAS.
+For application-specific settings, use the shared config factory:
 
-For a custom pinned integration:
+```ts
+import { defineViteConfig } from 'ras-stack/vite'
+
+export default defineViteConfig({
+  assetsInclude: ['**/*.woff'],
+  ras: {
+    stylesheet: 'src/styles.css',
+    nitro: { routeRules: { '/health': { headers: { 'Cache-Control': 'no-store' } } } },
+  },
+})
+```
+
+The factory also accepts an async Vite config callback. Application plugins and settings compose with the selected presets. `ras.start` and `ras.nitro` accept upstream plugin options; `ras.stylesheet` changes the global stylesheet path.
+
+`posthog.build` instruments client and worker builds. Uploads activate in CI when `POSTHOG_API_KEY` and `POSTHOG_PROJECT_ID` are set, or explicitly with `POSTHOG_UPLOAD_SOURCEMAPS=true`. The `POSTHOG_CLI_API_KEY`, `POSTHOG_CLI_PROJECT_ID`, and `POSTHOG_CLI_HOST` aliases are supported. `POSTHOG_UPLOAD_SOURCEMAPS=false` disables automatic uploads. Enabled uploads require credentials, emit hidden source maps, and delete uploaded maps. Set `ras.posthog` for application-specific release metadata or an explicit `enabled` override.
+
+For a custom configured build tool:
 
 ```ts
 import { defineIntegration } from 'ras-stack/config'
 
-export const applicationLibrary = defineIntegration({
-  name: 'application-library',
-  packages: { 'some-library': '1.2.3' },
+export const bundledLibrary = defineIntegration({
+  name: 'bundled-library',
+  packages: { esbuild: '0.28.2' },
+  commands: {
+    build: { package: 'esbuild', bin: 'esbuild', args: ['src/index.ts', '--bundle', '--outdir=dist'] },
+  },
 })
 ```
 

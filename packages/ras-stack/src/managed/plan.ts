@@ -5,7 +5,7 @@ import type { Integration, RasConfig } from './model.js'
 export interface InstallationPlan {
   dependencies: Record<string, string>
   commands: NonNullable<Integration['commands']>
-  presets: { typescript?: string; oxlint: string[] }
+  presets: { typescript?: string; oxlint: string[]; vite: string[] }
   allowBuilds: string[]
 }
 
@@ -19,7 +19,7 @@ export function installationPlan(config: RasConfig): InstallationPlan {
   }
   const dependencies: Record<string, string> = {}
   const commands: Record<string, NonNullable<Integration['commands']>[string]> = {}
-  const presets: InstallationPlan['presets'] = { oxlint: [] }
+  const presets: InstallationPlan['presets'] = { oxlint: [], vite: [] }
   const visiting = new Set<Integration>()
   const visited = new Set<Integration>()
   function add(selection: Integration): void {
@@ -43,6 +43,7 @@ export function installationPlan(config: RasConfig): InstallationPlan {
       presets.typescript = selection.presets.typescript
     }
     for (const preset of selection.presets?.oxlint ?? []) if (!presets.oxlint.includes(preset)) presets.oxlint.push(preset)
+    for (const preset of selection.presets?.vite ?? []) if (!presets.vite.includes(preset)) presets.vite.push(preset)
     visiting.delete(selection)
     visited.add(selection)
   }
@@ -57,6 +58,8 @@ export function installationPlan(config: RasConfig): InstallationPlan {
     throw new Error('Unknown TypeScript preset')
   for (const preset of presets.oxlint)
     if (!['base', 'application', 'tanstack', 'domain', 'layers'].includes(preset)) throw new Error('Unknown Oxlint preset')
+  for (const preset of presets.vite)
+    if (!['react', 'start', 'tailwind', 'tailwind-animations', 'nitro', 'posthog'].includes(preset)) throw new Error('Unknown Vite preset')
   return {
     dependencies: Object.fromEntries(Object.entries(dependencies).toSorted(([a], [b]) => a.localeCompare(b))),
     commands,

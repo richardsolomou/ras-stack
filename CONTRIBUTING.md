@@ -15,7 +15,9 @@ Repository release and dependency policies are committed and owned here. `just c
 
 Keep exports composable. Shared code may implement duplicated infrastructure mechanics, but applications retain direct access to upstream libraries and ownership of schemas, migrations, authorization, routes, plugins, domain events, and product policy. Prefer one independently useful function over a configuration facade for runtime behavior. The managed installer owns dependency/tool versions and generated repository configuration; application behavior remains outside it. An extraction should remove concrete duplicate mechanics in two consumers, or protect a consequential security or lifecycle invariant in one. Preserve upstream objects, explain what code disappears, and identify the coordination that remains. Keep product policy local.
 
-`build`, `changesets`, `managed`, and `preview` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
+`build`, `changesets`, `managed`, `preview`, and `vite` are repository tooling and must stay out of the application modules, so an application never pulls CI-only code and its dependencies in through an import. A new module directory has to be classified either way before the boundary test passes.
+
+The Vite integration uses upstream React, Tailwind, Nitro, and PostHog plugins as development dependencies for their types and real configuration tests. Managed consumers install those plugins only when selected. Plain libraries without RAS-owned configuration remain application dependencies.
 
 Every exported behavior needs a contract test, including the `ras` commands. Vitest runs `packages/ras-stack/src/**/*.test.ts` and `actions/**/*.test.ts`, so a test covering an action script can sit beside the script or with the module that owns it. Avoid runtime dependencies when a platform API or injected capability is sufficient.
 

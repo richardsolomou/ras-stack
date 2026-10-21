@@ -48,6 +48,15 @@ export async function runManagedCli(command: string, arguments_: string[]): Prom
   if (!selected) throw new Error(`No tool provides ras ${command}; select it in ras.config.ts`)
   const args = [...(selected.args ?? [])]
   if (
+    ['dev', 'build'].includes(command) &&
+    selected.package === 'vite' &&
+    !arguments_.some((argument) => ['-c', '--config'].includes(argument) || argument.startsWith('--config=')) &&
+    !(await Promise.all(['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map((extension) => exists(join(root, `vite.config.${extension}`))))).some(
+      Boolean,
+    )
+  )
+    args.push('--config', '.ras/vite.config.mjs')
+  if (
     command === 'typecheck' &&
     !arguments_.some((argument) => ['-p', '--project', '-b', '--build'].includes(argument) || argument.startsWith('--project='))
   ) {
