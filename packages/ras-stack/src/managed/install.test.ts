@@ -124,6 +124,36 @@ describe('managed installation against an npm registry', () => {
     expect(await readlink(join(root, 'node_modules/@ras-test/alpha'))).toContain('.pnpm/')
   })
 
+  it.each([true, false])('repairs a stale public link when its target exists: %s', async (targetExists) => {
+    const plan = await loadPlan(root)
+    await installManaged(root, plan)
+    const previous = join(root, 'previous-alpha')
+    if (targetExists) {
+      await mkdir(previous)
+      await writeFile(join(previous, 'package.json'), json({ name: '@ras-test/alpha', version: '0.9.0' }))
+    }
+    await rm(join(root, 'node_modules/@ras-test/alpha'))
+    await symlink(previous, join(root, 'node_modules/@ras-test/alpha'))
+    await installManaged(root, plan, { frozen: true })
+    expect((await readJson<{ version: string }>(join(root, 'node_modules/@ras-test/alpha/package.json'))).version).toBe('1.0.0')
+  })
+
+  it('rejects a managed package whose manifest is missing', async () => {
+    await installManaged(root, await loadPlan(root))
+    await rm(join(root, 'node_modules/@ras-test/alpha/package.json'))
+    await expect(preparedPlan(root)).rejects.toThrow('Managed @ras-test/alpha@1.0.0 is not installed')
+  })
+
+  it('preserves a real directory occupying a managed public path', async () => {
+    await installManaged(root, await loadPlan(root))
+    const destination = join(root, 'node_modules/@ras-test/alpha')
+    await rm(destination)
+    await mkdir(destination)
+    await writeFile(join(destination, 'consumer-file'), 'keep')
+    await expect(preparedPlan(root)).rejects.toThrow('Refusing to replace a consumer-owned')
+    expect(await readFile(join(destination, 'consumer-file'), 'utf8')).toBe('keep')
+  })
+
   it('leaves the previous environment and lock usable after a failed upgrade', async () => {
     await installManaged(root, await loadPlan(root))
     const before = await readFile(join(root, 'ras.lock'), 'utf8')
@@ -196,10 +226,11 @@ describe('managed installation against an npm registry', () => {
     await expect(installManaged(root, await loadPlan(root), { frozen: true, update: true })).rejects.toThrow('cannot be combined')
   })
 
-  it('requires preparation after consumer package-manager cleanup', async () => {
+  it('prepares managed links after consumer package-manager cleanup', async () => {
     await installManaged(root, await loadPlan(root))
     await rm(join(root, 'node_modules/@ras-test/alpha'))
-    await expect(preparedPlan(root)).rejects.toThrow('is not installed')
+    await preparedPlan(root)
+    expect(await readlink(join(root, 'node_modules/@ras-test/alpha'))).toContain('.pnpm/')
   })
 
   it('installs through the public CLI command', async () => {

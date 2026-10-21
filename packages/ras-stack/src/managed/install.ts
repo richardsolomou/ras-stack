@@ -175,6 +175,7 @@ export async function preparedPlan(root: string): Promise<InstallationPlan> {
     (await optionalFile(join(root, '.pnpmfile.cjs'))) !== pnpmHook(plan)
   )
     throw new Error('Managed dependencies are outdated; run ras install')
+  await repairManagedLinks(root, plan)
   await verifyInstalled(root, plan)
   const state = await readJson<{ rasVersion: string; plan: InstallationPlan }>(join(root, '.ras/state.json')).catch(() => undefined)
   if (!state || state.rasVersion !== (await packageVersion()) || planFingerprint(state.plan) !== planFingerprint(plan))
@@ -193,8 +194,12 @@ async function repairManagedLinks(root: string, plan: InstallationPlan): Promise
   const packages = dirname(await realpath(join(root, 'node_modules/ras-stack')))
   for (const name of Object.keys(plan.dependencies)) {
     const destination = join(root, 'node_modules', name)
-    if (await exists(destination)) continue
     const source = join(packages, name)
+    if (await exists(destination)) {
+      if ((await realpath(destination).catch(() => undefined)) === (await realpath(source))) continue
+      if (!(await lstat(destination)).isSymbolicLink()) throw new Error(`Refusing to replace a consumer-owned ${destination}`)
+      await rm(destination)
+    }
     await mkdir(dirname(destination), { recursive: true })
     await symlink(
       process.platform === 'win32' ? source : relative(dirname(destination), source),

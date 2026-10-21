@@ -100,7 +100,7 @@ Commands use the selected package's executable and run in the consuming director
 
 Arguments are forwarded without shell evaluation. An unselected tool is an error rather than a fallback to an unrelated global installation. For application-specific build pipelines, keep the pipeline in the application's scripts and use the managed executables where appropriate.
 
-`ras prepare` verifies the installed versions and regenerates local configuration without installing packages or changing tracked files. Tool commands also prepare missing local configuration. For VS Code, the generated `.ras/vscode-settings.json` shows the workspace TypeScript setting; the selected TypeScript is available at the normal `node_modules/typescript/lib` path.
+`ras prepare` repairs managed import links, verifies the installed versions, and regenerates local configuration without installing packages or changing tracked files. Tool commands also prepare missing local configuration. For VS Code, the generated `.ras/vscode-settings.json` shows the workspace TypeScript setting; the selected TypeScript is available at the normal `node_modules/typescript/lib` path.
 
 ## Build scripts and supply-chain policy
 
