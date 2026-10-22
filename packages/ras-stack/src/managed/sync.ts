@@ -13,6 +13,7 @@ interface Manifest {
   devDependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
+  ras?: { managedDependencies?: string[]; [key: string]: unknown }
   [key: string]: unknown
 }
 
@@ -60,11 +61,11 @@ export async function syncProject(root: string, options: { check?: boolean; upgr
   const plan = await loadPlan(root)
   await checkConsumer(root)
   const manifest = await readJson<Manifest>(join(root, 'package.json'))
+  if (manifest.ras && (typeof manifest.ras !== 'object' || Array.isArray(manifest.ras))) throw new Error('ras must be an object')
   const { version } = await readJson<{ version: string }>(new URL('../../package.json', import.meta.url))
   const packages = { ...plan.dependencies, ...plan.devDependencies }
-  const ownershipPath = join(root, '.ras/dependencies.json')
-  const previous = (await exists(ownershipPath)) ? await readJson<unknown>(ownershipPath) : []
-  if (!Array.isArray(previous)) throw new Error('.ras/dependencies.json must be an array')
+  const previous = manifest.ras?.managedDependencies ?? []
+  if (!Array.isArray(previous)) throw new Error('ras.managedDependencies must be an array')
   for (const name of previous) assertPackageName(name)
   const installedPath = join(root, 'node_modules/ras-stack/package.json')
   const installedVersion = (await exists(installedPath)) ? (await readJson<{ version: string }>(installedPath)).version : undefined
@@ -81,10 +82,8 @@ export async function syncProject(root: string, options: { check?: boolean; upgr
     if (Object.keys(group).length) manifest[field] = Object.fromEntries(Object.entries(group).toSorted(([a], [b]) => a.localeCompare(b)))
     else delete manifest[field]
   }
-  const outputs: Record<string, string> = {
-    'package.json': json(manifest),
-    '.ras/dependencies.json': json(Object.keys(packages).toSorted()),
-  }
+  manifest.ras = { ...manifest.ras, managedDependencies: Object.keys(packages).toSorted() }
+  const outputs: Record<string, string> = { 'package.json': json(manifest) }
   const workspacePath = join(root, 'pnpm-workspace.yaml')
   const source = (await exists(workspacePath)) ? await readFile(workspacePath, 'utf8') : '{}\n'
   const workspace = yaml(source)

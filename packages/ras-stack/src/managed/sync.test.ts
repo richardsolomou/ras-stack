@@ -46,26 +46,11 @@ describe('ordinary manifest synchronization', () => {
     expect((await manifest()).dependencies.zod).toBe('^4.0.0')
   })
 
-  it('keeps ownership metadata out of the package manifest', async () => {
-    await syncProject(root)
-    expect(await manifest()).not.toHaveProperty('ras')
-  })
-
-  it('records managed names alongside the generated presets', async () => {
-    await syncProject(root)
-    expect(JSON.parse(await readFile(join(root, '.ras/dependencies.json'), 'utf8'))).toEqual(['react', 'typescript'])
-  })
-
   it.each([123, null])('rejects an invalid ownership name %j', async (name) => {
-    await syncProject(root)
-    await writeFile(join(root, '.ras/dependencies.json'), JSON.stringify([name]))
+    const pkg = await manifest()
+    pkg.ras = { managedDependencies: [name] }
+    await writeFile(join(root, 'package.json'), JSON.stringify(pkg))
     await expect(syncProject(root)).rejects.toThrow('Invalid managed package name')
-  })
-
-  it.each([{}, null, 'react'])('rejects an invalid ownership record %j', async (record) => {
-    await syncProject(root)
-    await writeFile(join(root, '.ras/dependencies.json'), JSON.stringify(record))
-    await expect(syncProject(root)).rejects.toThrow('.ras/dependencies.json must be an array')
   })
 
   it('removes only packages previously owned by RAS when a selection is removed', async () => {
@@ -73,14 +58,6 @@ describe('ordinary manifest synchronization', () => {
     await writeFile(join(root, 'ras.config.ts'), 'export default {}\n')
     await syncProject(root)
     expect(Object.keys((await manifest()).dependencies).toSorted()).toEqual(['ras-stack', 'zod'])
-  })
-
-  it('preserves a package transferred to application ownership', async () => {
-    await syncProject(root)
-    await writeFile(join(root, '.ras/dependencies.json'), '["typescript"]\n')
-    await writeFile(join(root, 'ras.config.ts'), 'export default {}\n')
-    await syncProject(root)
-    expect((await manifest()).dependencies.react).toBe('19.3.0')
   })
 
   it('keeps an installed source candidate specifier during sync', async () => {
