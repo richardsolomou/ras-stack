@@ -63,6 +63,10 @@ try {
     env: { ...process.env, CI: 'true' },
   })
   assert.equal(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')).dependencies['ras-stack'], version)
+  assert.equal(Object.hasOwn(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')), 'ras'), false)
+  const owned = JSON.parse(readFileSync(path.join(consumer, '.ras/dependencies.json'), 'utf8'))
+  assert.ok(owned.includes('react') && owned.includes('typescript'))
+  assert.equal(owned.includes('spacetimedb'), false)
   const packageJson = JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8'))
   assert.ok(Object.values(packageJson.peerDependenciesMeta).every((peer) => peer.optional))
   assert.equal(packageJson.peerDependencies.vite, undefined)
