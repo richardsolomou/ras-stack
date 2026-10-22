@@ -1,21 +1,10 @@
-import { mkdir, readFile, rm } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 import { isMap, isScalar, isSeq, parseDocument } from 'yaml'
-import { environmentFiles } from './environment.js'
-import { exists, json, readJson, writeAtomic } from './files.js'
-import { checkConsumer, loadPlan } from './install.js'
-import { assertPackageName } from './model.js'
+import { exists, readJson, writeAtomic } from './files.js'
+import { checkConsumer, loadPlan, preparedPlan } from './install.js'
 import { runPnpm } from './process.js'
-
-interface Manifest {
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  peerDependencies?: Record<string, string>
-  optionalDependencies?: Record<string, string>
-  ras?: { managedDependencies?: string[]; [key: string]: unknown }
-  [key: string]: unknown
-}
 
 function yaml(source: string) {
   const document = parseDocument(source)
@@ -50,53 +39,25 @@ function dependabot(source: string, names: string[]): string {
   return document.toString()
 }
 
-function equivalent(file: string, actual: string | undefined, expected: string): boolean {
-  if (actual === undefined) return false
-  if (/\.ya?ml$/.test(file)) return isDeepStrictEqual(yaml(actual).toJS(), yaml(expected).toJS())
-  if (!file.endsWith('.json')) return actual === expected
-  return isDeepStrictEqual(JSON.parse(actual), JSON.parse(expected))
+function equivalent(actual: string | undefined, expected: string): boolean {
+  return actual !== undefined && isDeepStrictEqual(yaml(actual).toJS(), yaml(expected).toJS())
 }
 
 export async function syncProject(root: string, options: { check?: boolean; upgrade?: boolean } = {}): Promise<void> {
   const plan = await loadPlan(root)
-  await checkConsumer(root)
-  const manifest = await readJson<Manifest>(join(root, 'package.json'))
-  if (manifest.ras && (typeof manifest.ras !== 'object' || Array.isArray(manifest.ras))) throw new Error('ras must be an object')
+  await checkConsumer(root, plan)
   const { version } = await readJson<{ version: string }>(new URL('../../package.json', import.meta.url))
   const packages = { ...plan.dependencies, ...plan.devDependencies }
-  const previous = manifest.ras?.managedDependencies ?? []
-  if (!Array.isArray(previous)) throw new Error('ras.managedDependencies must be an array')
-  for (const name of previous) assertPackageName(name)
-  const installedPath = join(root, 'node_modules/ras-stack/package.json')
-  const installedVersion = (await exists(installedPath)) ? (await readJson<{ version: string }>(installedPath)).version : undefined
-  const rasSpecifier =
-    !options.upgrade && installedVersion === version
-      ? (manifest.dependencies?.['ras-stack'] ?? manifest.devDependencies?.['ras-stack'] ?? version)
-      : version
-  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const) {
-    const group = { ...manifest[field] }
-    delete group['ras-stack']
-    for (const name of new Set([...previous, ...Object.keys(packages)])) delete group[name]
-    if (field === 'dependencies') Object.assign(group, plan.dependencies, { 'ras-stack': rasSpecifier })
-    if (field === 'devDependencies') Object.assign(group, plan.devDependencies)
-    if (Object.keys(group).length) manifest[field] = Object.fromEntries(Object.entries(group).toSorted(([a], [b]) => a.localeCompare(b)))
-    else delete manifest[field]
-  }
-  manifest.ras = { ...manifest.ras, managedDependencies: Object.keys(packages).toSorted() }
-  const outputs: Record<string, string> = { 'package.json': json(manifest) }
   const workspacePath = join(root, 'pnpm-workspace.yaml')
   const source = (await exists(workspacePath)) ? await readFile(workspacePath, 'utf8') : '{}\n'
   const workspace = yaml(source)
-  const settings = workspace.toJS() as { overrides?: Record<string, string>; allowBuilds?: Record<string, boolean> } | null
-  for (const [name, selected] of Object.entries({ 'ras-stack': version, ...packages })) {
-    if (settings?.overrides?.[name] && settings.overrides[name] !== selected)
-      throw new Error(`Consumer override conflicts with managed ${name}`)
-  }
-  for (const name of plan.allowBuilds) {
-    if (settings?.allowBuilds?.[name] === false) throw new Error(`Consumer build policy denies ${name}`)
-    workspace.setIn(['allowBuilds', name], true)
-  }
-  if (plan.allowBuilds.length) outputs['pnpm-workspace.yaml'] = workspace.toString()
+  const hook = 'node_modules/.pnpm-config/ras-stack/pnpmfile.mjs'
+  if (workspace.has('pnpmfile') && workspace.get('pnpmfile') !== hook)
+    throw new Error('Compose the existing pnpmfile with the shipped RAS hook before enabling managed installation')
+  if (options.upgrade || !workspace.hasIn(['configDependencies', 'ras-stack']))
+    workspace.setIn(['configDependencies', 'ras-stack'], version)
+  workspace.set('pnpmfile', hook)
+  const outputs: Record<string, string> = { 'pnpm-workspace.yaml': workspace.toString() }
   const botFiles = await Promise.all(
     ['.github/dependabot.yml', '.github/dependabot.yaml'].map(async (file) => {
       if (!(await exists(join(root, file)))) return []
@@ -104,28 +65,19 @@ export async function syncProject(root: string, options: { check?: boolean; upgr
     }),
   )
   Object.assign(outputs, Object.fromEntries(botFiles.flat()))
-  const generated = environmentFiles(plan)
-  for (const [file, contents] of Object.entries(generated)) outputs[join('.ras', file)] = contents
-  const obsolete = await Promise.all(
-    ['vite.config.mjs', 'tsconfig.json', 'oxlint.json', 'vscode-settings.json'].map(async (file) =>
-      !Object.hasOwn(generated, file) && (await exists(join(root, '.ras', file))) ? join('.ras', file) : undefined,
-    ),
-  )
-  const stale = obsolete.filter((file) => file !== undefined)
   const differences = await Promise.all(
     Object.entries(outputs).map(async ([file, contents]) => {
       const actual = (await exists(join(root, file))) ? await readFile(join(root, file), 'utf8') : undefined
-      return equivalent(file, actual, contents) ? undefined : file
+      return equivalent(actual, contents) ? undefined : file
     }),
   )
   const changed = differences.filter((file) => file !== undefined)
   if (options.check) {
-    if (changed.length || stale.length) throw new Error(`Run ras sync; managed files are out of date: ${[...changed, ...stale].join(', ')}`)
+    if (changed.length) throw new Error(`Run ras sync; managed files are out of date: ${changed.join(', ')}`)
+    await preparedPlan(root)
     return
   }
-  await mkdir(join(root, '.ras'), { recursive: true })
   await Promise.all(changed.map((file) => writeAtomic(join(root, file), outputs[file]!)))
-  await Promise.all(stale.map((file) => rm(join(root, file))))
   await runPnpm(['install', '--no-frozen-lockfile'], root)
 }
 

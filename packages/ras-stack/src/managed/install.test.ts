@@ -19,10 +19,13 @@ describe('managed configuration ownership', () => {
     await rm(root, { recursive: true, force: true })
   })
 
-  it.each(['pnpm@10.33.0', 'npm@11.0.0'])('rejects unsupported package manager %s', async (packageManager) => {
-    await writeFile(join(root, 'package.json'), JSON.stringify({ ...manifest, packageManager }))
-    await expect(checkConsumer(root)).rejects.toThrow('pnpm 11 or newer')
-  })
+  it.each(['pnpm@10.33.0', 'pnpm@11.15.0', 'pnpm@12.11.0', 'npm@11.0.0'])(
+    'rejects unsupported package manager %s',
+    async (packageManager) => {
+      await writeFile(join(root, 'package.json'), JSON.stringify({ ...manifest, packageManager }))
+      await expect(checkConsumer(root)).rejects.toThrow('pnpm 12.12 or newer')
+    },
+  )
 
   it('rejects an unnamed consumer', async () => {
     await writeFile(join(root, 'package.json'), JSON.stringify({ packageManager: manifest.packageManager }))
@@ -40,7 +43,7 @@ describe('managed configuration ownership', () => {
   })
 
   it('rejects an uninstalled selection', async () => {
-    await expect(preparedPlan(root)).rejects.toThrow('Managed @ras-test/alpha@1.0.0 is not installed; run ras sync')
+    await expect(preparedPlan(root)).rejects.toThrow('Managed @ras-test/alpha@1.0.0 is not installed; run pnpm install')
   })
 
   it('rejects a nested workspace consumer', async () => {

@@ -2,4 +2,4 @@
 'ras-stack': major
 ---
 
-Synchronize opted-in runtime and development dependencies, bundled tooling presets, and coordinated upgrades through the RAS CLI.
+Manage opted-in runtime and development dependencies through native pnpm hooks, bundled tooling presets, and coordinated CLI upgrades.

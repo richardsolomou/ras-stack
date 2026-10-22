@@ -6,16 +6,16 @@ Opt into a tested TypeScript stack. RAS supplies compatible dependency versions,
 
 ## How it works
 
-Select integrations and tools in a typed `ras.config.ts`. Run `ras sync` to write their exact versions into ordinary `dependencies` and `devDependencies`, generate committed compiler/linter configuration, and install with pnpm.
+Select integrations and tools in a typed `ras.config.ts`. Run `ras sync` once to configure the shipped pnpm hook. Native pnpm installation then adds their exact versions to the application graph in memory and regenerates ignored local compiler/linter configuration. Managed dependencies and RAS metadata stay out of the physical `package.json`.
 
 The resulting application uses normal pnpm installs. Only selected integrations and their dependencies are installed. Application code can still import `@tanstack/react-query`, `better-auth`, or another selected upstream library directly.
 
-| Task                                            | Command                          |
-| ----------------------------------------------- | -------------------------------- |
-| Install a clone                                 | `pnpm install --frozen-lockfile` |
-| Apply changed selections                        | `pnpm exec ras sync`             |
-| Check that selections and committed files agree | `pnpm exec ras sync --check`     |
-| Upgrade RAS and the selected stack together     | `pnpm exec ras update`           |
+| Task                                              | Command                          |
+| ------------------------------------------------- | -------------------------------- |
+| Install a clone                                   | `pnpm install --frozen-lockfile` |
+| Apply changed selections                          | `pnpm install`                   |
+| Check hook wiring, policy, and installed versions | `pnpm exec ras sync --check`     |
+| Upgrade RAS and the selected stack together       | `pnpm exec ras update`           |
 
 These docs describe RAS 5, which includes the former `ras-stack-config` presets in the main package. During the v5 prerelease, bootstrap with `ras-stack@next` and use `ras update next` for candidate upgrades. See [installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) and [migration from v4](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md#migrate-from-v4) before changing an existing application.
 
@@ -29,7 +29,7 @@ These docs describe RAS 5, which includes the former `ras-stack-config` presets 
 | Authentication, database, Query, realtime, email, upload, and telemetry helpers | Schemas, migrations, authorization, cache policy, product events, and UI             |
 | CLI commands, reusable Actions, preview mechanics, and runtime binaries         | Deployment topology, secrets, storage, release policy, and product hooks             |
 
-The consumer manifest remains explicit. `ras.managedDependencies` records the generated list of package names RAS owns so opt-outs can remove them safely. It does not duplicate configuration or dependency versions. Consumer lockfiles pin transitives; RAS does not impose a shared lockfile.
+The consumer manifest lists application-owned packages. `ras.config.ts` selects managed capabilities, and `pnpm-workspace.yaml` declares the RAS config dependency once. pnpm keeps its boot integrity and the complete application graph in the consumer lockfile. Runtime and development dependencies remain distinct; unselected SDKs and development tools are excluded from production installations.
 
 ## Documentation
 

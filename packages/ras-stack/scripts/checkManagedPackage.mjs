@@ -44,25 +44,27 @@ try {
       private: true,
       type: 'module',
       packageManager: 'pnpm@12.13.0',
-      dependencies: { 'ras-stack': '4.4.1', 'react-icons': '5.7.0', spacetimedb: '2.12.0' },
+      dependencies: { 'react-icons': '5.7.0', spacetimedb: '2.12.0' },
     }),
   )
   writeFileSync(
     path.join(consumer, 'pnpm-workspace.yaml'),
-    'minimumReleaseAge: 0\nallowBuilds:\n  core-js: false\n  protobufjs: false\n  esbuild: true\n  unrs-resolver: true\n',
+    'minimumReleaseAge: 0\nconfigDependencies:\n  ras-stack: 4.4.1\npnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.mjs\nallowBuilds:\n  core-js: false\n  protobufjs: false\n  esbuild: true\n  unrs-resolver: true\n',
   )
   writeFileSync(
     path.join(consumer, 'ras.config.ts'),
     "import {defineConfig,tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript,oxlint,oxfmt,vite,vitest]})\n",
   )
+  const originalManifest = readFileSync(path.join(consumer, 'package.json'), 'utf8')
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   assert.equal(existsSync(path.join(consumer, '.prettierignore')), false)
-  execFileSync('pnpm', ['dlx', `ras-stack@${version}`, 'sync'], {
+  execFileSync('pnpm', ['dlx', `ras-stack@${version}`, 'sync', '--upgrade'], {
     cwd: consumer,
     stdio: 'inherit',
     env: { ...process.env, CI: 'true' },
   })
-  assert.equal(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')).dependencies['ras-stack'], version)
+  assert.equal(readFileSync(path.join(consumer, 'package.json'), 'utf8'), originalManifest)
+  assert.equal(JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8')).version, version)
   assert.equal(
     JSON.parse(readFileSync(path.join(consumer, '.ras/tsconfig.json'), 'utf8')).extends,
     '../node_modules/ras-stack/config/typescript/vite.json',
@@ -184,10 +186,11 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   const manifest = JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8'))
   assert.equal(manifest.dependencies['react-icons'], '5.7.0')
   assert.equal(manifest.dependencies.spacetimedb, '2.12.0')
-  assert.equal(manifest.devDependencies.typescript, '7.0.2')
+  assert.equal(manifest.devDependencies, undefined)
   assert.equal(manifest.dependencies.typescript, undefined)
   const before = readFileSync(path.join(consumer, 'pnpm-lock.yaml'), 'utf8')
   rmSync(path.join(consumer, 'node_modules'), { recursive: true, force: true })
+  exec('pnpm', ['fetch'])
   exec('pnpm', ['install', '--frozen-lockfile'])
   assert.equal(existsSync(path.join(consumer, '.ras/tsconfig.json')), true)
   assert.equal(readFileSync(path.join(consumer, 'pnpm-lock.yaml'), 'utf8'), before)
@@ -199,10 +202,13 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
       private: true,
       type: 'module',
       packageManager: 'pnpm@12.13.0',
-      dependencies: { 'ras-stack': '4.4.1' },
+      dependencies: {},
     }),
   )
-  writeFileSync(path.join(serverOnly, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\n')
+  writeFileSync(
+    path.join(serverOnly, 'pnpm-workspace.yaml'),
+    'minimumReleaseAge: 0\nconfigDependencies:\n  ras-stack: 4.4.1\npnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.mjs\n',
+  )
   writeFileSync(
     path.join(serverOnly, 'ras.config.ts'),
     "import {defineConfig,typescript,posthog,vitest,playwright} from 'ras-stack/config'\nexport default defineConfig({integrations:[posthog.server],tooling:[typescript,vitest,playwright]})\n",
@@ -232,15 +238,25 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
     path.join(serverOnly, 'ras.config.ts'),
     serverConfig.replace('typescript,posthog', 'typescript,posthog,uploads').replace('[posthog.server]', '[posthog.server,uploads]'),
   )
-  const changedSelection = spawnSync('pnpm', ['exec', 'ras', 'sync', '--check'], { cwd: serverOnly, encoding: 'utf8' })
+  const changedSelection = spawnSync('node', [path.join(serverOnly, 'node_modules/ras-stack/dist/cli.js'), 'sync', '--check'], {
+    cwd: serverOnly,
+    encoding: 'utf8',
+  })
   assert.notEqual(changedSelection.status, 0)
-  assert.match(changedSelection.stdout + changedSelection.stderr, /Run ras sync/)
+  assert.match(changedSelection.stdout + changedSelection.stderr, /run pnpm install/)
+  const frozenSelection = spawnSync('pnpm', ['install', '--frozen-lockfile'], { cwd: serverOnly, encoding: 'utf8' })
+  assert.notEqual(frozenSelection.status, 0)
+  assert.match(frozenSelection.stdout + frozenSelection.stderr, /OUTDATED_LOCKFILE/)
+  execFileSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: serverOnly, stdio: 'inherit' })
+  assert.equal(existsSync(path.join(serverOnly, 'node_modules/tus-js-client')), true)
   writeFileSync(path.join(serverOnly, 'ras.config.ts'), serverConfig)
+  execFileSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: serverOnly, stdio: 'inherit' })
+  assert.equal(existsSync(path.join(serverOnly, 'node_modules/tus-js-client')), false)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/posthog-js')), false)
   assert.equal(existsSync(path.join(serverOnly, 'node_modules/react')), false)
   assert.equal(readFileSync(path.join(serverOnly, 'pnpm-lock.yaml'), 'utf8').includes('spacetimedb'), false)
   rmSync(path.join(serverOnly, 'node_modules'), { recursive: true, force: true })
-  execFileSync('pnpm', ['install', '--prod', '--frozen-lockfile'], { cwd: serverOnly, stdio: 'inherit' })
+  execFileSync('pnpm', ['install', '--prod', '--frozen-lockfile', '--ignore-scripts'], { cwd: serverOnly, stdio: 'inherit' })
   for (const tool of ['typescript', 'vitest', '@playwright/test'])
     assert.equal(existsSync(path.join(serverOnly, 'node_modules', tool)), false)
   assert.equal(
@@ -255,10 +271,13 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
       private: true,
       type: 'module',
       packageManager: 'pnpm@12.13.0',
-      dependencies: { 'ras-stack': version },
+      dependencies: {},
     }),
   )
-  writeFileSync(path.join(configured, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\nallowBuilds:\n  esbuild: true\n')
+  writeFileSync(
+    path.join(configured, 'pnpm-workspace.yaml'),
+    `minimumReleaseAge: 0\nconfigDependencies:\n  ras-stack: ${version}\npnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.mjs\nallowBuilds:\n  esbuild: true\n`,
+  )
   writeFileSync(
     path.join(configured, 'ras.config.ts'),
     "import {defineConfig,vite,tailwind} from 'ras-stack/config'\nexport default defineConfig({tooling:[vite,tailwind.animations]})\n",

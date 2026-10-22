@@ -6,7 +6,7 @@ These configs, commands, actions, and workflows keep repository mechanics consis
 
 ## Project configuration
 
-[Configuration](configuration.md) owns the typed selection catalogue, compiler/linter presets, Vite overrides, and managed CLI reference. Apply selections with `ras sync`; ordinary pnpm installation restores committed configuration without regenerating it. [Upgrades](upgrades.md) owns version changes, dependency ownership, and Dependabot policy.
+[Configuration](configuration.md) owns the typed selection catalogue, compiler/linter presets, Vite overrides, and managed CLI reference. Native pnpm installation applies selections and regenerates ignored local presets. `ras sync` also refreshes managed bot policy. [Upgrades](upgrades.md) owns version changes, dependency ownership, and Dependabot policy.
 
 ## Changeset validation
 

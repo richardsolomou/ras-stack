@@ -2,11 +2,11 @@
 
 [Documentation](README.md) · [Configuration](configuration.md) · [Upgrades](upgrades.md)
 
-RAS adds configured capabilities to an existing pnpm application. It does not generate routes, application entrypoints, database schemas, credentials, or product UI. This guide describes v5; use the `next` tag while reviewing the v5 prerelease.
+RAS adds configured capabilities to an existing pnpm application. Selected packages remain available through their upstream imports without being declared in the application's physical `package.json`. Routes, providers, schemas, credentials, and product behavior remain local.
 
 ## Prepare the application
 
-Use Node 24 and run managed commands from the pnpm workspace root. Give the root package a unique name and pin pnpm 11 or newer in `package.json`. For example:
+Use Node 24 and pin pnpm 12.12 or newer. Run managed commands from the pnpm workspace root and give that root package a unique name:
 
 ```json
 {
@@ -18,7 +18,7 @@ Use Node 24 and run managed commands from the pnpm workspace root. Give the root
 }
 ```
 
-Keep existing application scripts and dependencies. RAS respects registry configuration, release-age restrictions, build approvals, and compatible repository policies. A fresh candidate may need an exact, reviewed `minimumReleaseAgeExclude` entry; see [update policies](upgrades.md#installation-policy).
+Keep application-owned dependencies and scripts. Remove RAS and selected managed packages from all ordinary dependency groups before enabling the hook; duplicate ownership is an error. Plain libraries such as Zod remain application-owned.
 
 ## Select configured capabilities
 
@@ -33,7 +33,7 @@ export default defineConfig({
 })
 ```
 
-Selections are typed descriptors, not string identifiers. The [configuration catalogue](configuration.md) lists their dependencies and defaults. Only selected integrations, their included capabilities, and their transitive dependencies are installed. Plain libraries such as Zod remain application-owned.
+Selections are typed descriptors. The [configuration catalogue](configuration.md) lists their included packages and defaults. Only selected capabilities and their dependencies enter the application graph.
 
 ## Run the first sync
 
@@ -43,42 +43,39 @@ During the v5 prerelease:
 pnpm dlx ras-stack@next sync
 ```
 
-For a released v5, use `pnpm dlx ras-stack@5 sync`, or replace the target with an exact release. The target CLI can load `ras.config.ts` before RAS is installed locally. It writes its own dependency and the selected packages, then runs pnpm installation. There is no separate initial `pnpm add ras-stack` step.
+For released v5, use `pnpm dlx ras-stack@5 sync`, or an exact version. The target CLI can load selections before RAS is installed locally. It adds the configuration dependency and shipped hook to `pnpm-workspace.yaml`, maintains existing Dependabot policy, and runs pnpm installation with lockfile updates allowed. It does not write dependencies or RAS metadata into `package.json`.
 
-For later selection changes, use the installed release:
+The resulting workspace settings look like this, alongside the application's existing policy:
 
-```sh
-pnpm exec ras sync
+```yaml
+configDependencies:
+  ras-stack: 5.0.0
+pnpmfile: node_modules/.pnpm-config/ras-stack/pnpmfile.mjs
 ```
 
-Sync updates ordinary manifests, generated presets, and applicable policy files. It deliberately allows lockfile updates during installation. It does not rewrite handwritten `ras.config.ts`, application entrypoints, or local compiler/linter files.
+The version is the selected RAS release. This configuration can also be written directly before running `pnpm install`. RAS reserves the `pnpmfile` setting for its shipped hook and refuses to replace an existing custom hook silently.
 
-## Review and commit the result
+pnpm installs [configuration dependencies](https://pnpm.io/config-dependencies) before resolving the application. RAS reads `ras.config.ts` and uses the native [readPackage hook](https://pnpm.io/pnpmfile#hooksreadpackagepkg-context-pkg--promisepkg) to add exact runtime and development selections to the application's manifest in memory. pnpm creates ordinary package links and records the complete graph in its lockfile. RAS's optional peers share the application's runtime instances; tools are not attached to RAS's runtime dependency graph.
 
-| File                                | Ownership                                                                                 |
-| ----------------------------------- | ----------------------------------------------------------------------------------------- |
-| `ras.config.ts`                     | Handwritten selections and explicit build approvals                                       |
-| `package.json`                      | Ordinary runtime/dev dependencies; generated `ras.managedDependencies` tracks owned names |
-| `pnpm-lock.yaml`                    | pnpm's complete application dependency graph                                              |
-| `.ras/.gitignore`                   | Generated ownership marker; it does not ignore the presets                                |
-| `.ras/tsconfig.json`                | Generated when a TypeScript preset is selected                                            |
-| `.ras/oxlint.json`                  | Generated when Oxlint presets are selected                                                |
-| `.ras/vscode-settings.json`         | Generated editor settings when TypeScript is selected                                     |
-| `pnpm-workspace.yaml`               | Repository policy; sync adds explicitly selected build approvals                          |
-| `.github/dependabot.yml` or `.yaml` | Existing update policy; sync maintains marked ignores for managed names                   |
+## Files and ownership
 
-Commit `.ras/` alongside the manifest, lockfile, configuration, and policy changes. Do not add it to `.gitignore` or `.dockerignore`. RAS refuses to take over an existing `.ras` directory without its generated marker. The editor settings file is a reference for local editor configuration, not an automatically activated VS Code workspace setting.
+| File                                | Ownership                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| `ras.config.ts`                     | Handwritten selections and explicit build approvals                                  |
+| `package.json`                      | Application-owned dependencies, scripts, and package metadata only                   |
+| `pnpm-workspace.yaml`               | RAS config dependency, shipped hook location, and repository policy                  |
+| `pnpm-lock.yaml`                    | Boot configuration dependency version/integrity and the application dependency graph |
+| `.ras/`                             | Generated, ignored local compiler/linter/editor configuration                        |
+| `.github/dependabot.yml` or `.yaml` | Existing policy; `ras sync` maintains marked managed-name ignores                    |
 
-Runtime SDKs are written to `dependencies`; selected build/test tools and type definitions go into `devDependencies`. RAS uses optional peers to share runtime SDK instances with the application. Tooling resolves from the application, so installing RAS does not retain all of its build tools in production.
+Commit the selections, workspace settings, lockfile, and any policy changes. `.ras/.gitignore` ignores the generated directory, including itself. Do not commit `.ras` presets or create a consumer pnpmfile, lifecycle installer, formatter exclusion, or second lockfile. The hook regenerates local presets during normal pnpm commands. It rejects an existing `.ras` directory without the generated ownership marker.
 
-Use upstream imports normally:
+Runtime SDKs enter the application's in-memory `dependencies`; tools and types enter `devDependencies`. Original upstream imports work normally:
 
 ```ts
 import { useQuery } from '@tanstack/react-query'
 import { createQueryClient } from 'ras-stack/query'
 ```
-
-The RAS helper supplies configured behavior; it does not replace the upstream API. Provider placement, request data, credentials, and cache policy remain application decisions.
 
 ## Run tools and customize defaults
 
@@ -92,33 +89,35 @@ pnpm exec ras test
 pnpm exec ras build
 ```
 
-`ras typecheck` and `ras lint` use generated configuration when no local config is present. Vite commands use the bundled default configuration when no local Vite config is present. Existing application files take precedence; extend the generated compiler/linter files and use `defineViteConfig` to compose local build settings. See [configuration](configuration.md#local-compiler-and-linter-settings).
+The compiler and linter use generated configuration when there is no local config. Vite uses the bundled config when there is no local Vite config. Existing application files take precedence; extend `.ras/tsconfig.json` and `.ras/oxlint.json`, and compose Vite settings with `defineViteConfig`. See [configuration](configuration.md#local-compiler-and-linter-settings).
 
-Selections configure infrastructure, not the application's React tree or routes. The app still imports its global stylesheet. See [build configuration](configuration.md#build-configuration) and [runtime helpers](application-primitives.md) for these boundaries.
+The editor settings file is a reference for choosing the normally installed TypeScript SDK, rather than an automatically activated VS Code workspace setting. Applications still place providers, import their global stylesheet, and own credentials and product policy.
 
 ## Fresh clones and CI
 
-Once the generated files are committed:
+Use native installation:
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm exec ras sync --check
 ```
 
-Then run the application's check/build commands. `sync --check` compares committed managed files without changing them or installing packages. Ordinary pnpm installation does not interpret changed selections; the check detects a missing sync.
+The hook prepares ignored local presets. `ras sync --check` verifies hook wiring, applicable bot policy, and selected installed versions without changing tracked files or installing packages. A changed selection that requires another dependency graph must be installed locally and committed with its new lockfile before a frozen CI install can succeed.
 
-No consumer install hook, generated pnpmfile, config dependency, hoisting rule, or link repair is needed. A container build must copy committed `.ras/` files before a build that reads them; normal dependency installation needs only the usual manifests, workspace policy, and lockfile.
+After editing selections, use `pnpm install`. Use `ras sync` when managed bot ignores also need refreshing. Both let pnpm resolve and prune the graph; [upgrades](upgrades.md#change-selections) explains the review steps.
 
-For a production-only dependency stage:
+For container dependency stages, copy `ras.config.ts` and any local modules it imports alongside the manifest, workspace configuration, and lockfile before installing. `.ras` is generated by the hook and does not need copying from the checkout.
+
+A production dependency stage can use:
 
 ```sh
 pnpm install --prod --frozen-lockfile --ignore-scripts
 ```
 
-Use `--ignore-scripts` only when the application's production dependencies do not require install scripts. Development selections are excluded, although upstream runtime dependencies may have their own tooling dependencies. Build assets before pruning development dependencies.
+Development selections are excluded from both application links and the physical application package store. `--ignore-scripts` does not disable pnpm configuration hooks. Use it only when runtime dependencies do not need install scripts, and build assets before pruning development dependencies.
 
 ## Workspaces
 
-Run sync/update from the root package that owns `ras.config.ts`, with a pinned pnpm version. Its selections belong to that package. Other workspace manifests keep their own dependencies and versions; RAS does not apply workspace-wide version overrides.
+The root package owns `ras.config.ts` and the config dependency. RAS adds selections only to that root's in-memory manifest. Other workspace manifests keep their own versions; there are no workspace-wide version overrides or custom hoisting rules.
 
-Dependabot's name-based ignores can affect matching names elsewhere in the same update rule. Read the [workspace policy boundary](upgrades.md#dependabot-and-security-updates) before choosing independent update policies.
+Dependabot's marked name-based ignores can affect matching names elsewhere in the same update rule. Read the [workspace policy boundary](upgrades.md#dependabot-and-security-updates) when workspace packages need independent bot updates.

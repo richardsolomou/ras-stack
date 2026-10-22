@@ -27,7 +27,7 @@ Use original upstream imports alongside narrow RAS helpers. RAS shares applicati
 
 ## Tool catalogue
 
-Tools and types are development dependencies. Some descriptors also include runtime prerequisites, such as React for the Vite React integration.
+Tools and types enter the application graph as development dependencies without physical manifest declarations. Some descriptors also include runtime prerequisites, such as React for the Vite React integration.
 
 | Selection             | Defaults                                                                              |
 | --------------------- | ------------------------------------------------------------------------------------- |
@@ -120,8 +120,8 @@ Prefix these commands with `pnpm exec` when running outside a package script.
 
 | Command                             | Behavior                                                   |
 | ----------------------------------- | ---------------------------------------------------------- |
-| `ras sync`                          | Write managed files and run pnpm installation              |
-| `ras sync --check`                  | Check managed files without writing/installing             |
+| `ras sync`                          | Configure the shipped hook, refresh policy, and install    |
+| `ras sync --check`                  | Check wiring, policy, and selected installed versions      |
 | `ras update [version-or-tag]`       | Run the target release's sync and installation             |
 | `ras typecheck`                     | Selected TypeScript with `--noEmit`                        |
 | `ras lint`                          | Selected Oxlint with type-aware checks and denied warnings |
@@ -132,7 +132,7 @@ Prefix these commands with `pnpm exec` when running outside a package script.
 | `ras exec -- <program> [arguments]` | Execute with application binaries on `PATH`                |
 | `ras audit`                         | Run pnpm audit against the consumer lockfile               |
 
-Tool commands verify selected installed versions before execution. They neither install dependencies nor regenerate presets. Arguments are forwarded without shell evaluation; applications can also use upstream executables directly. Asset, Changesets, preview, and realtime service commands are documented under [repository tooling](repository-tooling.md).
+Tool commands verify selected installed versions before execution. They do not install dependencies. pnpm prepares ignored local presets through its hook before launching the command. Arguments are forwarded without shell evaluation; applications can also use upstream executables directly. Asset, Changesets, preview, and realtime service commands are documented under [repository tooling](repository-tooling.md).
 
 ## Custom configured tooling
 

@@ -1,6 +1,6 @@
 # RAS documentation
 
-RAS 5 manages opted-in dependency versions and configuration through the main `ras-stack` package. It keeps normal upstream imports, explicit application manifests, and native pnpm installs. The separate `ras-stack-config` package is retired.
+RAS 5 manages opted-in dependency versions and configuration through the main `ras-stack` package. It keeps normal upstream imports, application-owned manifests, and native pnpm installs. The separate `ras-stack-config` package is retired.
 
 ## Set up or maintain an application
 

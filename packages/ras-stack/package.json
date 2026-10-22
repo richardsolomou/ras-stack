@@ -22,7 +22,8 @@
   },
   "files": [
     "dist",
-    "config"
+    "config",
+    "pnpmfile.mjs"
   ],
   "type": "module",
   "sideEffects": false,

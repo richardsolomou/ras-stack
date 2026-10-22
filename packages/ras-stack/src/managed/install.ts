@@ -24,7 +24,7 @@ export async function loadPlan(root: string): Promise<InstallationPlan> {
   }
 }
 
-export async function checkConsumer(root: string): Promise<string> {
+export async function checkConsumer(root: string, plan?: InstallationPlan): Promise<string> {
   const manifest = await readJson<{
     name?: string
     packageManager?: string
@@ -35,7 +35,12 @@ export async function checkConsumer(root: string): Promise<string> {
   }>(join(root, 'package.json'))
   if (!manifest.name || manifest.name === 'ras-stack') throw new Error('The consuming package needs a unique name in package.json')
   const manager = manifest.packageManager?.match(/^pnpm@(\d+)\.(\d+)\./)
-  if (!manager || Number(manager[1]) < 11) throw new Error('Managed integrations require pnpm 11 or newer')
+  if (!manager || Number(manager[1]) < 12 || (Number(manager[1]) === 12 && Number(manager[2]) < 12))
+    throw new Error('Managed integrations require pnpm 12.12 or newer')
+  if (plan)
+    for (const name of ['ras-stack', ...Object.keys(plan.dependencies), ...Object.keys(plan.devDependencies)])
+      for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const)
+        if (Object.hasOwn(manifest[field] ?? {}, name)) throw new Error(`${name} is declared in ${field}; remove it before RAS can own it`)
   await Promise.all(
     ['.ras', 'node_modules', 'pnpm-lock.yaml'].map(async (name) => {
       if ((await exists(join(root, name))) && (await lstat(join(root, name))).isSymbolicLink())
@@ -55,11 +60,11 @@ export async function checkConsumer(root: string): Promise<string> {
 
 export async function preparedPlan(root: string): Promise<InstallationPlan> {
   const plan = await loadPlan(root)
-  await checkConsumer(root)
+  await checkConsumer(root, plan)
   await Promise.all(
     Object.entries({ ...plan.dependencies, ...plan.devDependencies }).map(async ([name, version]) => {
       const installed = await readJson<{ version: string }>(join(root, 'node_modules', name, 'package.json')).catch(() => undefined)
-      if (installed?.version !== version) throw new Error(`Managed ${name}@${version} is not installed; run ras sync`)
+      if (installed?.version !== version) throw new Error(`Managed ${name}@${version} is not installed; run pnpm install`)
     }),
   )
   return plan
