@@ -1,8 +1,8 @@
 # Full-stack integration reference
 
-[Back to the ras-stack overview](../README.md)
+[Documentation](README.md) · [Installation](managed-installation.md)
 
-`examples/full-stack` is the repository’s `workspace:*` integration fixture. It exercises the shared primitives as ordinary application code and is maintained alongside their contracts.
+`examples/full-stack` is the repository’s `workspace:*` integration fixture. It exercises the shared primitives as ordinary application code and is maintained alongside their contracts. It owns direct workspace dependencies and build configuration; the packed-package checks cover external managed installation. Use the [installation guide](managed-installation.md) when adding RAS to an application rather than copying this fixture’s repository setup.
 
 The reference proves one production-shaped vertical slice:
 

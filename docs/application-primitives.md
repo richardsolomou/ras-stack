@@ -1,10 +1,24 @@
 # Application primitives
 
-Consumer conformance tests must call the application's adapter, handler, or configuration actually used at startup. Passing a ras-stack factory directly into a ras-stack assertion only retests the library and cannot detect a disconnected application integration. Keep upstream defaults covered here; use application tests to verify routing, identity, tenant scope, lifecycle ownership, and provider wiring.
+[Documentation](README.md) · [Configuration catalogue](configuration.md)
 
-[Back to the ras-stack overview](../README.md)
+Select an integration to install its dependencies, then compose these helpers in the application. Helpers retain native upstream objects; installation does not mount providers, create routes, choose credentials, or define product policy.
 
-These entrypoints share application infrastructure while leaving upstream objects and product behavior in the consuming application.
+## Query
+
+Select `tanstackQuery`, or `tanstackStart` which includes it. Keep native Query imports and use `ras-stack/query` for configured client creation:
+
+```ts
+import { createQueryClient } from 'ras-stack/query'
+
+export function createAppQueryClient() {
+  return createQueryClient({ defaultOptions: { queries: { staleTime: 1000 } } })
+}
+```
+
+Each call creates an independent native `QueryClient`. The default query `staleTime` is one minute, keeping hydrated data fresh; application overrides, mutation caches, and other native `QueryClientConfig` options are preserved. Create server-side clients per request rather than sharing a cache across users.
+
+`QueryProvider` from the same entrypoint combines `QueryClientProvider` and `HydrationBoundary`. It retains a stable client when none is supplied, accepts an existing `client`, and accepts a dehydrated `state`. Applications choose the provider's position and own query keys, request functions, mutation callbacks, and cache policy. A Start application can keep its router SSR integration and use the factory without adding another provider.
 
 ## Authentication and request security
 
@@ -68,7 +82,6 @@ const google = providerCredentials('google', process.env, { prefix: 'AUTH_' })
 The optional TanStack entrypoints bind the shared primitives to TanStack Start's ambient request and leave Query client configuration with the application:
 
 ```ts
-import { QueryClient } from '@tanstack/react-query'
 import { canonicalHostMiddleware } from 'ras-stack/tanstack/middleware'
 import { createTanStackRpc, requireTanStackMutationOrigin, tanStackHealthHandler } from 'ras-stack/tanstack/server'
 
@@ -82,8 +95,6 @@ export const { rpc, mutationRpc } = createTanStackRpc({
       request,
     ),
 })
-
-export const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 1000 } } })
 
 export const healthHandler = tanStackHealthHandler(() => app().database.get(sql`SELECT 1`))
 export const canonicalHost = canonicalHostMiddleware(() => ({ canonicalUrl: process.env.APP_URL }))

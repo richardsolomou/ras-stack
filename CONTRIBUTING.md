@@ -25,6 +25,14 @@ Keep consumer names, repository revisions, and application-specific integration 
 
 Workspace builds use direct development dependencies and bundled presets. Packed-package tests exercise synchronization, native frozen installs, production dependency pruning, and the complete upgrade command.
 
+## Documentation ownership
+
+The [documentation index](docs/README.md) owns the user-facing installation, configuration, CLI, upgrade, and dependency-management guides. Keep those contracts in RAS and link to them from consumer repositories. Consumer docs retain application-specific commands, ports, credentials, product behavior, and operating procedures. Candidate pins and temporary migration requirements belong in PR descriptions rather than permanent consumer guides.
+
+When an integration changes, update its catalogue entry and the owning runtime or tooling guide. Keep each policy in one guide and link from other pages. Verify examples against the shipped descriptors, CLI behavior, and packed-package contract; do not present the workspace integration fixture as a generated managed consumer.
+
+Consumer conformance tests must call the adapter or configuration actually used at startup. Passing a RAS factory directly into a RAS assertion cannot detect a disconnected application integration. Keep upstream defaults covered here and test routing, identity, tenant scope, lifecycle, and provider wiring in the application.
+
 ## Releases
 
 Add a Changeset for each release-worthy package, action, or reusable-workflow change. `ras-stack` includes the integration catalogue and compiler/linter presets in one versioned package. Package releases use `v<version>` tags. The separate configuration package and its release tags are retired. The runtime binary image has its own release tags. The release workflow publishes each missing RAS version from a packed archive with provenance bound to the released commit.

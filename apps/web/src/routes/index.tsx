@@ -2,7 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 
 const surfaces = [
   ['TypeScript modules', 'Auth, databases, realtime, email, uploads, PostHog, and TanStack helpers.'],
-  ['CLI', 'Run local realtime, sync production assets, manage previews, and check repository policy.'],
+  ['Configured stack', 'Opt into compatible dependencies, build defaults, compiler presets, and shared tools.'],
+  ['CLI', 'Synchronize selections, upgrade the stack, run tools, and manage assets and previews.'],
   ['GitHub Actions', 'Set up tools, run checks and browser tests, manage previews, and publish releases.'],
   ['Runtime image', 'Verified Caddy and Centrifugo binaries for production images.'],
 ]
@@ -18,6 +19,7 @@ function Home() {
           ras-stack
         </a>
         <nav aria-label="External links">
+          <a href="https://github.com/richardsolomou/ras-stack/blob/main/docs/README.md">Docs ↗</a>
           <a href="https://www.npmjs.com/package/ras-stack">npm ↗</a>
           <a href="https://github.com/richardsolomou/ras-stack">GitHub ↗</a>
         </nav>
@@ -65,15 +67,15 @@ function Home() {
           <h2>Start</h2>
           <div className="commands">
             <div>
-              <strong>Add to an application</strong>
+              <strong>Apply your selections</strong>
               <code>
-                <span aria-hidden="true">$</span> pnpm add ras-stack
+                <span aria-hidden="true">$</span> pnpm dlx ras-stack@next sync
               </code>
-              <p>Add only the narrow entrypoints that fit the application.</p>
+              <p>Create ras.config.ts with the integrations and tools you want, then sync. Use the next tag during the v5 prerelease.</p>
             </div>
           </div>
           <p className="source-link">
-            <a href="https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack">View the full-stack example ↗</a>
+            <a href="https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md">Read the installation guide ↗</a>
           </p>
         </section>
       </main>

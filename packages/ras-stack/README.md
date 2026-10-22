@@ -1,116 +1,59 @@
-# 🧱 ras-stack
+# ras-stack
 
-**A practical TypeScript stack with strong defaults and room to make it yours.**
+Opt into a tested TypeScript stack. RAS supplies compatible dependency versions, configured tools, and shared runtime helpers. Applications keep upstream imports and their own product behavior.
 
-TanStack Start · React · Better Auth · Drizzle · SQLite/PostgreSQL · Centrifugo · Caddy · PostHog
+[npm](https://www.npmjs.com/package/ras-stack) · [Documentation](https://github.com/richardsolomou/ras-stack/blob/main/docs/README.md) · [Full-stack example](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack)
 
-[![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE)
+## How it works
 
-I kept rebuilding the same boring parts: secure sessions, origin checks, database startup, realtime connections, process shutdown, CI, previews, and releases. `ras-stack` solves them once with the libraries I would choose anyway.
+Select integrations and tools in a typed `ras.config.ts`. Run `ras sync` to write their exact versions into ordinary `dependencies` and `devDependencies`, generate committed compiler/linter configuration, and install with pnpm.
 
-It is opinionated about security, lifecycle, failure handling, and supply-chain checks, but not product behavior. Use one helper or the whole stack, override what differs, and keep access to the library underneath.
+The resulting application uses normal pnpm installs. Only selected integrations and their dependencies are installed. Application code can still import `@tanstack/react-query`, `better-auth`, or another selected upstream library directly.
 
-## The idea 💡
+| Task                                            | Command                          |
+| ----------------------------------------------- | -------------------------------- |
+| Install a clone                                 | `pnpm install --frozen-lockfile` |
+| Apply changed selections                        | `pnpm exec ras sync`             |
+| Check that selections and committed files agree | `pnpm exec ras sync --check`     |
+| Upgrade RAS and the selected stack together     | `pnpm exec ras update`           |
 
-TanStack handles the web application, Better Auth handles authentication, Drizzle handles typed data, and Centrifugo handles realtime delivery. `ras-stack` connects them; it does not replace them.
+These docs describe RAS 5, which includes the former `ras-stack-config` presets in the main package. During the v5 prerelease, bootstrap with `ras-stack@next` and use `ras update next` for candidate upgrades. See [installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) and [migration from v4](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md#migrate-from-v4) before changing an existing application.
 
-A helper belongs here when it removes a repeated decision or failure mode without hiding the underlying tool. Helpers return native objects, accept overrides, and live behind narrow entrypoints so applications can always drop down a level.
+## What RAS owns
 
-## What you get 📦
+| RAS                                                                             | Application                                                                          |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Tested direct versions for opted-in integrations                                | Plain libraries, custom integrations, and application-specific dependencies          |
+| React/Vite, Start, Nitro, Tailwind, and PostHog build defaults when selected    | Routes, entrypoints, providers, credentials, and application-specific plugin options |
+| Versioned TypeScript and Oxlint presets                                         | Local compiler options, lint exceptions, and repository boundaries                   |
+| Authentication, database, Query, realtime, email, upload, and telemetry helpers | Schemas, migrations, authorization, cache policy, product events, and UI             |
+| CLI commands, reusable Actions, preview mechanics, and runtime binaries         | Deployment topology, secrets, storage, release policy, and product hooks             |
 
-The stack ships as one npm package with deployment tooling:
+The consumer manifest remains explicit. `ras.managedDependencies` records the generated list of package names RAS owns so opt-outs can remove them safely. It does not duplicate configuration or dependency versions. Consumer lockfiles pin transitives; RAS does not impose a shared lockfile.
 
-- **TypeScript modules** under narrow import paths such as `ras-stack/database/sqlite`, `ras-stack/realtime/react`, and `ras-stack/tanstack/server`.
-- **Managed integrations and tooling** selected with typed descriptors from `ras-stack/config`, installed into one pnpm dependency graph.
-- **Configuration presets** bundled with `ras-stack` for its selected TypeScript and Oxlint tools.
-- **Command-line tools** for changeset validation, production assets, preview status, and a local Centrifugo container.
-- **GitHub Actions and reusable workflows** for toolchain setup, checks, browser tests, previews, and Changesets releases.
-- **A separate OCI image** containing verified Caddy and Centrifugo binaries for production images.
+## Documentation
 
-Applications select the integrations and tools they use through managed installation. RAS owns their versions, and application code keeps the original upstream imports.
+Start at the [documentation index](https://github.com/richardsolomou/ras-stack/blob/main/docs/README.md).
 
-## The stack 🧰
+- [Installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md): first sync, committed files, workspaces, CI, and production installs.
+- [Configuration](https://github.com/richardsolomou/ras-stack/blob/main/docs/configuration.md): integration catalogue, tool presets, build overrides, and custom descriptors.
+- [Upgrades and dependency ownership](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md): updates, opt-outs, Dependabot, failure recovery, and v4 migration.
+- [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/docs/application-primitives.md): native runtime helpers and the behavior applications still own.
+- [PostHog](https://github.com/richardsolomou/ras-stack/blob/main/docs/posthog.md): providers, identity, telemetry, proxying, and configured source maps.
+- [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md): assets, Actions, previews, releases, and runtime binaries.
+- [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/docs/full-stack-example.md) and [production operations](https://github.com/richardsolomou/ras-stack/blob/main/docs/production-reference-operations.md): the executable reference and its operating procedures.
 
-| Layer               | Supported technology                           | What `ras-stack` centralizes                                                                        |
-| ------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Runtime and tooling | Node, ESM TypeScript, pnpm, Just, Oxlint       | Setup actions and version synchronization                                                           |
-| Web application     | TanStack Start, React                          | Request binding, mutation-origin checks, canonical hosts, health handlers, and conformance checks   |
-| Authentication      | Better Auth                                    | Secure option builders, origins, secrets, redirects, failure classification, and React action state |
-| Data                | Drizzle, `better-sqlite3`, libsql, Postgres.js | Connection lifecycle, safety defaults, migrations, target selection, and conformance checks         |
-| Realtime            | Centrifuge, Centrifugo, Caddy                  | Publishing, tokens, browser/React lifecycle, proxy configuration, binaries, and supervision         |
-| Realtime database   | SpacetimeDB                                    | Server calls, migration-planned module publishing, environment headers, and binding checks          |
-| Email and uploads   | Nodemailer, `tus-js-client`                    | SMTP configuration/delivery, auth callbacks, and promise-based resumable uploads                    |
-| Observability       | PostHog JS, React, Node, and OpenTelemetry     | Analytics, replay, errors, logs, metrics, tracing, correlation, proxying, and shutdown              |
-| Delivery            | GitHub Actions, Changesets, Dokploy, Docker    | Checks, releases, preview lifecycle/status, production assets, and runtime binaries                 |
+Runtime imports use narrow paths such as `ras-stack/query`, `ras-stack/auth`, and `ras-stack/database/sqlite`. The separately released OCI image contains verified Caddy and Centrifugo binaries; installing the npm package does not install that image or provision services.
 
-Applications still configure every upstream library directly. This table describes what is tested together, not a replacement API.
+## Contributing
 
-## Where it stops 🧭
-
-`ras-stack` owns mechanics that should behave the same everywhere: safe database startup, mutation-origin checks, realtime tokens, process supervision, and preview status.
-
-The application keeps schemas, migrations, repositories, routes, authorization, templates, upload rules, realtime payloads, storage, deployment topology, and UI. There is no shared application factory or giant configuration object.
-
-The [`examples/full-stack`](https://github.com/richardsolomou/ras-stack/tree/main/examples/full-stack) workspace shows the boundaries together and tests them through `workspace:*`. It is the repository's integration fixture; applications own their integration code and choose whether RAS manages upstream dependency versions.
-
-## Installation
-
-`ras-stack` requires Node 24. Managed installation requires pnpm 11 or newer:
-
-```sh
-pnpm add ras-stack
-```
-
-Create `ras.config.ts`:
-
-```ts
-import { defineConfig, tanstackQuery, typescript, oxlint, vite } from 'ras-stack/config'
-
-export default defineConfig({
-  integrations: [tanstackQuery],
-  tooling: [typescript.browser, oxlint.application, vite],
-})
-```
-
-Run `pnpm dlx ras-stack@5 sync` to bootstrap, or `pnpm exec ras sync` when RAS is installed. RAS writes exact runtime and development dependencies into the ordinary application manifest, generates committed `.ras/` presets, and runs pnpm install. Keep upstream imports such as `@tanstack/react-query`. Only selected integrations are installed.
-
-Commit the generated files and lockfile. Fresh clones and CI use `pnpm install --frozen-lockfile`; `ras sync --check` verifies the selections without mutation. Upgrade the complete stack with `pnpm exec ras update [version-or-tag]`. Existing Dependabot npm rules receive generated ignores for managed packages, while application-owned libraries remain independently updateable.
-
-Use `ras typecheck`, `ras lint`, `ras dev`, `ras build`, and the other selected tooling commands. Applications retain their own compiler/linter overrides. See [Managed installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) for presets, migration, CI, upgrades, and ownership boundaries.
-
-Version 5 includes the compiler and linter presets in `ras-stack`; remove `ras-stack-config` when migrating. There are no pnpm dependency-injection hooks or special bootstrap configuration.
-
-## Dokploy previews 🚀
-
-Three reusable workflows provide the standard pull-request preview lifecycle:
-
-- `build-dokploy-preview.yml` builds commit-specific images without exposing secrets to forks.
-- `deploy-dokploy-preview.yml` publishes, resolves, deploys, reports, and removes previews.
-- `prune-dokploy-previews.yml` cleans up applications and images left behind by interrupted runs.
-
-Applications supply only their package, application prefix, port, environment template, and optional product hook. They can provide a custom HTTPS domain, optionally manage a prefixed Cloudflare-proxied record for origins that reject direct traffic, or let Dokploy generate an HTTP `sslip.io` address. The shared `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and staging-only `DOKPLOY_ENVIRONMENT_ID` secrets can be configured once at organization level. See [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md) for the caller contract, private-registry options, and lifecycle hooks.
-
-## Guides 📚
-
-| Guide                                                                                                                  | What it covers                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| [Application primitives](https://github.com/richardsolomou/ras-stack/blob/main/docs/application-primitives.md)         | Authentication, request security, databases, realtime clients, email, uploads, and stateful development resources                 |
-| [Repository tooling](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md)                 | TypeScript and Oxlint configuration, changeset validation, GitHub Actions, previews, releases, and production runtime composition |
-| [PostHog integration](https://github.com/richardsolomou/ras-stack/blob/main/docs/posthog.md)                           | Browser/server setup, identity and session correlation, ingest proxying, shutdown and source-map responsibility                   |
-| [Full-stack example](https://github.com/richardsolomou/ras-stack/blob/main/docs/full-stack-example.md)                 | The `workspace:*` integration contract, local development, production container, and two-browser journey                          |
-| [Production operations](https://github.com/richardsolomou/ras-stack/blob/main/docs/production-reference-operations.md) | Migration, backup/restore, rollback, configuration, proxy, shutdown, and supply-chain boundaries                                  |
-
-## Development 🛠️
-
-Development requires Node 24, pnpm 11.15.0, and Just 1.58.0.
+The RAS workspace uses Node 24, pnpm 11.15.0, and Just 1.58.0:
 
 ```sh
 just install
 just check
 ```
 
-See [CONTRIBUTING.md](https://github.com/richardsolomou/ras-stack/blob/main/CONTRIBUTING.md) for release instructions. Report vulnerabilities privately as described in [SECURITY.md](https://github.com/richardsolomou/ras-stack/blob/main/SECURITY.md).
+See [CONTRIBUTING.md](https://github.com/richardsolomou/ras-stack/blob/main/CONTRIBUTING.md) for development and releases, and [SECURITY.md](https://github.com/richardsolomou/ras-stack/blob/main/SECURITY.md) for private vulnerability reports.
 
-## License
-
-[MIT](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE).
+[MIT license](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE).
