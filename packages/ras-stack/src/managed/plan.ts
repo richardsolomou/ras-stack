@@ -48,9 +48,11 @@ export function installationPlan(config: RasConfig): InstallationPlan {
         throw new Error(`Conflicting command: ${name}`)
       commands[name] = command
     }
-    if (selection.presets?.typescript) {
-      if (presets.typescript && presets.typescript !== selection.presets.typescript) throw new Error('Select only one TypeScript preset')
-      presets.typescript = selection.presets.typescript
+    const compiler = selection.presets?.typescript
+    if (compiler && (compiler !== 'auto' || !presets.typescript)) {
+      if (presets.typescript && presets.typescript !== 'auto' && presets.typescript !== compiler)
+        throw new Error('Select only one TypeScript preset')
+      presets.typescript = compiler
     }
     for (const preset of selection.presets?.oxlint ?? []) if (!presets.oxlint.includes(preset)) presets.oxlint.push(preset)
     for (const preset of selection.presets?.vite ?? []) if (!presets.vite.includes(preset)) presets.vite.push(preset)
@@ -58,6 +60,13 @@ export function installationPlan(config: RasConfig): InstallationPlan {
     visited.add(selection)
   }
   for (const selection of [...(config.integrations ?? []), ...(config.tooling ?? [])]) add(selection)
+  if (presets.typescript === 'auto')
+    presets.typescript = presets.vite.some((preset) => ['start', 'react'].includes(preset)) ? 'vite' : 'library'
+  if (presets.oxlint.length && presets.vite.includes('start') && commands.lint?.package === 'oxlint')
+    commands.lint = {
+      ...commands.lint,
+      args: [...(commands.lint.args ?? []), '--ignore-pattern', 'src/routeTree.gen.ts', '--ignore-pattern', '.output/**'],
+    }
   for (const name of Object.keys(dependencies)) delete devDependencies[name]
   const allowBuilds = [...new Set(config.allowBuilds ?? [])].toSorted()
   for (const name of allowBuilds)
@@ -70,10 +79,10 @@ export function installationPlan(config: RasConfig): InstallationPlan {
     )
       throw new Error(`Invalid managed command: ${name}`)
   }
-  if (presets.typescript && !['base', 'bundler', 'browser', 'library', 'tanstack'].includes(presets.typescript))
+  if (presets.typescript && !['base', 'bundler', 'browser', 'library', 'vite'].includes(presets.typescript))
     throw new Error('Unknown TypeScript preset')
   for (const preset of presets.oxlint)
-    if (!['base', 'application', 'tanstack', 'domain', 'layers'].includes(preset)) throw new Error('Unknown Oxlint preset')
+    if (!['base', 'application', 'domain', 'layers'].includes(preset)) throw new Error('Unknown Oxlint preset')
   for (const preset of presets.vite)
     if (!['react', 'start', 'tailwind', 'tailwind-animations', 'nitro', 'posthog'].includes(preset)) throw new Error('Unknown Vite preset')
   return {

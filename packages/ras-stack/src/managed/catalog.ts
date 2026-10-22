@@ -69,28 +69,40 @@ export const nitro = defineIntegration({
   presets: { vite: ['nitro'] },
 })
 
-export const typescript = Object.fromEntries(
-  ['base', 'bundler', 'browser', 'library', 'tanstack'].map((preset) => [
-    preset,
-    defineIntegration({
-      name: `typescript-${preset}`,
-      devPackages: { typescript: '7.0.2', '@types/node': '26.2.0' },
-      presets: { typescript: preset },
-      commands: { typecheck: { package: 'typescript', bin: 'tsc', args: ['--noEmit'] } },
-    }),
-  ]),
-) as Record<'base' | 'bundler' | 'browser' | 'library' | 'tanstack', Integration>
-export const oxlint = Object.fromEntries(
-  ['base', 'application', 'tanstack', 'domain', 'layers'].map((preset) => [
-    preset,
-    defineIntegration({
-      name: `oxlint-${preset}`,
-      devPackages: { oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
-      presets: { oxlint: [preset] },
-      commands: { lint: { package: 'oxlint', bin: 'oxlint', args: ['--type-aware', '--deny-warnings'] } },
-    }),
-  ]),
-) as Record<'base' | 'application' | 'tanstack' | 'domain' | 'layers', Integration>
+const compiler = defineIntegration({
+  name: 'typescript',
+  devPackages: { typescript: '7.0.2', '@types/node': '26.2.0' },
+  presets: { typescript: 'auto' },
+  commands: { typecheck: { package: 'typescript', bin: 'tsc', args: ['--noEmit'] } },
+})
+export const typescript = Object.assign(
+  compiler,
+  Object.fromEntries(
+    ['bundler', 'browser', 'library'].map((preset) => [
+      preset,
+      defineIntegration({ ...compiler, name: `typescript-${preset}`, presets: { typescript: preset } }),
+    ]),
+  ) as Record<'bundler' | 'browser' | 'library', Integration>,
+)
+const linter = defineIntegration({
+  name: 'oxlint',
+  devPackages: { oxlint: '1.87.0', 'oxlint-tsgolint': '7.0.2004' },
+  presets: { oxlint: ['application'] },
+  commands: { lint: { package: 'oxlint', bin: 'oxlint', args: ['--type-aware', '--deny-warnings'] } },
+})
+export const oxlint = Object.assign(
+  linter,
+  Object.fromEntries(
+    ['domain', 'layers'].map((preset) => [
+      preset,
+      defineIntegration({
+        name: `oxlint-${preset}`,
+        includes: [linter],
+        presets: { oxlint: [preset] },
+      }),
+    ]),
+  ) as Record<'domain' | 'layers', Integration>,
+)
 export const oxfmt = defineIntegration({
   name: 'oxfmt',
   devPackages: { oxfmt: '0.72.0' },

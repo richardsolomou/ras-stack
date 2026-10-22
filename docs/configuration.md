@@ -29,28 +29,40 @@ Use original upstream imports alongside narrow RAS helpers. RAS shares applicati
 
 Tools and types are development dependencies. Some descriptors also include runtime prerequisites, such as React for the Vite React integration.
 
-| Selection             | Defaults                                                                      |
-| --------------------- | ----------------------------------------------------------------------------- |
-| `typescript.base`     | Runtime-neutral strictness and module safety                                  |
-| `typescript.bundler`  | Base options plus ESM bundler resolution without assuming DOM or Node globals |
-| `typescript.browser`  | Bundler options plus DOM, JSX, and no-emit defaults                           |
-| `typescript.tanstack` | Browser options plus Vite and Node types                                      |
-| `typescript.library`  | NodeNext resolution and declaration-friendly strictness                       |
-| `oxlint.base`         | Base lint rules and type-aware lint tooling                                   |
-| `oxlint.application`  | Application lint preferences                                                  |
-| `oxlint.tanstack`     | TanStack generated-file handling                                              |
-| `oxlint.domain`       | Import boundaries for domain code in `src/core`                               |
-| `oxlint.layers`       | Import boundaries for conventional application layers                         |
-| `oxfmt`               | Formatting through Oxfmt                                                      |
-| `vite`                | Vite, React plugin/runtime, `@` alias for `src`, and dev/build commands       |
-| `vitest`              | Vitest and its V8 coverage provider                                           |
-| `playwright`          | Playwright Test; browser installation remains a CI/local setup step           |
-| `tailwind`            | Tailwind and its Vite plugin, with an injected stylesheet import              |
-| `tailwind.animations` | Tailwind plus `tw-animate-css` and its stylesheet import                      |
-| `nitro`               | Nitro and its Vite preset                                                     |
-| `posthog.build`       | PostHog Rollup plugin with client/worker build wiring                         |
+| Selection             | Defaults                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `typescript`          | Infer Vite/browser or NodeNext compiler defaults from the selected integrations       |
+| `typescript.bundler`  | Explicit ESM bundler target without assuming DOM globals                              |
+| `typescript.browser`  | Explicit browser target with DOM, JSX, and no-emit defaults                           |
+| `typescript.library`  | Explicit NodeNext target with declaration-friendly strictness                         |
+| `oxlint`              | Application lint defaults, type-aware checks, and framework-generated-file exclusions |
+| `oxlint.domain`       | Oxlint defaults plus import boundaries for domain code in `src/core`                  |
+| `oxlint.layers`       | Oxlint defaults plus import boundaries for conventional application layers            |
+| `oxfmt`               | Formatting through Oxfmt                                                              |
+| `vite`                | Vite, React plugin/runtime, `@` alias for `src`, and dev/build commands               |
+| `vitest`              | Vitest and its V8 coverage provider                                                   |
+| `playwright`          | Playwright Test; browser installation remains a CI/local setup step                   |
+| `tailwind`            | Tailwind and its Vite plugin, with an injected stylesheet import                      |
+| `tailwind.animations` | Tailwind plus `tw-animate-css` and its stylesheet import                              |
+| `nitro`               | Nitro and its Vite preset                                                             |
+| `posthog.build`       | PostHog Rollup plugin with client/worker build wiring                                 |
 
-Select one TypeScript role. Oxlint presets compose in selection order. Start, Nitro, Tailwind, and PostHog build presets are applied through the selected Vite integration; select `vite` to provide the managed dev/build commands. `tanstackStart` does not select Nitro automatically.
+Use plain `typescript` and `oxlint` for ordinary setup:
+
+```ts
+import { defineConfig, tanstackStart, typescript, oxlint, vite } from 'ras-stack/config'
+
+export default defineConfig({
+  integrations: [tanstackStart],
+  tooling: [typescript, oxlint, vite],
+})
+```
+
+`typescript` selects browser/JSX defaults with Vite and Node types when `tanstackStart` or `vite` is present, and the NodeNext library preset otherwise. Inference uses the complete selection, including nested descriptors, regardless of order. An explicit compiler target overrides inference; selecting two different explicit targets fails. Internal base and framework presets are composition details rather than extra opt-ins.
+
+`oxlint` includes application defaults. With Start selected, `ras lint` adds generated route-tree/output exclusions as command arguments, so they also work with a local root config. Oxlint does not inherit `ignorePatterns` through JSON `extends`; direct Oxlint invocations and editor integrations need these exclusions in their root config. Architecture boundaries remain explicit; `oxlint.domain` and `oxlint.layers` each include the ordinary defaults, so selecting either does not require a second `oxlint` entry. Selecting a framework alone never opts into the compiler or linter.
+
+Start, Nitro, Tailwind, and PostHog build presets are applied through the selected Vite integration; select `vite` to provide the managed dev/build commands. `tanstackStart` does not select Nitro automatically. Tailwind animations and PostHog runtime/build surfaces remain separate because they add distinct stylesheet, runtime, or upload behavior.
 
 ## Build configuration
 
@@ -92,11 +104,11 @@ For `.oxlintrc.json`:
 ```json
 {
   "extends": ["./.ras/oxlint.json"],
-  "ignorePatterns": ["src/routeTree.gen.ts", "node_modules/**", ".ras/**"]
+  "ignorePatterns": ["dist/**", "node_modules/**", ".ras/**"]
 }
 ```
 
-Keep aliases, includes, generated directories, worker globals, and exceptions local. When a root config exists, the tool commands use it; selecting a preset does not rewrite a handwritten config to extend `.ras`.
+Keep aliases, includes, application-specific generated directories, worker globals, and exceptions local. When a root config exists, the tool commands use it; selecting a preset does not rewrite a handwritten config to extend `.ras`.
 
 `oxlint.domain` restricts Node builtins, framework/persistence imports, and application-layer imports in `src/core/**`. Plain domain libraries remain available. `oxlint.layers` restricts imports between `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes`; clients can import `server/functions` and `server/fns`, while routes cannot import sibling route modules.
 

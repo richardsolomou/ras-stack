@@ -1,5 +1,5 @@
 {
-  "extends": "../../packages/ras-stack/config/typescript/tanstack.json",
+  "extends": "../../packages/ras-stack/config/typescript/vite.json",
   "compilerOptions": {
     "types": ["node", "vite/client"]
   },

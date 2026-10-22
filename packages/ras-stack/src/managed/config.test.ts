@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { defineConfig, defineIntegration, oxlint, tanstackQuery, typescript } from '../config.js'
+import { defineConfig, defineIntegration, oxlint, tanstackQuery, tanstackStart, typescript, vite } from '../config.js'
 import { installationPlan } from './plan.js'
 
 describe('managed configuration', () => {
@@ -13,8 +13,62 @@ describe('managed configuration', () => {
   })
 
   it('selects compiler and linter versions with their presets', () => {
-    const plan = installationPlan(defineConfig({ tooling: [typescript.browser, oxlint.application] }))
+    const plan = installationPlan(defineConfig({ tooling: [typescript.browser, oxlint] }))
     expect(plan.presets).toEqual({ typescript: 'browser', oxlint: ['application'], vite: [] })
+  })
+
+  it('uses NodeNext compiler defaults without a browser framework', () => {
+    expect(installationPlan({ tooling: [typescript] }).presets.typescript).toBe('library')
+  })
+
+  it('infers browser compiler defaults from Vite', () => {
+    expect(installationPlan({ tooling: [typescript, vite] }).presets.typescript).toBe('vite')
+  })
+
+  it.each([
+    [typescript, tanstackStart],
+    [tanstackStart, typescript],
+  ])('infers the Start compiler target independently of selection order %#', (...tooling) => {
+    expect(installationPlan({ tooling }).presets.typescript).toBe('vite')
+  })
+
+  it.each([
+    [typescript, typescript.bundler],
+    [typescript.bundler, typescript],
+  ])('honors an explicit compiler target independently of selection order %#', (...tooling) => {
+    expect(installationPlan({ integrations: [tanstackStart], tooling }).presets.typescript).toBe('bundler')
+  })
+
+  it('adds Start generated-file exclusions to the ordinary linter opt-in', () => {
+    expect(installationPlan({ integrations: [tanstackStart], tooling: [oxlint] }).commands.lint?.args).toEqual([
+      '--type-aware',
+      '--deny-warnings',
+      '--ignore-pattern',
+      'src/routeTree.gen.ts',
+      '--ignore-pattern',
+      '.output/**',
+    ])
+  })
+
+  it('infers framework defaults through nested integrations', () => {
+    const app = defineIntegration({ name: 'app', includes: [tanstackStart] })
+    expect(installationPlan({ tooling: [oxlint, typescript, app] }).presets).toEqual({
+      typescript: 'vite',
+      oxlint: ['application'],
+      vite: ['start'],
+    })
+  })
+
+  it('includes everyday defaults when selecting architecture boundaries alone', () => {
+    expect(installationPlan({ tooling: [oxlint.domain, oxlint.layers] }).presets.oxlint).toEqual(['application', 'domain', 'layers'])
+  })
+
+  it('keeps architecture boundaries opt-in', () => {
+    expect(installationPlan({ tooling: [oxlint] }).presets.oxlint).toEqual(['application'])
+  })
+
+  it('does not enable compiler or linter configuration through framework inference', () => {
+    expect(installationPlan({ integrations: [tanstackStart] }).presets).toEqual({ oxlint: [], vite: ['start'] })
   })
 
   it('keeps compiler packages out of runtime dependencies', () => {

@@ -29,7 +29,7 @@ import { defineConfig, tanstackQuery, typescript, oxlint, oxfmt, vite, vitest } 
 
 export default defineConfig({
   integrations: [tanstackQuery],
-  tooling: [typescript.browser, oxlint.application, oxfmt, vite, vitest],
+  tooling: [typescript, oxlint, oxfmt, vite, vitest],
 })
 ```
 

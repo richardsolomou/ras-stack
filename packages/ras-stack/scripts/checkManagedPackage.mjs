@@ -53,7 +53,7 @@ try {
   )
   writeFileSync(
     path.join(consumer, 'ras.config.ts'),
-    "import {defineConfig,tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript.browser,oxlint.application,oxfmt,vite,vitest]})\n",
+    "import {defineConfig,tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog,typescript,oxlint,oxfmt,vite,vitest} from 'ras-stack/config'\nexport default defineConfig({integrations:[tanstackStart,betterAuth,sqlite,postgres,libsql,email,uploads,realtime,posthog.react,posthog.server],tooling:[typescript,oxlint,oxfmt,vite,vitest]})\n",
   )
   exec('pnpm', ['install', '--no-frozen-lockfile'])
   assert.equal(existsSync(path.join(consumer, '.prettierignore')), false)
@@ -63,6 +63,13 @@ try {
     env: { ...process.env, CI: 'true' },
   })
   assert.equal(JSON.parse(readFileSync(path.join(consumer, 'package.json'), 'utf8')).dependencies['ras-stack'], version)
+  assert.equal(
+    JSON.parse(readFileSync(path.join(consumer, '.ras/tsconfig.json'), 'utf8')).extends,
+    '../node_modules/ras-stack/config/typescript/vite.json',
+  )
+  assert.deepEqual(JSON.parse(readFileSync(path.join(consumer, '.ras/oxlint.json'), 'utf8')).extends, [
+    '../node_modules/ras-stack/config/oxlint/application.json',
+  ])
   const packageJson = JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8'))
   assert.ok(Object.values(packageJson.peerDependenciesMeta).every((peer) => peer.optional))
   assert.equal(packageJson.peerDependencies.vite, undefined)
@@ -126,10 +133,14 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
 `,
   )
   exec('pnpm', ['exec', 'ras', 'build'])
-  exec('pnpm', ['exec', 'ras', 'lint', 'main.tsx', 'main.test.ts'])
+  mkdirSync(path.join(consumer, 'src'))
+  writeFileSync(path.join(consumer, 'src/routeTree.gen.ts'), 'debugger;\n')
+  exec('pnpm', ['exec', 'ras', 'lint', 'main.tsx', 'main.test.ts', 'src'])
+  writeFileSync(path.join(consumer, '.oxlintrc.json'), json({ extends: ['./.ras/oxlint.json'] }))
+  exec('pnpm', ['exec', 'ras', 'lint', 'main.tsx', 'main.test.ts', 'src'])
   mkdirSync(path.join(consumer, 'presets'))
   for (const [preset, source] of [
-    ['tanstack', "export const value: string = 'configuration resolved'\n"],
+    ['vite', "export const value: string = 'configuration resolved'\n"],
     ['bundler', "export const indexed: Record<string, string> = { value: 'configuration resolved' }\nexport const value = indexed.value\n"],
     ['library', 'export type Configuration = { enabled?: boolean }\nexport const configuration: Configuration = {}\n'],
   ]) {
@@ -138,13 +149,13 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
       path.join(consumer, `presets/tsconfig-${preset}.json`),
       json({
         extends: `../node_modules/ras-stack/config/typescript/${preset}.json`,
-        compilerOptions: { noEmit: true, ...(preset === 'tanstack' ? { types: ['node'] } : {}) },
+        compilerOptions: { noEmit: true, ...(preset === 'vite' ? { types: ['node'] } : {}) },
         include: [`${preset}.ts`],
       }),
     )
     exec('pnpm', ['exec', 'ras', 'typecheck', '-p', `presets/tsconfig-${preset}.json`])
   }
-  for (const preset of ['oxlint', 'oxlint/application', 'oxlint/tanstack', 'oxlint/domain', 'oxlint/layers'])
+  for (const preset of ['oxlint', 'oxlint/application', 'oxlint/domain', 'oxlint/layers'])
     execFileSync(
       'pnpm',
       ['exec', 'ras', 'exec', '--', 'oxlint', '--config', `node_modules/ras-stack/config/${preset}.json`, '--print-config'],
@@ -194,7 +205,7 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
   writeFileSync(path.join(serverOnly, 'pnpm-workspace.yaml'), 'minimumReleaseAge: 0\n')
   writeFileSync(
     path.join(serverOnly, 'ras.config.ts'),
-    "import {defineConfig,typescript,posthog,vitest,playwright} from 'ras-stack/config'\nexport default defineConfig({integrations:[posthog.server],tooling:[typescript.library,vitest,playwright]})\n",
+    "import {defineConfig,typescript,posthog,vitest,playwright} from 'ras-stack/config'\nexport default defineConfig({integrations:[posthog.server],tooling:[typescript,vitest,playwright]})\n",
   )
   writeFileSync(path.join(serverOnly, 'server.ts'), "import {postHogEnvironment} from 'ras-stack/posthog'\nvoid postHogEnvironment({})\n")
   writeFileSync(path.join(serverOnly, 'tsconfig.json'), json({ extends: './.ras/tsconfig.json', include: ['server.ts'] }))
@@ -204,6 +215,10 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
     ['exec', 'ras', 'typecheck'],
   ])
     execFileSync('pnpm', args, { cwd: serverOnly, stdio: 'inherit' })
+  assert.equal(
+    JSON.parse(readFileSync(path.join(serverOnly, '.ras/tsconfig.json'), 'utf8')).extends,
+    '../node_modules/ras-stack/config/typescript/library.json',
+  )
   assert.equal(JSON.parse(readFileSync(path.join(serverOnly, 'node_modules/posthog-node/package.json'), 'utf8')).version, '5.52.1')
   execFileSync('pnpm', ['exec', 'ras', 'update'], { cwd: serverOnly, stdio: 'inherit' })
   assert.equal(JSON.parse(readFileSync(path.join(serverOnly, 'node_modules/ras-stack/package.json'), 'utf8')).version, version)

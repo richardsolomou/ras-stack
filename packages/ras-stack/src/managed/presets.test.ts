@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
+import { oxlint, tanstackStart } from '../config.js'
+import { installationPlan } from './plan.js'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -72,5 +74,27 @@ describe('opt-in import boundaries', () => {
     ['src/geometry/mesh.ts', 'react'],
   ])('allows %s importing %s', async (file, specifier) => {
     expect(await lint(file, specifier)).toBe('')
+  })
+})
+
+describe('configured application lint defaults', () => {
+  async function printConfig(start: boolean) {
+    const root = await mkdtemp(join(tmpdir(), 'ras-lint-defaults-'))
+    roots.push(root)
+    const plan = installationPlan({ integrations: start ? [tanstackStart] : [], tooling: [oxlint] })
+    const config = join(root, 'oxlint.json')
+    await writeFile(
+      config,
+      JSON.stringify({
+        extends: plan.presets.oxlint.map((name) => fileURLToPath(new URL(`../../config/oxlint/${name}.json`, import.meta.url))),
+      }),
+    )
+    return JSON.parse(execFileSync('oxlint', ['--config', config, '--print-config'], { cwd: root, encoding: 'utf8' })) as {
+      rules: Record<string, unknown>
+    }
+  }
+
+  it('keeps application rule preferences when framework exclusions are inferred', async () => {
+    expect((await printConfig(true)).rules['no-await-in-loop']).toBe('allow')
   })
 })

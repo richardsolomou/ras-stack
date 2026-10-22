@@ -24,7 +24,7 @@ describe('generated tooling environment', () => {
   })
 
   it('composes linter presets in selection order', async () => {
-    const files = environmentFiles(installationPlan(defineConfig({ tooling: [oxlint.application, oxlint.domain] })))
+    const files = environmentFiles(installationPlan(defineConfig({ tooling: [oxlint, oxlint.domain] })))
     const config = JSON.parse(files['oxlint.json']!) as { extends: string[] }
     expect(config.extends).toEqual([
       '../node_modules/ras-stack/config/oxlint/application.json',
@@ -33,9 +33,11 @@ describe('generated tooling environment', () => {
   })
 
   it('uses the base preset without an extra path segment', async () => {
-    const files = environmentFiles(installationPlan(defineConfig({ tooling: [oxlint.base] })))
+    const files = environmentFiles(
+      installationPlan(defineConfig({ tooling: [{ name: 'base-lint', includes: [oxlint], presets: { oxlint: ['base'] } }] })),
+    )
     const config = JSON.parse(files['oxlint.json']!) as { extends: string[] }
-    expect(config.extends).toEqual(['../node_modules/ras-stack/config/oxlint.json'])
+    expect(config.extends).toContain('../node_modules/ras-stack/config/oxlint.json')
   })
 
   it('points editors to the normally installed compiler', async () => {
