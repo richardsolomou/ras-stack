@@ -1,65 +1,12 @@
 # Repository tooling
 
-[Back to the ras-stack overview](../README.md)
+[Documentation](README.md) · [Configuration](configuration.md) · [Upgrades](upgrades.md)
 
 These configs, commands, actions, and workflows keep repository mechanics consistent without taking ownership of application-specific paths, services, permissions, or deployment policy.
 
-## Shared project configuration
+## Project configuration
 
-Extend the supplied configuration and override anything specific to the application:
-
-```json
-{
-  "extends": ["./node_modules/ras-stack-config/config/oxlint.json"],
-  "rules": {
-    "application-specific-rule": "off"
-  }
-}
-```
-
-```json
-{
-  "extends": "ras-stack-config/config/typescript/tanstack",
-  "include": ["src", "vite.config.ts"]
-}
-```
-
-TypeScript bases are also available at `ras-stack-config/config/typescript/browser` and `ras-stack-config/config/typescript/library`.
-
-The TypeScript configs compose by runtime role:
-
-- `base` contains runtime-neutral strictness and module-safety options.
-- `bundler` adds ESM bundler resolution without assuming DOM or Node globals.
-- `browser` adds DOM, JSX, and no-emit defaults.
-- `tanstack` adds Vite and Node types to the browser role.
-- `library` uses NodeNext resolution and declaration-friendly strictness.
-
-Oxlint applications can extend the strict default plus independent layers for shared application preferences and generated TanStack files:
-
-```json
-{
-  "extends": [
-    "./node_modules/ras-stack-config/config/oxlint/application.json",
-    "./node_modules/ras-stack-config/config/oxlint/tanstack.json"
-  ],
-  "rules": {
-    "application-specific-rule": "off"
-  }
-}
-```
-
-These configs do not set include paths, aliases, generated directories outside TanStack's route tree, or framework-specific worker globals. Keep those differences in the consuming repository.
-
-Two opt-in import-boundary presets can be added to the same `extends` list:
-
-- `./node_modules/ras-stack-config/config/oxlint/domain.json` restricts Node builtins, framework and persistence imports, and application-layer imports in `src/core/**`. Pure libraries such as Zod remain available. Applications with other domain directories repeat the override for those paths in their own configuration.
-- `./node_modules/ras-stack-config/config/oxlint/layers.json` restricts imports between the conventional `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes` directories. Clients can import `server/functions` (including its submodules) and `server/fns`. Routes cannot import sibling route modules.
-
-Test and spec files are excluded so integration tests can exercise real adapters. These are lexical import restrictions, not a transitive dependency or side-effect analysis. They recognize relative paths and the `@/` source alias. Repositories with other layouts or aliases must supply local overrides. A local `no-restricted-imports` override replaces that rule's patterns; keep the restrictions that still apply when adding an exception. Neither preset is enabled by `application` or `tanstack` automatically.
-
-## Adopting the tooling
-
-Install `ras-stack-config` as a development dependency and extend only the presets the repository needs. The examples above are complete inheritance contracts. Application aliases, includes, toolchain versions, exceptions, and committed release/dependency policies remain repository-owned. Configuration releases are independent of `ras-stack` runtime releases.
+[Configuration](configuration.md) owns the typed selection catalogue, compiler/linter presets, Vite overrides, and managed CLI reference. Native pnpm installation applies selections and regenerates ignored local presets. `ras sync` also refreshes managed bot policy. [Upgrades](upgrades.md) owns version changes, dependency ownership, and Dependabot policy.
 
 ## Changeset validation
 
@@ -117,6 +64,7 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 steps:
   - uses: actions/checkout@v7
   - uses: richardsolomou/ras-stack/actions/setup-js@v1
+  - run: pnpm exec ras sync --check
   - run: pnpm check
 ```
 
@@ -127,6 +75,8 @@ Just is independent of the application language and is installed separately when
   with:
     version: '1.58.0'
 ```
+
+## Release workflows
 
 Applications using Changesets can call the reusable release workflow after their own required checks:
 
@@ -152,11 +102,13 @@ The release job opens a pull request for the version commit. It validates the ex
 
 The workflow consumes pending changesets, commits the resulting versions and changelogs, pushes the commit and tag atomically, and creates a GitHub Release. It does nothing when no versioned changeset is present. With `validation-workflow`, the version commit arrives on a `release-candidate/<tag>-<run id>` branch; that prefix is part of the contract, so pull-request workflows that should skip release commits can match it. The caller owns its checks, Changesets configuration, release policy, and any deployment that follows the release.
 
-Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Configuration-only releases leave it unchanged. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
+Consumer repositories follow the stable major compatibility tag, such as `v1`. The action/workflow contract is versioned independently of the npm packages. Each exact release tag remains immutable, while runtime releases advance `v1` only after validation and npm publication succeed. Breaking workflow or action changes require a new major tag and an intentional consumer migration.
 
 Reusable workflows refer to ras-stack actions through the stable major compatibility tag, because GitHub requires a remote action to use an `owner/repository/path@ref` reference even when a reusable workflow calls it. A nested reusable workflow can use a local `./.github/workflows/` path, which GitHub resolves from the same commit as its caller.
 
 Browser jobs can cache the pinned Playwright payload through `actions/setup-playwright`. It installs system dependencies by default; set `install-dependencies: 'false'` only for runner images that already provide the browser libraries. Production-container E2E stays a repository job: the image build, cache strategy, sharding, and PR-versus-main topology differ per application, and the check workflow above supplies the toolchain steps.
+
+## Production images
 
 `publish-production-image` reads both its production cache and the `e2e-image` cache, so an E2E build can warm unchanged layers for the release build without paying to upload every intermediate BuildKit layer.
 
@@ -181,6 +133,10 @@ Preview images use the application package with a readable, commit-specific tag:
 
 Straightforward single- or multi-platform releases can use `actions/publish-production-image` to publish `latest`, the release tag, and `sha-<commit>` together and receive the digest-pinned commit reference as an output. It accepts newline-separated `secrets` for sensitive BuildKit mounts; Dockerfiles consume them with `RUN --mount=type=secret` rather than build arguments. The production action attaches SBOM and `mode=max` provenance attestations and exports a `min` cache by default; set `sbom: 'false'`, `provenance: 'false'`, or `cache-mode: max` when an application does not consume the attestations or wants intermediate stages cached. Applications retain checkout, release orchestration, generated build inputs, scanning, and deployment; complex manifest assembly can keep using Buildx directly and resolve the resulting tag separately.
 
+## Dokploy previews
+
+Use a Dokploy project/environment reserved for previews and staging-only credentials. Configure `DOKPLOY_URL`, `DOKPLOY_API_KEY`, and `DOKPLOY_ENVIRONMENT_ID` as GitHub Actions secrets; the environment ID identifies the preview environment. A custom HTTPS domain also needs DNS routing to the preview host and a working certificate configuration. Private images need the registry credentials described below. Keep actual hostnames, package visibility, seed accounts, and product-resource credentials in the consuming application's deployment guide.
+
 Dokploy applications share the complete preview lifecycle through three reusable workflows:
 
 - `build-dokploy-preview.yml` builds same-repository images directly in GHCR and keeps fork images in an untrusted artifact.
@@ -195,7 +151,7 @@ Callers provide only their package, application prefix, port, environment templa
 
 Dependabot preview deployments target the `dependabot-preview` GitHub environment. Configure that environment with required reviewers in each caller repository to hold deployments for manual approval while ordinary pull-request previews continue automatically. The workflow refuses to deploy when the environment lacks required reviewers, so missing protection cannot silently allow a Dependabot preview through. It resolves the pull-request author through GitHub's API before selecting the deployment environment; closing a Dependabot pull request still removes its preview without approval. Callers can override the environment name with `dependabot-environment`.
 
-Origins restricted to Cloudflare can set `cloudflare-zone-id` and inherit a `CLOUDFLARE_API_TOKEN` secret with DNS Write access limited to that zone. The deploy workflow creates or updates a proxied A record at the custom preview hostname before deployment, while close and prune workflows delete only records carrying the matching ras-stack ownership comment. Use a first-level hostname such as `sealed-lists-pr-42.ras.sh` when the zone's Universal SSL certificate covers `*.ras.sh`; a nested hostname requires separate certificate coverage.
+Origins restricted to Cloudflare can set `cloudflare-zone-id` and inherit a `CLOUDFLARE_API_TOKEN` secret with DNS Write access limited to that zone. The deploy workflow creates or updates a proxied A record at the custom preview hostname before deployment, while close and prune workflows delete only records carrying the matching ras-stack ownership comment. Use a first-level hostname such as `example-pr-42.example.com` when the zone's Universal SSL certificate covers `*.example.com`; a nested hostname requires separate certificate coverage.
 
 Applications without custom lifecycle hooks use the workflows' built-in `ras preview dokploy deploy`, `delete`, and `prune` commands. An application that owns external preview resources can set `deploy-script` to a trusted repository script built on `ras-stack/preview/dokploy`; the script reads product secrets through `loadPreviewAppSecrets(allowedNames)`, which copies only the allowlisted keys of the `PREVIEW_APP_SECRETS` JSON secret into the environment; the reusable workflows still own all GitHub, image, and scheduling mechanics. `playwright-config` adds a post-deploy browser verification without replacing the lifecycle.
 
@@ -225,9 +181,13 @@ All three commands require `DOKPLOY_URL`, `DOKPLOY_API_KEY`, `DOKPLOY_ENVIRONMEN
 | `delete` | `PR_NUMBER`                                                                  |
 | `prune`  | Space-separated `OPEN_PR_NUMBERS` (empty means no previews remain open)      |
 
+Preview status uses one pull-request comment: building preserves the previous ready revision, approval holds untrusted deployments, ready identifies the healthy revision, failed links to diagnostics, and deleted marks cleanup. Closing a pull request deletes the preview; scheduled pruning handles orphaned resources. Custom hooks remain responsible for product-owned resources such as tenant state and billing fixtures.
+
 The workflows report each transition through `ras preview <state>`, which keeps one marked comment and one named check run, preserves the last ready commit while a replacement builds, bounds comment pagination, and validates repository, pull request, commit, marker, and URL inputs. Building and failed states may omit the URL while Dokploy resolves a generated domain; ready states always require it. Applications retain their preview access note, seed credentials, and product cleanup hooks.
 
 The standard Dokploy workflows compose this reporter with the lower-level image actions. Their `workflow_run` boundary ensures fork code receives neither deployment secrets nor a writable package token: a fork creates a one-day image artifact, and trusted default-branch workflow code publishes and deploys it after approval.
+
+## Runtime services and binaries
 
 Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
 
@@ -274,6 +234,8 @@ The foreground command follows terminal signals and leaves an existing named con
 `runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created. Land and publish a changed runtime version before advancing application, development, or documentation references; those consumers must continue using the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned.
 
 Read-only containers can pass writable `configHome` and `dataHome` paths through `caddy.runtime`; both default to isolated directories under `/tmp`.
+
+## Shared check workflows
 
 The JavaScript setup action and shared check workflow reject Dependabot branches that do not contain the base commit recorded by the pull request event. Custom dependency workflows can apply the same guard directly:
 

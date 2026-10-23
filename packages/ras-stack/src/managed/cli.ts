@@ -1,0 +1,58 @@
+import { delimiter, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { exists } from './files.js'
+import { commandPath } from './environment.js'
+import { preparedPlan } from './install.js'
+import { runPnpm, runProcess } from './process.js'
+
+export async function runManagedCli(command: string, arguments_: string[]): Promise<void> {
+  const root = process.cwd()
+  const plan = await preparedPlan(root)
+  if (command === 'audit') {
+    await runPnpm(['audit', ...arguments_], root)
+    return
+  }
+  const env = {
+    ...process.env,
+    PATH: [join(root, 'node_modules/.bin'), process.env.PATH ?? ''].join(delimiter),
+  }
+  if (command === 'exec') {
+    const [program, ...args] = arguments_[0] === '--' ? arguments_.slice(1) : arguments_
+    if (!program) throw new Error('usage: ras exec [--] <program> [arguments]')
+    await runProcess(program, args, root, { env })
+    return
+  }
+  const selected = plan.commands[command]
+  if (!selected) throw new Error(`No tool provides ras ${command}; select it in ras.config.ts`)
+  const args = [...(selected.args ?? [])]
+  if (
+    ['dev', 'build'].includes(command) &&
+    selected.package === 'vite' &&
+    !arguments_.some((argument) => ['-c', '--config'].includes(argument) || argument.startsWith('--config=')) &&
+    !(await Promise.all(['ts', 'mts', 'cts', 'js', 'mjs', 'cjs'].map((extension) => exists(join(root, `vite.config.${extension}`))))).some(
+      Boolean,
+    )
+  )
+    args.push('--config', fileURLToPath(new URL('../../config/vite.mjs', import.meta.url)))
+  if (
+    command === 'typecheck' &&
+    !arguments_.some((argument) => ['-p', '--project', '-b', '--build'].includes(argument) || argument.startsWith('--project='))
+  ) {
+    args.push('--project', (await exists(join(root, 'tsconfig.json'))) ? 'tsconfig.json' : '.ras/tsconfig.json')
+  }
+  if (command === 'lint' && plan.presets.oxlint.length) {
+    const explicit = arguments_.some((argument) => ['-c', '--config'].includes(argument) || argument.startsWith('--config='))
+    const local = await Promise.all(
+      ['.oxlintrc.json', '.oxlintrc.jsonc', 'oxlint.config.ts', 'oxlint.config.mts'].map((file) => exists(join(root, file))),
+    )
+    if (!explicit && !local.some(Boolean))
+      args.push('--config', '.ras/oxlint.json', '--ignore-pattern', 'node_modules/**', '--ignore-pattern', '.ras/**')
+  }
+  if (command === 'format' && arguments_.includes('--check') && args.includes('--write')) args.splice(args.indexOf('--write'), 1)
+  const forwarded = [...arguments_]
+  const buildIndex = command === 'typecheck' ? forwarded.findIndex((argument) => ['-b', '--build'].includes(argument)) : -1
+  if (buildIndex >= 0) args.unshift(...forwarded.splice(buildIndex, 1))
+  await runProcess(process.execPath, [resolve(await commandPath(root, selected.package, selected.bin)), ...args, ...forwarded], root, {
+    env,
+  })
+}

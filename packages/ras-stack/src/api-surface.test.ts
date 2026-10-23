@@ -1,5 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
+import * as config from './config.js'
+import * as vite from './vite/index.js'
+import * as query from './query/index.js'
 import * as auth from './auth/index.js'
 import type { ProviderEnvironmentOptions, SessionOptions, StandardAccountOptions, StandardEmailAndPasswordOptions } from './auth/index.js'
 import * as authClient from './auth/client.js'
@@ -43,6 +46,30 @@ void betterAuthAccountOptions
 
 // Widening the published surface is a semantic-version commitment, so it has to arrive as a reviewed diff here.
 const surface = {
+  './config': [
+    'betterAuth',
+    'defineConfig',
+    'defineIntegration',
+    'email',
+    'libsql',
+    'nitro',
+    'oxfmt',
+    'oxlint',
+    'playwright',
+    'postgres',
+    'posthog',
+    'realtime',
+    'sqlite',
+    'tailwind',
+    'tanstackQuery',
+    'tanstackStart',
+    'typescript',
+    'uploads',
+    'vite',
+    'vitest',
+  ],
+  './vite': ['defineViteConfig', 'postHogSourceMapPlugins'],
+  './query': ['QueryProvider', 'createQueryClient'],
   './auth': [
     'configuredProviderOptions',
     'configuredProviders',
@@ -106,6 +133,9 @@ const surface = {
 } satisfies Record<string, string[]>
 
 const entrypoints: Record<keyof typeof surface, object> = {
+  './config': config,
+  './vite': vite,
+  './query': query,
   './auth': auth,
   './auth/client': authClient,
   './auth/react': authReact,

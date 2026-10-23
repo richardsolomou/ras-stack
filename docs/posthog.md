@@ -1,21 +1,16 @@
 # PostHog integration
 
-[Back to the ras-stack overview](../README.md)
+[Documentation](README.md) · [Configuration catalogue](configuration.md)
 
 The PostHog entrypoints provide a complete default installation: product analytics, autocapture, pageviews, session replay, browser performance, structured logs, application metrics, distributed tracing, feature flags, browser and server error tracking, request correlation, reverse proxying, source maps, and clean shutdown. Applications retain the native SDK clients and own the events, measurements, spans, and properties that describe their product.
 
 PostHog application metrics is currently in open alpha and distributed tracing is in beta. Enable Metrics once in the PostHog project before expecting metric data. The SDK and ingestion details may still change upstream.
 
-## Install
+## Select the surfaces
 
-Install only the SDKs used by the application:
+Follow [installation](managed-installation.md), then select the runtime surfaces in the [configuration catalogue](configuration.md#runtime-integration-catalogue): `posthog.browser` for a browser without React, `posthog.react` for React, and `posthog.server` for the Node SDK and OpenTelemetry logging packages. Native SDK imports remain available. Choose only the surfaces the application uses.
 
-```sh
-pnpm add posthog-js @posthog/react
-pnpm add posthog-node @opentelemetry/api-logs @opentelemetry/exporter-logs-otlp-http @opentelemetry/resources @opentelemetry/sdk-logs
-```
-
-The SDKs and OpenTelemetry log packages are optional ras-stack peers. Install only the browser or server surfaces the application uses.
+Select `posthog.build` with the Vite tooling for the source-map defaults described below. Runtime installation does not initialize providers, configure credentials, or decide product events; those application composition points follow in this guide.
 
 ## Deployment configuration
 
@@ -238,31 +233,31 @@ Use `options` to preserve application consent, replay and capture settings. Test
 
 ## Source maps
 
-Source-map upload remains an application build concern. Use the native PostHog Rollup plugin or CLI against the final browser assets and, where present, the worker/server output before assembling the deployment artifact. Keep the personal API key in the build environment, never in public Vite variables. If the key or project ID is absent, explicitly skip upload; the application build should still succeed. A deployment that requires error symbolication should fail its own release gate when those credentials are missing.
+Select `posthog.build` and use the bundled Vite config or `defineViteConfig`. RAS supplies client and worker plugin instances, hidden source maps, and deletion after upload. Do not add a second copy of the same managed plugin. [Build configuration](configuration.md#build-configuration) explains how those presets compose with local plugins.
 
-For Vite with the native `@posthog/rollup-plugin`, create a plugin instance for each browser/worker build. The plugin generates source maps for its output and can delete them after upload:
+Automatic upload activates in CI when a personal API key and project ID are present. Accepted variables are `POSTHOG_CLI_API_KEY` or `POSTHOG_API_KEY`, `POSTHOG_CLI_PROJECT_ID` or `POSTHOG_PROJECT_ID`, and `POSTHOG_CLI_HOST` or `POSTHOG_HOST`; the CLI-prefixed value takes precedence and US Cloud is the default host. The automatic CI checks recognize `CI=true`, `GITHUB_ACTIONS=true`, and `CF_PAGES=1`.
+
+`POSTHOG_UPLOAD_SOURCEMAPS=true` explicitly enables upload and requires credentials. `false` disables automatic upload. The `ras.posthog.enabled` build option can override activation explicitly. Without an explicit enable or automatic CI credentials, upload is skipped. Keep personal API keys in the build environment rather than public Vite variables.
+
+Applications can retain release metadata without repeating the plugin wiring:
 
 ```ts
-import posthog from '@posthog/rollup-plugin'
-import { defineConfig } from 'vite'
+import { defineViteConfig } from 'ras-stack/vite'
 
-function sourceMapUpload() {
-  if (!process.env.POSTHOG_API_KEY || !process.env.POSTHOG_PROJECT_ID) return undefined
-  return posthog({
-    personalApiKey: process.env.POSTHOG_API_KEY,
-    projectId: process.env.POSTHOG_PROJECT_ID,
-    host: process.env.POSTHOG_HOST,
-    sourcemaps: { enabled: true, deleteAfterUpload: true },
-  })
-}
-
-export default defineConfig({
-  plugins: [sourceMapUpload()],
-  worker: { plugins: () => [sourceMapUpload()] },
+export default defineViteConfig({
+  ras: {
+    posthog: {
+      sourcemaps: {
+        releaseName: 'example-web',
+        releaseVersion: process.env.GITHUB_SHA,
+        releaseMode: 'symbol-set',
+      },
+    },
+  },
 })
 ```
 
-Keep hosting/release conditions in the application. For server output built by another bundler, configure that bundler's native plugin or run the PostHog CLI over its final assets as a separate build step. An upload to the configured project is only verified after an actual exception resolves to its original source; successful local compilation with credentials absent verifies the skip path only.
+Final deployment order and non-Vite server output remain application concerns. Use the appropriate bundler integration or PostHog CLI for those outputs before assembling the deployment artifact. A successful build without credentials verifies only the skip path; verify symbolication with an actual exception resolving to its original source after upload.
 
 ## What remains local
 

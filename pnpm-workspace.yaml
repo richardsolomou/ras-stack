@@ -4,6 +4,7 @@ packages:
   - examples/*
   - packages/*
 allowBuilds:
+  '@posthog/cli': true
   better-sqlite3: true
   core-js: false
   esbuild: true
@@ -14,7 +15,6 @@ allowBuilds:
 minimumReleaseAge: 10080
 # Better Auth 1.7 is the compatibility target exercised by the full-stack reference.
 minimumReleaseAgeExclude:
-  - ras-stack-config
   - ras-stack
   - better-auth
   - '@better-auth/*'

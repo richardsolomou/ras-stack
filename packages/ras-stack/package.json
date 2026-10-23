@@ -21,11 +21,17 @@
     "ras": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "config",
+    "pnpmfile.mjs"
   ],
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./vite": {
+      "types": "./dist/vite/index.d.ts",
+      "default": "./dist/vite/index.js"
+    },
     "./auth": {
       "types": "./dist/auth/index.d.ts",
       "default": "./dist/auth/index.js"
@@ -121,26 +127,36 @@
     "./uploads": {
       "types": "./dist/uploads/index.d.ts",
       "default": "./dist/uploads/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    },
+    "./query": {
+      "types": "./dist/query/index.d.ts",
+      "default": "./dist/query/index.js"
     }
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && esbuild src/managed/pnpm.ts --bundle --platform=node --format=esm --sourcemap --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\" --outfile=dist/managed/pnpm.js",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware --deny-warnings .",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "test": "vitest run --config vitest.config.ts",
-    "package:check": "node scripts/checkPackedPackage.mjs",
-    "peer:floor": "node scripts/checkPeerFloor.mjs",
+    "package:check": "node scripts/checkManagedPackage.mjs",
     "runtime:pin": "node scripts/checkRuntimePin.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm package:check",
+    "prepare": "pnpm run build"
   },
   "dependencies": {
     "@changesets/parse": "1.0.0",
-    "@manypkg/get-packages": "3.1.0"
+    "@manypkg/get-packages": "3.1.0",
+    "import-meta-resolve": "4.2.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@libsql/client": "0.18.0",
@@ -148,17 +164,25 @@
     "@opentelemetry/exporter-logs-otlp-http": "^0.223.0",
     "@opentelemetry/resources": "^2.12.0",
     "@opentelemetry/sdk-logs": "^0.223.0",
+    "@pnpm/parse-overrides": "1001.0.4",
     "@posthog/react": "1.10.6",
+    "@posthog/rollup-plugin": "1.6.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@tanstack/react-query": "5.104.1",
     "@tanstack/react-start": "^1.168.32",
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "^26.2.0",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "19.2.18",
     "@types/react-test-renderer": "19.1.0",
+    "@types/semver": "7.8.0",
+    "@vitejs/plugin-react": "6.1.2",
     "@vitest/coverage-v8": "^4.1.10",
     "better-sqlite3": "12.11.1",
     "centrifuge": "5.7.1",
     "drizzle-orm": "0.45.2",
+    "esbuild": "0.28.2",
+    "nitro": "3.0.260903-beta",
     "nodemailer": "^10.0.11",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.74.0",
@@ -166,14 +190,13 @@
     "postgres": "3.4.9",
     "posthog-js": "1.430.3",
     "posthog-node": "5.52.1",
-    "ras-stack-config": "workspace:*",
     "react": "19.2.8",
     "react-test-renderer": "19.2.8",
+    "semver": "7.8.5",
     "tus-js-client": "^4.3.1",
     "typescript": "^7.0.2",
     "vite": "8.2.1",
-    "vitest": "^4.1.10",
-    "yaml": "^2.8.2"
+    "vitest": "^4.1.10"
   },
   "peerDependencies": {
     "@libsql/client": ">=0.18 <1",
@@ -182,6 +205,7 @@
     "@opentelemetry/resources": "^2.10.0",
     "@opentelemetry/sdk-logs": ">=0.221.0 <0.224.0",
     "@posthog/react": ">=1.1 <2",
+    "@tanstack/react-query": "^5.104.1",
     "@tanstack/react-start": ">=1.168.10 <2",
     "better-sqlite3": ">=12 <14",
     "centrifuge": ">=5 <6",
@@ -230,16 +254,19 @@
     "postgres": {
       "optional": true
     },
+    "posthog-js": {
+      "optional": true
+    },
+    "posthog-node": {
+      "optional": true
+    },
     "react": {
       "optional": true
     },
     "tus-js-client": {
       "optional": true
     },
-    "posthog-js": {
-      "optional": true
-    },
-    "posthog-node": {
+    "@tanstack/react-query": {
       "optional": true
     }
   },

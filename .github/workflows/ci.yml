@@ -53,15 +53,6 @@ jobs:
           RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
         run: pnpm --filter ras-stack exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
 
-  peer-floor:
-    name: Peer dependency floor
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./actions/setup-js
-      - run: pnpm build && pnpm peer:floor
-
   runtime-pin:
     name: Runtime image pin
     runs-on: ubuntu-latest
@@ -218,7 +209,7 @@ jobs:
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [actions, check, example, peer-floor, postgres, runtime-pin]
+    needs: [actions, check, example, postgres, runtime-pin]
     permissions:
       actions: write
       contents: write
@@ -264,9 +255,6 @@ jobs:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "$RELEASE_TAG" =~ ^config-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            exit 0
-          fi
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1

@@ -1,6 +1,6 @@
 # Production reference operations
 
-[Back to the full-stack reference](full-stack-example.md)
+[Documentation](README.md) · [Full-stack reference](full-stack-example.md)
 
 These procedures describe the example's SQLite deployment. They are an executable reference, not a hosted backup service or a promise about an application's recovery objectives.
 

@@ -1,7 +1,0 @@
-{
-  "extends": "ras-stack-config/config/typescript/tanstack",
-  "compilerOptions": {
-    "types": ["node"]
-  },
-  "include": ["index.ts"]
-}

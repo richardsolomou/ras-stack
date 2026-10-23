@@ -289,11 +289,11 @@ describe('npm publication dispatch', () => {
     expect(compatibilityTag).toBe(releaseTag)
   })
 
-  it('leaves the action compatibility tag unchanged after a configuration-only release', async () => {
+  it('rejects retired configuration-only release tags', async () => {
     const fixture = await compatibilityRepository()
-    const before = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout
-    await exec('bash', ['-c', await compatibilityTagScript()], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'config-v1.0.0' } })
-    expect((await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout).toBe(before)
+    await expect(
+      exec('bash', ['-c', await compatibilityTagScript()], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'config-v1.0.0' } }),
+    ).rejects.toMatchObject({ code: 1, stderr: 'Invalid release tag: config-v1.0.0\n' })
   })
 })
 
@@ -388,9 +388,7 @@ async function publicationRepository(): Promise<PublicationFixture> {
   const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
   roots.push(work)
   await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
-  await mkdir(join(work, 'packages/config'), { recursive: true })
   await writeFile(join(work, 'packages/ras-stack/package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
-  await writeFile(join(work, 'packages/config/package.json'), JSON.stringify({ name: 'ras-stack-config', version: '1.0.0' }))
   await exec('git', ['init', '--initial-branch=main'], { cwd: work })
   await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
   await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
