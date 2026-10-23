@@ -51,7 +51,7 @@ Configuration dependencies are installed before hooks, so any reviewed release-a
 ```yaml
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
-  - ras-stack@5.0.0-next.3
+  - ras-stack@5.0.0
 ```
 
 Use the version actually reviewed and retain unrelated policy. Moving between fresh releases can require retaining the old exact exception until the old boot/application entries have been pruned. RAS does not disable the repository's gate to install itself.
@@ -66,7 +66,7 @@ Ignores apply across the matching rule, including the same names in other worksp
 
 ## Prerelease candidates
 
-Bootstrap with `pnpm dlx ras-stack@next sync` and upgrade with `pnpm exec ras update next` while stable `latest` still identifies v4. The `next.1` and `next.2` candidates use the ordinary-manifest installation model; use a release containing the hook implementation for this guide.
+Stable installations use `ras-stack@5` or `latest`. To evaluate a future candidate, use its exact prerelease version or the `next` tag after checking which version it selects: `pnpm dlx ras-stack@<candidate> sync` or `pnpm exec ras update <candidate>`. The v5 `next.1` and `next.2` candidates use an unsupported ordinary-manifest installation model; use stable v5 for the hook implementation described here.
 
 Configuration dependencies must come from a registry. Git URLs and local archive specifiers cannot bootstrap this model. Test a packed candidate through a local registry fixture before publishing that same archive. The hook bundles its selector-parsing dependencies and keeps only Node builtins as external imports, because pnpm does not install a config dependency's regular dependencies during boot.
 

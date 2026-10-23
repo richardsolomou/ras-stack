@@ -37,13 +37,11 @@ Selections are typed descriptors. The [configuration catalogue](configuration.md
 
 ## Run the first sync
 
-During the v5 prerelease:
-
 ```sh
-pnpm dlx ras-stack@next sync
+pnpm dlx ras-stack@5 sync
 ```
 
-For released v5, use `pnpm dlx ras-stack@5 sync`, or an exact version. The target CLI can load selections before RAS is installed locally. It adds the configuration dependency and shipped hook to `pnpm-workspace.yaml`, maintains existing Dependabot policy, and runs pnpm installation with lockfile updates allowed. It does not write dependencies or RAS metadata into `package.json`.
+Use `ras-stack@5` for the latest v5 release, or select an exact version. The target CLI can load selections before RAS is installed locally. It adds the configuration dependency and shipped hook to `pnpm-workspace.yaml`, maintains existing Dependabot policy, and runs pnpm installation with lockfile updates allowed. It does not write dependencies or RAS metadata into `package.json`.
 
 The resulting workspace settings look like this, alongside the application's existing policy:
 

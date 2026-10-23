@@ -17,7 +17,7 @@ The resulting application uses normal pnpm installs. Only selected integrations 
 | Check hook wiring, policy, and installed versions | `pnpm exec ras sync --check`     |
 | Upgrade RAS and the selected stack together       | `pnpm exec ras update`           |
 
-These docs describe RAS 5, which includes the former `ras-stack-config` presets in the main package. During the v5 prerelease, bootstrap with `ras-stack@next` and use `ras update next` for candidate upgrades. See [installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) and [migration from v4](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md#migrate-from-v4) before changing an existing application.
+These docs describe RAS 5, which includes the former `ras-stack-config` presets in the main package. Bootstrap with `pnpm dlx ras-stack@5 sync` and use `pnpm exec ras update` for stable upgrades. See [installation](https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md) and [migration from v4](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md#migrate-from-v4) before changing an existing application.
 
 ## What RAS owns
 

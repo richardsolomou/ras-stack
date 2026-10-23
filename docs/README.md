@@ -13,7 +13,7 @@ RAS 5 manages opted-in dependency versions and configuration through the main `r
 | Understand Dependabot or a failed install                  | [Update policy](upgrades.md#dependabot-and-security-updates) and [troubleshooting](upgrades.md#troubleshooting) |
 | Replace the v4 configuration package                       | [Migrate from v4](upgrades.md#migrate-from-v4)                                                                  |
 
-During the v5 prerelease, use the `next` tag explicitly. The [installation guide](managed-installation.md) explains bootstrapping, and the [upgrade guide](upgrades.md#prerelease-candidates) records candidate limitations.
+Use `ras-stack@5` to bootstrap stable v5. The [installation guide](managed-installation.md) explains bootstrapping, and the [upgrade guide](upgrades.md#prerelease-candidates) records candidate limitations.
 
 ## Use the runtime and delivery helpers
 
