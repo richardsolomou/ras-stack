@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.0.0
+
+### Major Changes
+
+- 016b58c: Manage opted-in runtime and development dependencies through native pnpm hooks, bundled tooling presets, and coordinated CLI upgrades.
+
 ## 4.4.2
 
 ### Patch Changes
