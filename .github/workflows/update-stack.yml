@@ -1,0 +1,63 @@
+name: Update RAS stack
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        description: RAS version or tag to install.
+        type: string
+        default: latest
+    secrets:
+      UPGRADE_TOKEN:
+        description: Optional token with contents and pull-requests write access to trigger PR workflows without manual approval.
+        required: false
+
+concurrency:
+  group: ras-stack-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: richardsolomou/ras-stack/actions/setup-js@v1
+      - name: Upgrade selected dependencies
+        id: upgrade
+        env:
+          RAS_TARGET: ${{ inputs.target }}
+        run: |
+          pnpm exec ras update "$RAS_TARGET"
+          pnpm exec ras sync --check
+          echo "version=$(node -p "require('./node_modules/ras-stack/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPGRADE_TOKEN || github.token }}
+          branch: chore/ras-stack-update
+          delete-branch: true
+          add-paths: |
+            pnpm-workspace.yaml
+            pnpm-lock.yaml
+            .github/dependabot.yml
+            .github/dependabot.yaml
+          commit-message: 'chore(deps): update ras-stack to ${{ steps.upgrade.outputs.version }}'
+          title: 'chore(deps): update ras-stack to ${{ steps.upgrade.outputs.version }}'
+          body: |
+            ## Problem
+
+            Keep the selected stack on a coordinated RAS release.
+
+            ## Changes
+
+            Update RAS, its selected dependency graph, and managed Dependabot policy together.
+
+            ## How did you test this code?
+
+            I ran `pnpm exec ras update` and `pnpm exec ras sync --check`. The repository's PR checks validate the application before merge.

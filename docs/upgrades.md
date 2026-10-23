@@ -32,6 +32,32 @@ The CLI delegates to `pnpm dlx ras-stack@<target> sync --upgrade`. The selected 
 
 pnpm 12.12+ can update configuration dependencies directly. Prefer `ras update` for a coordinated change because native config-dependency updates can require a subsequent install to apply the new hook's graph. Fresh clones and CI use native frozen installs.
 
+## Automated upgrade pull requests
+
+Opt in with `.github/workflows/update-ras.yml` in the application repository:
+
+```yaml
+name: Update RAS
+
+on:
+  schedule:
+    - cron: '23 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: richardsolomou/ras-stack/.github/workflows/update-stack.yml@v1
+```
+
+The shared workflow checks out the application's default branch, installs its pinned toolchain and frozen dependencies, runs `ras update`, and verifies the result with `ras sync --check`. It maintains one `chore/ras-stack-update` PR, updates that PR when another release is available, and creates nothing when the graph is unchanged. The PR contains only the workspace settings, lockfile, and managed Dependabot policy. Normal repository CI validates application behavior; upgrades are not merged automatically.
+
+The caller owns the schedule and permissions. An optional `target` input selects a version or tag; it defaults to `latest`. The workflow honors the repository's release-age, registry, and build policies. A release blocked by policy must age or receive an intentional repository-owned exception; the updater does not bypass the policy.
+
+Enable **Allow GitHub Actions to create and approve pull requests** in the repository's Actions settings. The built-in `GITHUB_TOKEN` is sufficient to open update PRs, but [GitHub requires maintainer approval before bot-created PR workflows run](https://github.blog/changelog/2026-06-11-bot-created-pull-requests-can-run-workflows-if-approved/). To start PR CI without that approval, pass an optional `UPGRADE_TOKEN` secret containing a fine-grained PAT or GitHub App token with contents and pull-requests write access. Keep that credential in the consumer repository. The workflow uses the maintained [create-pull-request action](https://github.com/peter-evans/create-pull-request) for branch and PR management.
+
 ## Opt out or transfer ownership
 
 Remove a selection and install again. pnpm removes packages no remaining selection or application-owned declaration needs. No ownership inventory or dependency versions are stored in `package.json`.
