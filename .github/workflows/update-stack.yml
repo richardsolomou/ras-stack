@@ -37,16 +37,13 @@ jobs:
           pnpm exec ras update "$RAS_TARGET"
           pnpm exec ras sync --check
           echo "version=$(node -p "require('./node_modules/ras-stack/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "paths=$(git ls-files --cached --others --exclude-standard -- pnpm-workspace.yaml pnpm-lock.yaml .github/dependabot.yml .github/dependabot.yaml | paste -sd, -)" >> "$GITHUB_OUTPUT"
       - uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.UPGRADE_TOKEN || github.token }}
           branch: chore/ras-stack-update
           delete-branch: true
-          add-paths: |
-            pnpm-workspace.yaml
-            pnpm-lock.yaml
-            .github/dependabot.yml
-            .github/dependabot.yaml
+          add-paths: ${{ steps.upgrade.outputs.paths }}
           commit-message: 'chore(deps): update ras-stack to ${{ steps.upgrade.outputs.version }}'
           title: 'chore(deps): update ras-stack to ${{ steps.upgrade.outputs.version }}'
           body: |
