@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.1.0
+
+### Minor Changes
+
+- fd04522: Open coordinated stack upgrade pull requests through an opt-in reusable GitHub workflow.
+
 ## 5.0.0
 
 ### Major Changes
