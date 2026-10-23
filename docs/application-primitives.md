@@ -18,7 +18,7 @@ export function createAppQueryClient() {
 
 Each call creates an independent native `QueryClient`. The default query `staleTime` is one minute, keeping hydrated data fresh; application overrides, mutation caches, and other native `QueryClientConfig` options are preserved. Create server-side clients per request rather than sharing a cache across users.
 
-`QueryProvider` from the same entrypoint combines `QueryClientProvider` and `HydrationBoundary`. It retains a stable client when none is supplied, accepts an existing `client`, and accepts a dehydrated `state`. Applications choose the provider's position and own query keys, request functions, mutation callbacks, and cache policy. A Start application can keep its router SSR integration and use the factory without adding another provider.
+`QueryProvider` from the same entrypoint combines `QueryClientProvider` and `HydrationBoundary`. It requires an application-owned `client` and accepts a dehydrated `state`. Create the client outside renders that can be abandoned by Suspense, keep it stable for that browser application, and create a separate client for each server request. Applications choose the provider's position and own query keys, request functions, mutation callbacks, and cache policy. A Start application can keep its router SSR integration and use the factory without adding another provider.
 
 ## Authentication and request security
 

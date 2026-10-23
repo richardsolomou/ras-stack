@@ -114,6 +114,8 @@ Keep aliases, includes, application-specific generated directories, worker globa
 
 Both boundary presets exclude tests/specs, recognize relative paths and `@/`, and check lexical imports rather than transitive side effects. Neither is automatic. Other layouts or aliases need local overrides. A local `no-restricted-imports` override replaces that rule's patterns, so retain the restrictions that still apply.
 
+Vite's `root` and `envDir` settings also control where RAS reads source-map upload credentials. Set `envDir: false` to use process environment variables without loading env files. The PostHog plugin owns source-map generation, including its `sourcemaps.enabled` setting.
+
 ## CLI reference
 
 Prefix these commands with `pnpm exec` when running outside a package script.
@@ -132,7 +134,7 @@ Prefix these commands with `pnpm exec` when running outside a package script.
 | `ras exec -- <program> [arguments]` | Execute with application binaries on `PATH`                |
 | `ras audit`                         | Run pnpm audit against the consumer lockfile               |
 
-Tool commands verify selected installed versions before execution. They do not install dependencies. pnpm prepares ignored local presets through its hook before launching the command. Arguments are forwarded without shell evaluation; applications can also use upstream executables directly. Asset, Changesets, preview, and realtime service commands are documented under [repository tooling](repository-tooling.md).
+Tool commands verify selected installed versions before execution. They do not install dependencies. pnpm prepares ignored local presets through its hook before launching the command. Arguments are forwarded without shell evaluation; TypeScript's `--build` or `-b` is placed first as required by its CLI. Applications can also use upstream executables directly. Asset, Changesets, preview, and realtime service commands are documented under [repository tooling](repository-tooling.md).
 
 ## Custom configured tooling
 

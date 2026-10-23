@@ -49,7 +49,10 @@ export async function runManagedCli(command: string, arguments_: string[]): Prom
       args.push('--config', '.ras/oxlint.json', '--ignore-pattern', 'node_modules/**', '--ignore-pattern', '.ras/**')
   }
   if (command === 'format' && arguments_.includes('--check') && args.includes('--write')) args.splice(args.indexOf('--write'), 1)
-  await runProcess(process.execPath, [resolve(await commandPath(root, selected.package, selected.bin)), ...args, ...arguments_], root, {
+  const forwarded = [...arguments_]
+  const buildIndex = command === 'typecheck' ? forwarded.findIndex((argument) => ['-b', '--build'].includes(argument)) : -1
+  if (buildIndex >= 0) args.unshift(...forwarded.splice(buildIndex, 1))
+  await runProcess(process.execPath, [resolve(await commandPath(root, selected.package, selected.bin)), ...args, ...forwarded], root, {
     env,
   })
 }

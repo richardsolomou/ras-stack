@@ -57,6 +57,10 @@ describe('managed tool commands', () => {
     expect(await argumentsFor('typecheck', ['--project=custom.json'])).toEqual(['--noEmit', '--project=custom.json'])
   })
 
+  it.each(['--build', '-b'])('puts TypeScript build mode %s first', async (flag) => {
+    expect(await argumentsFor('typecheck', [flag, 'tsconfig.json'])).toEqual([flag, '--noEmit', 'tsconfig.json'])
+  })
+
   it('uses generated linter configuration and excludes installed/generated files', async () => {
     expect(await argumentsFor('lint', ['src'])).toEqual([
       '--config',

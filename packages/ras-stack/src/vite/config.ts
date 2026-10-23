@@ -88,7 +88,6 @@ export async function configureVite(config: RasViteConfig, presets: readonly str
       plugins,
       ...(sourceMaps.length
         ? {
-            build: { sourcemap: 'hidden' },
             worker: { plugins: () => [postHogSourceMapPlugins(env, ras.posthog).then(([plugin]) => plugin)] },
           }
         : {}),
@@ -104,7 +103,9 @@ export function defineViteConfig(
     const plan = await preparedPlan(process.cwd())
     const resolved = typeof config === 'function' ? await config(context) : config
     const { loadEnv } = await loadTool<typeof import('vite')>('vite')
-    const env = { ...loadEnv(context.mode, process.cwd(), ''), ...process.env }
+    const root = path.resolve(resolved.root ?? process.cwd())
+    const envDir = resolved.envDir === false ? undefined : path.resolve(root, resolved.envDir ?? '')
+    const env = { ...(envDir ? loadEnv(context.mode, envDir, '') : {}), ...process.env }
     return configureVite(resolved, plan.presets.vite, env)
   }
 }

@@ -1,3 +1,5 @@
+import { parsePkgAndParentSelector } from '@pnpm/parse-overrides'
+import { satisfies } from 'semver'
 import { dirname, join } from 'node:path'
 import { exists, readJson } from './files.js'
 import { checkConsumer, loadPlan } from './install.js'
@@ -19,12 +21,23 @@ interface Manifest {
   devDependencies?: Record<string, string>
 }
 
-export function createHooks(plan: InstallationPlan, consumer: string, version: string) {
+export function createHooks(plan: InstallationPlan, consumer: string, version: string, consumerVersion?: string) {
   return {
     updateConfig(config: Settings): Settings {
-      for (const [name, selected] of Object.entries({ 'ras-stack': version, ...plan.dependencies, ...plan.devDependencies }))
-        if (config.overrides?.[name] && config.overrides[name] !== selected)
-          throw new Error(`Consumer override conflicts with managed ${name}`)
+      const managed: Record<string, string> = { 'ras-stack': version, ...plan.dependencies, ...plan.devDependencies }
+      for (const [selector, replacement] of Object.entries(config.overrides ?? {})) {
+        const { parentPkg, targetPkg } = parsePkgAndParentSelector(selector)
+        if (
+          parentPkg &&
+          (parentPkg.name !== consumer ||
+            (parentPkg.bareSpecifier !== undefined && (!consumerVersion || !satisfies(consumerVersion, parentPkg.bareSpecifier))))
+        )
+          continue
+        const selected = managed[targetPkg.name]
+        if (!selected || targetPkg.bareSpecifier === '') continue
+        if (targetPkg.bareSpecifier !== undefined && !satisfies(selected, targetPkg.bareSpecifier, { includePrerelease: true })) continue
+        if (replacement !== selected) throw new Error(`Consumer override conflicts with managed ${targetPkg.name}@${selected}: ${selector}`)
+      }
       for (const name of plan.allowBuilds) if (config.allowBuilds?.[name] === false) throw new Error(`Consumer build policy denies ${name}`)
       const settings = { ...config, optimisticRepeatInstall: false }
       if (plan.allowBuilds.length)
@@ -60,8 +73,11 @@ function selection(root: string) {
     selected = (async () => {
       const plan = await loadPlan(root)
       const consumer = await checkConsumer(root, plan)
-      const { version } = await readJson<{ version: string }>(new URL('../../package.json', import.meta.url))
-      return { plan, hooks: createHooks(plan, consumer, version) }
+      const [{ version }, { version: consumerVersion }] = await Promise.all([
+        readJson<{ version: string }>(new URL('../../package.json', import.meta.url)),
+        readJson<{ version?: string }>(join(root, 'package.json')),
+      ])
+      return { plan, hooks: createHooks(plan, consumer, version, consumerVersion) }
     })()
     selections.set(root, selected)
   }

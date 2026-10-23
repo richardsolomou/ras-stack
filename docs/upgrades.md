@@ -44,7 +44,7 @@ The consumer lockfile pins resolved transitives. Application-owned upgrades may 
 
 ## Installation policy
 
-The hook preserves existing registry routing, release-age restrictions, integrity policy, and build approvals. `allowBuilds` in the typed selection can add an explicit approval. Conflicting direct overrides or explicit build denials are errors. RAS does not blanket-approve transitive scripts.
+The hook preserves existing registry routing, release-age restrictions, integrity policy, and build approvals. `allowBuilds` in the typed selection can add an explicit approval. Conflicting direct overrides or explicit build denials are errors. Version-scoped and matching parent-scoped overrides are checked before installation; selectors for other workspace packages or nonmatching versions remain application-owned. RAS does not blanket-approve transitive scripts.
 
 Configuration dependencies are installed before hooks, so any reviewed release-age exception for RAS itself belongs in `pnpm-workspace.yaml`:
 
@@ -68,7 +68,7 @@ Ignores apply across the matching rule, including the same names in other worksp
 
 Bootstrap with `pnpm dlx ras-stack@next sync` and upgrade with `pnpm exec ras update next` while stable `latest` still identifies v4. The `next.1` and `next.2` candidates use the ordinary-manifest installation model; use a release containing the hook implementation for this guide.
 
-Configuration dependencies must come from a registry. Git URLs and local archive specifiers cannot bootstrap this model. Test a packed candidate through a local registry fixture before publishing that same archive. The hook uses only Node builtins and dependency-free RAS modules, because pnpm does not install a config dependency's regular dependencies during boot.
+Configuration dependencies must come from a registry. Git URLs and local archive specifiers cannot bootstrap this model. Test a packed candidate through a local registry fixture before publishing that same archive. The hook bundles its selector-parsing dependencies and keeps only Node builtins as external imports, because pnpm does not install a config dependency's regular dependencies during boot.
 
 Candidate pins and stable-release merge requirements belong in migration PR descriptions. Permanent consumer docs link here rather than duplicating the rollout instructions.
 

@@ -43,6 +43,38 @@ describe('native dependency injection', () => {
     )
   })
 
+  it.each(['react@19.3.0', 'react@^19', 'app>react', 'app@^1>react@>=19'])('rejects a conflicting scoped override %s', (selector) => {
+    expect(() => createHooks(plan, 'app', '5.0.0', '1.2.0').updateConfig({ overrides: { [selector]: '18.0.0' } })).toThrow(
+      'conflicts with managed react',
+    )
+  })
+
+  it('matches wildcard overrides against a prerelease target', () => {
+    expect(() => createHooks(plan, 'app', '5.0.0-next.4').updateConfig({ overrides: { 'ras-stack@*': '4.4.2' } })).toThrow(
+      'conflicts with managed ras-stack',
+    )
+  })
+
+  it.each(['react@^18', 'mobile>react', 'app@^2>react', 'app@*>react', 'react@', '@scope/mobile@^1>react'])(
+    'preserves an unrelated or convergent selector %s',
+    (selector) => {
+      const overrides = { [selector]: '18.0.0' }
+      expect(createHooks(plan, 'app', '5.0.0', '1.0.0-next.1').updateConfig({ overrides }).overrides).toEqual(overrides)
+    },
+  )
+
+  it('preserves a matching override that selects the managed pin', () => {
+    expect(createHooks(plan, 'app', '5.0.0').updateConfig({ overrides: { 'react@^19': '19.3.0' } }).overrides).toEqual({
+      'react@^19': '19.3.0',
+    })
+  })
+
+  it('does not match a versioned parent against an unversioned application', () => {
+    expect(createHooks(plan, 'app', '5.0.0').updateConfig({ overrides: { 'app@^1>react': '18.0.0' } }).overrides).toEqual({
+      'app@^1>react': '18.0.0',
+    })
+  })
+
   it('preserves caller settings and approvals', () => {
     const config = {
       minimumReleaseAge: 10080,

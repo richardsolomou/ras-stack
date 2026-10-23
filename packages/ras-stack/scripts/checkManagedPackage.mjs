@@ -64,6 +64,18 @@ try {
     env: { ...process.env, CI: 'true' },
   })
   assert.equal(readFileSync(path.join(consumer, 'package.json'), 'utf8'), originalManifest)
+  const selectedWorkspace = readFileSync(path.join(consumer, 'pnpm-workspace.yaml'), 'utf8')
+  const selectedLockfile = readFileSync(path.join(consumer, 'pnpm-lock.yaml'), 'utf8')
+  for (const selector of [`posthog-node@${currentPosthog}`, 'managed-package-consumer>posthog-node']) {
+    writeFileSync(path.join(consumer, 'pnpm-workspace.yaml'), `${selectedWorkspace}\noverrides:\n  '${selector}': 5.52.1\n`)
+    const rejected = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: consumer, encoding: 'utf8' })
+    assert.notEqual(rejected.status, 0, `Managed pin was overridden by ${selector}`)
+    assert.ok(`${rejected.stdout}${rejected.stderr}`.includes('conflicts with managed posthog-node'))
+    assert.equal(readFileSync(path.join(consumer, 'pnpm-lock.yaml'), 'utf8'), selectedLockfile)
+    writeFileSync(path.join(consumer, 'pnpm-workspace.yaml'), selectedWorkspace)
+    exec('pnpm', ['install', '--no-frozen-lockfile'])
+    assert.equal(JSON.parse(readFileSync(path.join(consumer, 'node_modules/posthog-node/package.json'), 'utf8')).version, currentPosthog)
+  }
   assert.equal(JSON.parse(readFileSync(path.join(consumer, 'node_modules/ras-stack/package.json'), 'utf8')).version, version)
   assert.equal(
     JSON.parse(readFileSync(path.join(consumer, '.ras/tsconfig.json'), 'utf8')).extends,
@@ -98,7 +110,7 @@ try {
     path.join(consumer, 'main.tsx'),
     `import {createElement} from 'react'
 import {useQuery} from '@tanstack/react-query'
-import {QueryProvider} from 'ras-stack/query'
+import {QueryProvider,createQueryClient} from 'ras-stack/query'
 import {Identity} from 'spacetimedb'
 import {FaCheck} from 'react-icons/fa'
 import {useAuthAction} from 'ras-stack/auth/react'
@@ -112,7 +124,7 @@ void PostHogIntegration
 void createSameOriginRealtimeClient
 void useConnectedRealtimeClient
 export function Probe(){const {busy}=useAuthAction();const query=useQuery({queryKey:['probe'],queryFn:async()=>42,initialData:42});return createElement('div',null,String(query.data)+String(busy),createElement(FaCheck))}
-export const tree=createElement(QueryProvider,null,createElement(Probe))
+export const tree=createElement(QueryProvider,{client:createQueryClient()},createElement(Probe))
 export const identity: Identity = Identity.fromString('0'.repeat(64))
 `,
   )
@@ -157,6 +169,7 @@ export default defineConfig({build:{rollupOptions:{onwarn(warning,warn){if(warni
     )
     exec('pnpm', ['exec', 'ras', 'typecheck', '-p', `presets/tsconfig-${preset}.json`])
   }
+  exec('pnpm', ['exec', 'ras', 'typecheck', '--build', 'presets/tsconfig-library.json'])
   for (const preset of ['oxlint', 'oxlint/application', 'oxlint/domain', 'oxlint/layers'])
     execFileSync(
       'pnpm',

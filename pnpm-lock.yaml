@@ -209,6 +209,9 @@ importers:
       '@opentelemetry/sdk-logs':
         specifier: ^0.223.0
         version: 0.223.0(@opentelemetry/api@1.9.1)
+      '@pnpm/parse-overrides':
+        specifier: 1001.0.4
+        version: 1001.0.4
       '@posthog/react':
         specifier: 1.10.6
         version: 1.10.6(@types/react@19.2.18)(posthog-js@1.430.3(@types/react@19.2.18)(react@19.2.8))(react@19.2.8)
@@ -239,6 +242,9 @@ importers:
       '@types/react-test-renderer':
         specifier: 19.1.0
         version: 19.1.0
+      '@types/semver':
+        specifier: 7.8.0
+        version: 7.8.0
       '@vitejs/plugin-react':
         specifier: 6.1.2
         version: 6.1.2(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.8.2))
@@ -254,6 +260,9 @@ importers:
       drizzle-orm:
         specifier: 0.45.2
         version: 0.45.2(@cloudflare/workers-types@5.20260820.1)(@libsql/client@0.18.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3@12.11.1)(kysely@0.29.5)(postgres@3.4.9)
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       nitro:
         specifier: 3.0.260903-beta
         version: 3.0.260903-beta
@@ -284,6 +293,9 @@ importers:
       react-test-renderer:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
       tus-js-client:
         specifier: ^4.3.1
         version: 4.3.1
@@ -1788,6 +1800,34 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
+  '@pnpm/catalogs.protocol-parser@1001.0.0':
+    resolution: {integrity: sha512-9rHKCMRvhfv7TSAVSCVLI+8OZhi1OcT8lanAGqOPbGgQTkFrPH3PfEWJNxz43xqrXRa4HCFRAMu+g19su5eRLA==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/catalogs.resolver@1000.0.5':
+    resolution: {integrity: sha512-h6UiDAu/Ztj0LCd9sqmJwSWvJYTMUuxo/+/Iz2WZuWboyUI+2BylWJvokkMG4hNlvroLzBQ5+cz9/e+TDSLpoA==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/catalogs.types@1000.0.0':
+    resolution: {integrity: sha512-xRf72lk7xHNvbenA4sp4Of/90QDdRW0CRYT+V+EbqpUXu1xsXtedHai34cTU6VGe7C1hUukxxE9eYTtIpYrx5g==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/constants@1001.3.1':
+    resolution: {integrity: sha512-2hf0s4pVrVEH8RvdJJ7YRKjQdiG8m0iAT26TTqXnCbK30kKwJW69VLmP5tED5zstmDRXcOeH5eRcrpkdwczQ9g==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/error@1000.1.0':
+    resolution: {integrity: sha512-Dqc2IJJPjUatwc9Letw+vG29rnaMrDGi5g6WCx1HiZYm0obXbTmLygeRafMbgf+sLKXrWE1shOeiayQuczBdoA==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/parse-overrides@1001.0.4':
+    resolution: {integrity: sha512-fk6gFXDKN61vZfb/qbTne/938GPQaYy8U+B2TdBPxPuw2M/U8l1ltlUoJZzR3SW4O+jghzaFKTVVIPiPs3K1AQ==}
+    engines: {node: '>=18.12'}
+
+  '@pnpm/parse-wanted-dependency@1001.0.0':
+    resolution: {integrity: sha512-cIZao+Jdu/4znu76d3ttAWBycDj6GWKiDVNlx1GVgqYgS/Qn7ak3Lm0FGIMAIHr5oOnX63jwzKIhW35AHNaTjQ==}
+    engines: {node: '>=18.12'}
+
   '@poppinss/colors@4.1.6':
     resolution: {integrity: sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg==}
 
@@ -2491,6 +2531,9 @@ packages:
   '@types/react@19.2.18':
     resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
 
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
+
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
@@ -2897,6 +2940,9 @@ packages:
 
   buffer@5.7.1:
     resolution: {integrity: sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==}
+
+  builtins@5.1.0:
+    resolution: {integrity: sha512-SW9lzGTLvWTP1AY8xeAMZimqDrIaSdLQUcVr9DMef51niJ022Ri87SwRRKYm4A6iHfkPaiVUu/Duw2Wc4J7kKg==}
 
   caniuse-lite@1.0.30001809:
     resolution: {integrity: sha512-xxWVywk6a6Arlk+hymeycyn/VgqEfLDxupvhH/xiY5SJ/18kmi9o6MiO320DCUzypORHLtvh0I4i04tUhCNHNQ==}
@@ -4506,6 +4552,10 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
+  validate-npm-package-name@5.0.0:
+    resolution: {integrity: sha512-YuKoXDAhBYxY7SfOKxHBDoSyENFeW5VvIIQp2TGQuit8gpK6MnWaQelBKxso72DoxTZfZdcP3W90LqpSkgPzLQ==}
+    engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
+
   vite@8.2.1:
     resolution: {integrity: sha512-EU/eS7BH3XROHh2YnBefjM6DBKA6ZeMZEYQbj7NLWg5wHYlhB8B/Mayd5XsgWq+NFYccDOTemRpdETWR6Ka/lw==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -5883,6 +5933,32 @@ snapshots:
     dependencies:
       playwright: 1.62.1
 
+  '@pnpm/catalogs.protocol-parser@1001.0.0': {}
+
+  '@pnpm/catalogs.resolver@1000.0.5':
+    dependencies:
+      '@pnpm/catalogs.protocol-parser': 1001.0.0
+      '@pnpm/error': 1000.1.0
+
+  '@pnpm/catalogs.types@1000.0.0': {}
+
+  '@pnpm/constants@1001.3.1': {}
+
+  '@pnpm/error@1000.1.0':
+    dependencies:
+      '@pnpm/constants': 1001.3.1
+
+  '@pnpm/parse-overrides@1001.0.4':
+    dependencies:
+      '@pnpm/catalogs.resolver': 1000.0.5
+      '@pnpm/catalogs.types': 1000.0.0
+      '@pnpm/error': 1000.1.0
+      '@pnpm/parse-wanted-dependency': 1001.0.0
+
+  '@pnpm/parse-wanted-dependency@1001.0.0':
+    dependencies:
+      validate-npm-package-name: 5.0.0
+
   '@poppinss/colors@4.1.6':
     dependencies:
       kleur: 4.1.5
@@ -6708,6 +6784,8 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  '@types/semver@7.8.0': {}
+
   '@types/trusted-types@2.0.7':
     optional: true
 
@@ -6797,7 +6875,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.1
-      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(vite@8.3.4(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0))
+      vitest: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.2.0)(@vitest/coverage-v8@4.1.10)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.8.2))
 
   '@vitest/expect@4.1.10':
     dependencies:
@@ -7089,6 +7167,10 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
+
+  builtins@5.1.0:
+    dependencies:
+      semver: 7.8.5
 
   caniuse-lite@1.0.30001809: {}
 
@@ -8550,6 +8632,10 @@ snapshots:
       react: 19.2.8
 
   util-deprecate@1.0.2: {}
+
+  validate-npm-package-name@5.0.0:
+    dependencies:
+      builtins: 5.1.0
 
   vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.8.2):
     dependencies:
