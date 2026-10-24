@@ -60,7 +60,7 @@ on:
         type: string
         default: ''
       dependabot-environment:
-        description: Protected GitHub environment required before deploying Dependabot previews.
+        description: Protected GitHub environment required before deploying Dependabot previews. Set to an empty string to deploy them without approval.
         type: string
         default: dependabot-preview
     secrets:
@@ -117,7 +117,7 @@ jobs:
       contents: read
     steps:
       - name: Verify Dependabot deployment protection
-        if: needs.classify-pr.outputs.dependabot == 'true'
+        if: needs.classify-pr.outputs.dependabot == 'true' && inputs.dependabot-environment != ''
         env:
           DEPENDABOT_ENVIRONMENT: ${{ inputs.dependabot-environment }}
           GH_TOKEN: ${{ github.token }}
