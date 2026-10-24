@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.2.0
+
+### Minor Changes
+
+- 835aa6f: Deploy Dependabot previews without approval when `dependabot-environment` is an empty string.
+
 ## 5.1.0
 
 ### Minor Changes
