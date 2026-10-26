@@ -48,8 +48,8 @@ describe('Dokploy preview CLI configuration', () => {
   })
 
   it('validates custom hostname and Cloudflare configuration', async () => {
-    expect(dokployPreviewFromEnvironment({ ...environment, PREVIEW_SUBDOMAIN_PREFIX: 'sealed-lists-pr' }).config.subdomainPrefix).toBe(
-      'sealed-lists-pr',
+    expect(dokployPreviewFromEnvironment({ ...environment, PREVIEW_SUBDOMAIN_PREFIX: 'example-pr' }).config.subdomainPrefix).toBe(
+      'example-pr',
     )
     expect(() => dokployPreviewFromEnvironment({ ...environment, PREVIEW_SUBDOMAIN_PREFIX: 'not.valid' })).toThrow('must be a slug')
     await expect(runDokployPreviewCli(['delete'], { ...environment, CLOUDFLARE_API_TOKEN: 'secret', PR_NUMBER: '42' })).rejects.toThrow(
@@ -120,7 +120,7 @@ describe('Dokploy preview CLI commands', () => {
   it('creates proxied DNS before verifying a prefixed custom hostname', async () => {
     vi.useFakeTimers()
     const cloudflare = vi.fn<typeof globalThis.fetch>()
-    const server = fakeDokploy({ applications: [{ applicationId: 'app-42', name: 'example-pr-42' }], serverIp: '145.239.74.127' })
+    const server = fakeDokploy({ applications: [{ applicationId: 'app-42', name: 'example-pr-42' }], serverIp: '8.8.8.8' })
     vi.stubGlobal(
       'fetch',
       vi.fn<typeof globalThis.fetch>(async (input, init) => {
@@ -132,7 +132,7 @@ describe('Dokploy preview CLI commands', () => {
 
     const deployment = runDokployPreviewCli(['deploy'], {
       ...environment,
-      PREVIEW_SUBDOMAIN_PREFIX: 'sealed-lists-pr',
+      PREVIEW_SUBDOMAIN_PREFIX: 'example-pr',
       PREVIEW_IMAGE: 'ghcr.io/example/app:pr-42',
       PREVIEW_ENVIRONMENT: 'APP_URL={{PREVIEW_URL}}\n',
       PR_NUMBER: '42',
@@ -143,7 +143,7 @@ describe('Dokploy preview CLI commands', () => {
     await deployment
 
     expect(server.bodies.get('domain.create')).toMatchObject({
-      host: 'sealed-lists-pr-42.example.com',
+      host: 'example-pr-42.example.com',
       https: true,
     })
     expect(cloudflare).toHaveBeenCalledTimes(2)
