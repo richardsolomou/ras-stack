@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.2.1
+
+### Patch Changes
+
+- cd3cf68: Record server functions that throw a 4xx `Response` with the `refused` outcome and an `http.response.status_code` span attribute, instead of marking their span and request metric as errors.
+
 ## 5.2.0
 
 ### Minor Changes
