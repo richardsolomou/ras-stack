@@ -10,10 +10,7 @@ export function useConnectedRealtimeClient(
   const configure = options.configure
   const onError = options.onError
   useEffect(() => {
-    if (!enabled) {
-      setClient(undefined)
-      return undefined
-    }
+    if (!enabled) return undefined
     let active = true
     let cleanup: (() => void) | undefined
     let connected: Centrifuge | undefined
@@ -44,6 +41,7 @@ export function useConnectedRealtimeClient(
       active = false
       cleanup?.()
       connected?.disconnect()
+      setClient(undefined)
     }
   }, [configure, create, enabled, onError])
   return client
@@ -61,10 +59,7 @@ export function useRealtimeSubscription(options: RealtimeSubscriptionHookOptions
   const [subscription, setSubscription] = useState<Subscription>()
   const { channel, client, configure, enabled = true, options: subscriptionOptions } = options
   useEffect(() => {
-    if (!enabled || !client || !channel) {
-      setSubscription(undefined)
-      return undefined
-    }
+    if (!enabled || !client || !channel) return undefined
     const next = client.newSubscription(channel, subscriptionOptions)
     let cleanup: void | (() => void)
     try {
@@ -74,12 +69,14 @@ export function useRealtimeSubscription(options: RealtimeSubscriptionHookOptions
       client.removeSubscription(next)
       throw error
     }
+    // oxlint-disable-next-line react/set-state-in-effect -- The subscription is created by this effect, so state is how it reaches the caller.
     setSubscription(next)
     return () => {
       try {
         cleanup?.()
       } finally {
         client.removeSubscription(next)
+        setSubscription(undefined)
       }
     }
   }, [channel, client, configure, enabled, subscriptionOptions])

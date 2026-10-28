@@ -78,23 +78,23 @@ describe('opt-in import boundaries', () => {
 })
 
 describe('configured application lint defaults', () => {
-  async function printConfig(start: boolean) {
-    const root = await mkdtemp(join(tmpdir(), 'ras-lint-defaults-'))
-    roots.push(root)
-    const plan = installationPlan({ integrations: start ? [tanstackStart] : [], tooling: [oxlint] })
-    const config = join(root, 'oxlint.json')
-    await writeFile(
-      config,
-      JSON.stringify({
-        extends: plan.presets.oxlint.map((name) => fileURLToPath(new URL(`../../config/oxlint/${name}.json`, import.meta.url))),
-      }),
-    )
-    return JSON.parse(execFileSync('oxlint', ['--config', config, '--print-config'], { cwd: root, encoding: 'utf8' })) as {
-      rules: Record<string, unknown>
-    }
-  }
-
   it('keeps application rule preferences when framework exclusions are inferred', async () => {
     expect((await printConfig(true)).rules['no-await-in-loop']).toBe('allow')
   })
 })
+
+async function printConfig(start: boolean) {
+  const root = await mkdtemp(join(tmpdir(), 'ras-lint-defaults-'))
+  roots.push(root)
+  const plan = installationPlan({ integrations: start ? [tanstackStart] : [], tooling: [oxlint] })
+  const config = join(root, 'oxlint.json')
+  await writeFile(
+    config,
+    JSON.stringify({
+      extends: plan.presets.oxlint.map((name) => fileURLToPath(new URL(`../../config/oxlint/${name}.json`, import.meta.url))),
+    }),
+  )
+  return JSON.parse(execFileSync('oxlint', ['--config', config, '--print-config'], { cwd: root, encoding: 'utf8' })) as {
+    rules: Record<string, unknown>
+  }
+}
