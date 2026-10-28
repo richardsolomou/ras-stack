@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.2.3
+
+### Patch Changes
+
+- ee855b1: Clear the realtime client and subscription hooks' values whenever their connection is torn down, so that a caller never holds a disconnected client after its inputs change.
+
 ## 5.2.2
 
 ### Patch Changes
