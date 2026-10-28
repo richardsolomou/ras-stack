@@ -91,16 +91,16 @@ it('finishes an initially suspended query without replacing its client', async (
 it('uses a supplied client without replacing application caches', async () => {
   vi.spyOn(console, 'error').mockImplementation(() => undefined)
   const client = createQueryClient()
-  let actual: unknown
+  const seen = vi.fn()
   function Probe() {
-    actual = useQueryClient()
+    seen(useQueryClient())
     return null
   }
   let rendered!: ReturnType<typeof create>
   await act(async () => {
     rendered = create(createElement(QueryProvider, { client }, createElement(Probe)))
   })
-  expect(actual).toBe(client)
+  expect(seen).toHaveBeenLastCalledWith(client)
   await act(async () => rendered.unmount())
   client.clear()
 })

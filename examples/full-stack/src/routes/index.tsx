@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAuthAction } from 'ras-stack/auth/react'
-import { useEffect, useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { authClient } from '../client/auth'
 import { snapshotQuery } from '../client/queries'
 import { queryErrorMessage } from '../client/queryClient'
@@ -38,12 +38,15 @@ function Home() {
 }
 
 function Authentication({ emailConfigured }: { emailConfigured: boolean }) {
-  const [hydrated, setHydrated] = useState(false)
   const [mode, setMode] = useState<'sign-up' | 'sign-in'>('sign-up')
   const [notice, setNotice] = useState('')
   const queryClient = useQueryClient()
   const action = useAuthAction()
-  useEffect(() => setHydrated(true), [])
+  const hydrated = useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  )
   return (
     <form
       onSubmit={async (event) => {
@@ -183,3 +186,5 @@ function MessageList() {
     </section>
   )
 }
+
+const subscribeNever = () => () => undefined

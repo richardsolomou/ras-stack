@@ -99,6 +99,22 @@ describe('React realtime lifecycle', () => {
     expect(onError).toHaveBeenCalledWith(failure)
   })
 
+  it('stops returning the client once it is disabled', async () => {
+    const { client } = eventClient()
+    const createClient = () => client
+    const Probe = ({ enabled }: { enabled: boolean }) => (observed.push(useConnectedRealtimeClient(createClient, enabled)), null)
+    const observed: (Centrifuge | undefined)[] = []
+    let rendered!: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(Probe, { enabled: true }))
+    })
+    await act(async () => rendered.update(createElement(Probe, { enabled: false })))
+    await act(async () => rendered.unmount())
+    warning.mockRestore()
+    expect(observed.at(-1)).toBeUndefined()
+  })
+
   it('opens one subscription and removes it on unmount', async () => {
     const { client } = eventClient()
     const subscription = new EventEmitter() as unknown as Subscription
@@ -115,6 +131,28 @@ describe('React realtime lifecycle', () => {
     await act(async () => rendered.unmount())
     warning.mockRestore()
     expect({ remove: remove.mock.calls.length, subscribe: subscribe.mock.calls.length }).toEqual({ remove: 1, subscribe: 1 })
+  })
+
+  it('stops returning the subscription once it is disabled', async () => {
+    const { client } = eventClient()
+    const subscription = new EventEmitter() as unknown as Subscription
+    subscription.subscribe = vi.fn()
+    client.newSubscription = vi.fn(() => subscription)
+    client.removeSubscription = vi.fn()
+    const observed: (Subscription | undefined)[] = []
+    const Probe = ({ enabled }: { enabled: boolean }) => (
+      observed.push(useRealtimeSubscription({ channel: 'battle:one', client, enabled })),
+      null
+    )
+    let rendered!: ReturnType<typeof create>
+    const warning = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    await act(async () => {
+      rendered = create(createElement(Probe, { enabled: true }))
+    })
+    await act(async () => rendered.update(createElement(Probe, { enabled: false })))
+    await act(async () => rendered.unmount())
+    warning.mockRestore()
+    expect(observed.at(-1)).toBeUndefined()
   })
 
   it('runs the subscription cleanup before removing it', async () => {

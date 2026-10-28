@@ -24,7 +24,9 @@ export function PostHogIntegration({
 }) {
   const [isLoaded, setIsLoaded] = useState(false)
   const loadedRef = useRef(options?.loaded)
-  loadedRef.current = options?.loaded
+  useEffect(() => {
+    loadedRef.current = options?.loaded
+  })
   if (!environment) return children
   const { session_recording: sessionRecording, ...overrides } = options ?? {}
   const serviceOptions = service
@@ -56,6 +58,7 @@ export function PostHogIntegration({
   }
   return createElement(
     PostHogProvider,
+    // oxlint-disable-next-line react/refs -- PostHog reads `loadedRef` only when it calls `loaded` after initialization.
     { apiKey: environment.projectToken, options: browserOptions },
     createElement(PostHogLoadedContext.Provider, { value: isLoaded }, createElement(PostHogErrorBoundary, { fallback }, children)),
   )
@@ -79,13 +82,16 @@ export function PostHogBetterAuthIdentity<User extends BetterAuthUser>({
   authClient: BetterAuthReactClient<User>
   properties?: (user: User) => Properties
 }) {
+  // oxlint-disable-next-line react/hooks -- Better Auth exposes its session hook on the client, which applications create once.
   const session = authClient.useSession()
   const posthog = usePostHog()
   const isLoaded = useContext(PostHogLoadedContext)
   const isReady = isLoaded || posthog['__loaded']
   const identified = useRef<string | undefined>(undefined)
   const propertiesRef = useRef(properties)
-  propertiesRef.current = properties
+  useEffect(() => {
+    propertiesRef.current = properties
+  })
 
   useEffect(() => {
     if (!isReady || session.isPending || session.error) return
