@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.2.2
+
+### Patch Changes
+
+- 4bc2166: Skip removing the image builder at the end of jobs on GitHub-hosted runners, which took up to a minute per build.
+
 ## 5.2.1
 
 ### Patch Changes
