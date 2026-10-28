@@ -297,7 +297,7 @@ export function createPostHogRpcObserver(
     // A function name is bounded by the application's code, unlike its URL or caller.
     const attributes = identity ? { method, function: identity.name } : { method }
     const parent = request.headers.get('traceparent')
-    return telemetry.withRequestContext(request, {}, () =>
+    const settled = await telemetry.withRequestContext(request, {}, () =>
       telemetry.withSpan(spanName, { kind: 'server', ...(parent ? { parent } : {}) }, async (span) => {
         const startedAt = performance.now()
         span?.setAttribute('http.request.method', method)
@@ -307,9 +307,16 @@ export function createPostHogRpcObserver(
         }
         let outcome = 'error'
         try {
-          const result = await work()
+          const value = await work()
           outcome = 'success'
-          return result
+          return { value }
+        } catch (error) {
+          const status = responseStatus(error)
+          if (status === undefined || status >= 500) throw error
+          span?.setAttribute('http.response.status_code', status)
+          outcome = status >= 400 ? 'refused' : 'success'
+          // Returning instead of throwing keeps an intended response from marking the span as failed.
+          return { response: error }
         } finally {
           span?.setAttribute('server.function.outcome', outcome)
           await Promise.all([
@@ -322,7 +329,15 @@ export function createPostHogRpcObserver(
         }
       }),
     )
+    if ('response' in settled) throw settled.response
+    return settled.value
   }
+}
+
+/** The status of a thrown `Response`, which `createRpc` rethrows as an `Error` whose cause is that response. */
+function responseStatus(error: unknown) {
+  const response = error instanceof Error ? error.cause : error
+  return response instanceof Response ? response.status : undefined
 }
 
 export function installPostHogServerTelemetryShutdown(
