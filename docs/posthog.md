@@ -175,7 +175,7 @@ const observe = createPostHogRpcObserver(telemetry)
 const { rpc, mutationRpc } = createTanStackRpc({ logError, observe })
 ```
 
-The logger includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes.
+The logger includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes. A request's `outcome` is `success`, `refused` when the function throws a 4xx `Response` (the span records its `http.response.status_code` and is not marked failed), or `error`.
 
 To name each server function on those spans and metrics, register the identity middleware once as global function middleware. The observer then adds `code.function.name` and `code.file.path` to the span and a `function` attribute to both metrics:
 

@@ -345,6 +345,36 @@ describe('PostHog server integration', () => {
     })
   })
 
+  it('records an intended client error response as refused without failing its span', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const observer = createPostHogRpcObserver(telemetry)
+    const span = { setAttribute: vi.fn() }
+    let spanWork: unknown
+    withSpan.mockImplementationOnce((_name: string, _options: unknown, work?: (value: unknown) => unknown) => (spanWork = work?.(span)))
+    const refusal = new Error('sign in first', { cause: new Response('sign in first', { status: 401 }) })
+
+    await expect(observer(new Request('https://example.com/action'), () => Promise.reject(refusal))).rejects.toBe(refusal)
+    await expect(spanWork).resolves.toEqual({ response: refusal })
+    expect([span.setAttribute.mock.calls.slice(-2), count.mock.calls.at(-1)]).toEqual([
+      [
+        ['http.response.status_code', 401],
+        ['server.function.outcome', 'refused'],
+      ],
+      ['server_function.requests', 1, { attributes: { method: 'GET', outcome: 'refused' } }],
+    ])
+  })
+
+  it('records a server error response as a failure', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const observer = createPostHogRpcObserver(telemetry)
+    const failure = new Error('unavailable', { cause: new Response('unavailable', { status: 503 }) })
+
+    await expect(observer(new Request('https://example.com/action'), () => Promise.reject(failure))).rejects.toBe(failure)
+    expect(count).toHaveBeenCalledWith('server_function.requests', 1, {
+      attributes: { method: 'GET', outcome: 'error' },
+    })
+  })
+
   it('flushes clients once and ignores captures after shutdown', async () => {
     const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
     await telemetry.start()
