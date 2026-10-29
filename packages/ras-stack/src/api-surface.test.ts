@@ -111,6 +111,7 @@ const surface = {
   './runtime': ['caddyRealtimeProxy', 'persistedRealtimeSecret', 'runRealtimeStack'],
   './server': [
     'clearGlobalSingleton',
+    'currentServerFunction',
     'databaseHealthFailure',
     'errorHasCode',
     'globalAsyncSingleton',

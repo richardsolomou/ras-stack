@@ -3,6 +3,7 @@ import { canonicalRedirect } from './canonical-host.js'
 import { databaseHealthFailure, healthResponse } from './health.js'
 import { errorHasCode } from './errors.js'
 import { createRpc, type RpcObserver } from './rpc.js'
+import { withServerFunction } from './server-function.js'
 import { clearGlobalSingleton, globalAsyncSingleton, globalSingleton, peekGlobalSingleton } from './singleton.js'
 
 describe('canonical redirects', () => {
@@ -73,6 +74,28 @@ describe('RPC wrappers', () => {
       { method: 'POST', path: '/action' },
       expect.objectContaining({ method: 'POST', url: 'https://example.com/action' }),
     )
+  })
+
+  it('reports a server error response with its status', async () => {
+    const logError = vi.fn()
+    const { rpc } = createRpc({ logError })
+    await expect(rpc(() => Promise.reject(new Response('upstream unavailable', { status: 502 })))).rejects.toThrow('upstream unavailable')
+    expect(logError).toHaveBeenCalledWith(expect.objectContaining({ cause: expect.any(Response) }), { status: 502 }, undefined)
+  })
+
+  it('leaves a client error response unreported', async () => {
+    const logError = vi.fn()
+    const { rpc } = createRpc({ logError })
+    await expect(rpc(() => Promise.reject(new Response('sign in first', { status: 401 })))).rejects.toThrow('sign in first')
+    expect(logError).not.toHaveBeenCalled()
+  })
+
+  it('names the server function a failure happened in', async () => {
+    const logError = vi.fn()
+    const { rpc } = createRpc({ logError })
+    const identity = { name: 'saveRoster', filename: 'src/rosters.ts' }
+    await expect(withServerFunction(identity, () => rpc(() => Promise.reject(new Error('broken'))))).rejects.toThrow('broken')
+    expect(logError).toHaveBeenCalledWith(expect.any(Error), { function: 'saveRoster' }, undefined)
   })
 
   it('awaits asynchronous failure reporting before rejecting', async () => {
