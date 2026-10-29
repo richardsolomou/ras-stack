@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.3.0
+
+### Minor Changes
+
+- 839bb7b: RPC failures, logs, and exceptions now name the server function they happened in, and a thrown 5xx `Response` is reported with its status instead of passing silently.
+
 ## 5.2.3
 
 ### Patch Changes
