@@ -278,6 +278,27 @@ describe('PostHog server integration', () => {
     )
   })
 
+  it('names the server function and status of an RPC failure', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const logger = createPostHogRpcLogger(telemetry)
+    const failure = new Error('unavailable')
+    await logger(failure, { function: 'importBattles', status: 502 })
+    expect(captureException).toHaveBeenCalledWith(failure, 'server', { server_function: 'importBattles', response_status: 502 })
+  })
+
+  it('names the server function a log or exception is recorded in', async () => {
+    const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
+    const failure = new Error('failed')
+    await withServerFunction({ name: 'syncRoster', filename: 'src/offline.ts' }, async () => {
+      await telemetry.log({ body: 'sync refused', attributes: { kind: 'roster' } })
+      await telemetry.exception(failure, 'person')
+    })
+    expect([emit.mock.calls.at(-1)?.[0].attributes, captureException.mock.calls.at(-1)?.[2]]).toEqual([
+      { server_function: 'syncRoster', kind: 'roster' },
+      { server_function: 'syncRoster' },
+    ])
+  })
+
   it('captures RPC failures when the application logger throws', async () => {
     const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
     const logger = createPostHogRpcLogger(telemetry, {
@@ -367,12 +388,18 @@ describe('PostHog server integration', () => {
   it('records a server error response as a failure', async () => {
     const telemetry = createManagedPostHogServerTelemetry({ environment, serviceName: 'test' })
     const observer = createPostHogRpcObserver(telemetry)
+    const span = { setAttribute: vi.fn() }
+    withSpan.mockImplementationOnce((_name: string, _options: unknown, work?: (value: unknown) => unknown) => work?.(span))
     const failure = new Error('unavailable', { cause: new Response('unavailable', { status: 503 }) })
 
     await expect(observer(new Request('https://example.com/action'), () => Promise.reject(failure))).rejects.toBe(failure)
-    expect(count).toHaveBeenCalledWith('server_function.requests', 1, {
-      attributes: { method: 'GET', outcome: 'error' },
-    })
+    expect([span.setAttribute.mock.calls.slice(-2), count.mock.calls.at(-1)]).toEqual([
+      [
+        ['http.response.status_code', 503],
+        ['server.function.outcome', 'error'],
+      ],
+      ['server_function.requests', 1, { attributes: { method: 'GET', outcome: 'error' } }],
+    ])
   })
 
   it('flushes clients once and ignores captures after shutdown', async () => {

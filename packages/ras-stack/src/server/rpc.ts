@@ -1,4 +1,7 @@
-export type RpcErrorContext = { method?: string; path?: string }
+import { currentServerFunction } from './server-function.js'
+
+/** Where a failure happened: the request, the server function it ran when the identity middleware names it, and the status of a thrown `Response`. */
+export type RpcErrorContext = { method?: string; path?: string; function?: string; status?: number }
 export type RpcLogger = (error: unknown, context: RpcErrorContext, request?: Request) => void | Promise<void>
 export type RpcObserver = <T>(request: Request | undefined, work: () => Promise<T>) => Promise<T>
 
@@ -18,11 +21,16 @@ export function createRpc(options: RpcOptions = {}) {
     const execute = async () => {
       try {
         return await work()
-      } catch (error) {
-        if (error instanceof Response) throw new Error((await error.text()) || `request failed (${error.status})`, { cause: error })
-        try {
-          await options.logError?.(error, requestContext(request), request)
-        } catch {}
+      } catch (thrown) {
+        const status = thrown instanceof Response ? thrown.status : undefined
+        const error =
+          thrown instanceof Response ? new Error((await thrown.text()) || `request failed (${thrown.status})`, { cause: thrown }) : thrown
+        // A 4xx answer is the caller's to fix; a 5xx one, such as an unreachable upstream, is the server's.
+        if (status === undefined || status >= 500) {
+          try {
+            await options.logError?.(error, requestContext(request, status), request)
+          } catch {}
+        }
         throw error
       }
     }
@@ -48,6 +56,11 @@ function resolveRequest(getRequest: (() => Request) | undefined) {
   }
 }
 
-function requestContext(request: Request | undefined): RpcErrorContext {
-  return request ? { method: request.method, path: new URL(request.url).pathname } : {}
+function requestContext(request: Request | undefined, status: number | undefined): RpcErrorContext {
+  const name = currentServerFunction()?.name
+  return {
+    ...(request ? { method: request.method, path: new URL(request.url).pathname } : {}),
+    ...(name ? { function: name } : {}),
+    ...(status === undefined ? {} : { status }),
+  }
 }

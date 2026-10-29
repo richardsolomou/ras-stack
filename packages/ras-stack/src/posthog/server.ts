@@ -187,7 +187,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
       await safely(async () => {
         const value = await getClient()
         const correlation = context.getStore()
-        const capturedProperties = mergeProperties(properties, correlation?.properties)
+        const capturedProperties = mergeProperties(serverFunctionProperties(), properties, correlation?.properties)
         value?.captureException(error, distinctId ?? correlation?.distinctId ?? 'server', capturedProperties)
       })
     },
@@ -196,7 +196,7 @@ export function createManagedPostHogServerTelemetry(options: ManagedPostHogServe
         const provider = await getLogProvider()
         const correlation = context.getStore()
         const attributes = boundedAttributes(
-          mergeProperties(record.attributes, {
+          mergeProperties(serverFunctionProperties(), record.attributes, {
             ...(correlation?.distinctId ? { posthogDistinctId: correlation.distinctId } : {}),
             ...(correlation?.sessionId ? { sessionId: correlation.sessionId } : {}),
           }),
@@ -272,6 +272,8 @@ export function createPostHogRpcLogger(telemetry: PostHogServerTelemetry, option
       ...correlation.properties,
       ...(context.method ? { request_method: context.method } : {}),
       ...(context.path ? { request_path: context.path } : {}),
+      ...(context.function ? { server_function: context.function } : {}),
+      ...(context.status === undefined ? {} : { response_status: context.status }),
     }
     await Promise.all([
       telemetry.exception(error, distinctId, properties),
@@ -312,8 +314,8 @@ export function createPostHogRpcObserver(
           return { value }
         } catch (error) {
           const status = responseStatus(error)
+          if (status !== undefined) span?.setAttribute('http.response.status_code', status)
           if (status === undefined || status >= 500) throw error
-          span?.setAttribute('http.response.status_code', status)
           outcome = status >= 400 ? 'refused' : 'success'
           // Returning instead of throwing keeps an intended response from marking the span as failed.
           return { response: error }
@@ -387,6 +389,12 @@ async function createPostHogLogProvider(environment: PostHogEnvironment, options
     }),
     processors: [new BatchLogRecordProcessor({ exporter })],
   })
+}
+
+/** Names the server function a log or exception was recorded in, so it reads without the request path's opaque id. */
+function serverFunctionProperties() {
+  const name = currentServerFunction()?.name
+  return name ? { server_function: name } : undefined
 }
 
 function mergeProperties(...values: Array<Record<string, unknown> | undefined>) {

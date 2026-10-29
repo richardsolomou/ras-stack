@@ -175,7 +175,7 @@ const observe = createPostHogRpcObserver(telemetry)
 const { rpc, mutationRpc } = createTanStackRpc({ logError, observe })
 ```
 
-The logger includes only the normalized request method/path and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes. A request's `outcome` is `success`, `refused` when the function throws a 4xx `Response` (the span records its `http.response.status_code` and is not marked failed), or `error`.
+The logger includes only the normalized request method/path, the server function name, a thrown response's status, and validated PostHog session context. Authenticated identity is accepted only when the application resolver agrees with the propagated distinct ID. The observer creates one server span and low-cardinality request count and duration metrics around each RPC without recording URLs, query strings, user IDs, or session IDs as metric attributes. A request's `outcome` is `success`, `refused` when the function throws a 4xx `Response` (the span records its `http.response.status_code` and is not marked failed), or `error`.
 
 To name each server function on those spans and metrics, register the identity middleware once as global function middleware. The observer then adds `code.function.name` and `code.file.path` to the span and a `function` attribute to both metrics:
 
@@ -187,6 +187,8 @@ export const startInstance = createStart(() => ({ functionMiddleware: [serverFun
 ```
 
 The identity comes from TanStack Start's compiled server function metadata, so the function name stays bounded by the application's code. Without the middleware, spans and metrics keep their method-only attributes.
+
+The same identity names failures. `RpcErrorContext` carries `function`, so the console logger above prints it, and any exception or log recorded while a server function runs carries a `server_function` property. A thrown 5xx `Response` is reported like any other failure, with its `status` in the context and as `response_status` on the exception and log; a 4xx `Response` is the caller's to fix and stays unreported. Read the identity elsewhere with `currentServerFunction()` from `ras-stack/server`.
 
 ## First-party ingest proxy
 
