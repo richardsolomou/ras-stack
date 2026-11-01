@@ -94,7 +94,11 @@ export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
   return smtpDelivery(config.from, async (work) => {
     // nodemailer cannot abort an exchange, so each one gets its own socket for the deadline to destroy.
     const socket = new net.Socket()
-    await withinDeadline(work(createTransport({ ...options, socket })), timeout, () => socket.destroy())
+    await withinDeadline(work(createTransport({ ...options, socket })), timeout, () => {
+      socket.destroy()
+      // Connecting revives a destroyed socket, so one the deadline beat to connecting closes as soon as it opens.
+      socket.once('connect', () => socket.destroy())
+    })
   })
 }
 

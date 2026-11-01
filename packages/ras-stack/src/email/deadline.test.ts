@@ -26,6 +26,19 @@ async function tricklingServer() {
   return { port: (server.address() as AddressInfo).port, closed }
 }
 
+/** Greets like a normal server and records whether the client ever said anything back. */
+async function listeningServer() {
+  let received = false
+  const server = net.createServer((socket) => {
+    socket.on('error', () => undefined)
+    socket.on('data', () => (received = true))
+    socket.write('220 smtp.test ESMTP\r\n')
+  })
+  servers.push(server)
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  return { port: (server.address() as AddressInfo).port, received: () => received }
+}
+
 describe('SMTP deadline', () => {
   it('closes the connection when the deadline passes', async () => {
     const server = await tricklingServer()
@@ -36,5 +49,17 @@ describe('SMTP deadline', () => {
       new Promise((resolve) => setTimeout(() => resolve(false), 500)),
     ])
     expect(closedSoon).toBe(true)
+  })
+
+  it('stops an exchange the deadline beats to connecting', async () => {
+    const server = await listeningServer()
+    const delivery = createSmtpDelivery({ from: 'from@example.com', host: '127.0.0.1', port: server.port, secure: false, timeoutMs: 5 })
+    const sending = delivery.send({ to: 'to@example.com', subject: 'Hello', text: 'Hi' })
+    // Holding the event loop past the deadline lets it fire before nodemailer connects.
+    const until = Date.now() + 30
+    while (Date.now() < until);
+    await expect(sending).rejects.toThrow('did not finish within 5 ms')
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(server.received()).toBe(false)
   })
 })
