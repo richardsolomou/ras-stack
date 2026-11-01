@@ -1,6 +1,18 @@
 import { createTransport } from 'nodemailer'
 
-export type EmailMessage = { to: string; subject: string; text: string; html?: string }
+/** `cid` lets the HTML body reference the attachment inline as `cid:<value>`. */
+export type EmailAttachment = { filename: string; content: Buffer; contentType: string; cid?: string }
+
+export type EmailMessage = {
+  to: string
+  subject: string
+  text: string
+  html?: string
+  attachments?: EmailAttachment[]
+  /** Replaces the display name of the configured sender; the address stays the configured one so SPF and DKIM still pass. */
+  fromName?: string
+  replyTo?: string
+}
 
 export type SmtpConfig = {
   from: string
@@ -68,9 +80,16 @@ export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
   })
   return {
-    send: async (message) => transport.sendMail({ from: config.from, ...message }).then(() => undefined),
+    send: async ({ fromName, ...message }) =>
+      transport
+        .sendMail({ from: fromName ? { name: fromName, address: senderAddress(config.from) } : config.from, ...message })
+        .then(() => undefined),
     verify: async () => transport.verify().then(() => undefined),
   }
+}
+
+function senderAddress(from: string) {
+  return /<([^<>]+)>\s*$/.exec(from)?.[1] ?? from
 }
 
 export type StandardAuthEmailOptions = { productName: string }
