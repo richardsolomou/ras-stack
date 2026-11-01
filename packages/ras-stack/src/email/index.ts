@@ -21,6 +21,10 @@ export type SmtpConfig = {
   secure: boolean
   user?: string
   password?: string
+  /** The name TLS presents and verifies when `host` is an address the application already resolved. */
+  servername?: string
+  /** Fails a send or verify that runs longer than this, and bounds each wait on the server to the same limit. */
+  timeoutMs?: number
 }
 
 export type SmtpEnvironmentOptions = {
@@ -73,18 +77,36 @@ export function smtpConfigFromEnvironment(
 }
 
 export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
+  const timeout = config.timeoutMs
   const transport = createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
+    servername: config.servername,
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
+    ...(timeout === undefined ? {} : { connectionTimeout: timeout, greetingTimeout: timeout, socketTimeout: timeout }),
   })
   return {
     send: async ({ fromName, ...message }) =>
-      transport
-        .sendMail({ from: fromName ? { name: fromName, address: senderAddress(config.from) } : config.from, ...message })
-        .then(() => undefined),
-    verify: async () => transport.verify().then(() => undefined),
+      withinDeadline(
+        transport.sendMail({ from: fromName ? { name: fromName, address: senderAddress(config.from) } : config.from, ...message }),
+        timeout,
+      ),
+    verify: async () => withinDeadline(transport.verify(), timeout),
+  }
+}
+
+// A server that trickles bytes keeps each socket wait short of its timeout, so the whole exchange needs its own deadline.
+async function withinDeadline(work: Promise<unknown>, timeoutMs: number | undefined) {
+  if (timeoutMs === undefined) return void (await work)
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`SMTP server did not finish within ${timeoutMs} ms`)), timeoutMs)
+  })
+  try {
+    await Promise.race([work, deadline])
+  } finally {
+    clearTimeout(timer)
   }
 }
 
