@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.5.0
+
+### Minor Changes
+
+- 8b9f230: Accept a TLS server name in the SMTP configuration so that applications can connect to an address they resolved and checked while still verifying the certificate for the original hostname, and accept a timeout so that a slow or unresponsive server cannot hold a send or verification open.
+
 ## 5.4.0
 
 ### Minor Changes
