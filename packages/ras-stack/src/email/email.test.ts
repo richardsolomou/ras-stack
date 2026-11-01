@@ -73,6 +73,27 @@ describe('SMTP delivery', () => {
     expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ attachments: [logo] }))
   })
 
+  it('keeps the configured sender address under a per-message display name', async () => {
+    mocks.sendMail.mockResolvedValue({})
+    const delivery = createSmtpDelivery({ from: 'Example <from@example.com>', host: 'smtp.example.com', port: 587, secure: false })
+    await delivery.send({ to: 'to@example.com', subject: 'Hello', text: 'Body', fromName: 'Print lab' })
+    expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: { name: 'Print lab', address: 'from@example.com' } }))
+  })
+
+  it('uses a bare configured address under a per-message display name', async () => {
+    mocks.sendMail.mockResolvedValue({})
+    const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })
+    await delivery.send({ to: 'to@example.com', subject: 'Hello', text: 'Body', fromName: 'Print lab' })
+    expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: { name: 'Print lab', address: 'from@example.com' } }))
+  })
+
+  it('passes a reply-to address to the transport', async () => {
+    mocks.sendMail.mockResolvedValue({})
+    const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })
+    await delivery.send({ to: 'to@example.com', subject: 'Hello', text: 'Body', replyTo: 'shop@example.com' })
+    expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ replyTo: 'shop@example.com' }))
+  })
+
   it('exposes transport verification', async () => {
     mocks.verify.mockResolvedValue(true)
     const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })
