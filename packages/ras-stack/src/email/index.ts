@@ -1,4 +1,5 @@
-import { createTransport } from 'nodemailer'
+import net from 'node:net'
+import { createTransport, type Transporter } from 'nodemailer'
 
 /** `cid` lets the HTML body reference the attachment inline as `cid:<value>`. */
 export type EmailAttachment = { filename: string; content: Buffer; contentType: string; cid?: string }
@@ -23,7 +24,7 @@ export type SmtpConfig = {
   password?: string
   /** The name TLS presents and verifies when `host` is an address the application already resolved. */
   servername?: string
-  /** Fails a send or verify that runs longer than this, and bounds each wait on the server to the same limit. */
+  /** Fails and disconnects a send or verify that runs longer than this, and bounds each wait on the server to the same limit. */
   timeoutMs?: number
 }
 
@@ -78,30 +79,45 @@ export function smtpConfigFromEnvironment(
 
 export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
   const timeout = config.timeoutMs
-  const transport = createTransport({
+  const options = {
     host: config.host,
     port: config.port,
     secure: config.secure,
     servername: config.servername,
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
     ...(timeout === undefined ? {} : { connectionTimeout: timeout, greetingTimeout: timeout, socketTimeout: timeout }),
+  }
+  if (timeout === undefined) {
+    const transport = createTransport(options)
+    return smtpDelivery(config.from, async (work) => void (await work(transport)))
+  }
+  return smtpDelivery(config.from, async (work) => {
+    // nodemailer cannot abort an exchange, so each one gets its own socket for the deadline to destroy.
+    const socket = new net.Socket()
+    await withinDeadline(work(createTransport({ ...options, socket })), timeout, () => {
+      socket.destroy()
+      // Connecting revives a destroyed socket, so one the deadline beat to connecting closes as soon as it opens.
+      socket.once('connect', () => socket.destroy())
+    })
   })
+}
+
+function smtpDelivery(from: string, exchange: (work: (transport: Transporter) => Promise<unknown>) => Promise<void>): EmailDelivery {
   return {
-    send: async ({ fromName, ...message }) =>
-      withinDeadline(
-        transport.sendMail({ from: fromName ? { name: fromName, address: senderAddress(config.from) } : config.from, ...message }),
-        timeout,
-      ),
-    verify: async () => withinDeadline(transport.verify(), timeout),
+    send: ({ fromName, ...message }) =>
+      exchange((transport) => transport.sendMail({ from: fromName ? { name: fromName, address: senderAddress(from) } : from, ...message })),
+    verify: () => exchange((transport) => transport.verify()),
   }
 }
 
 // A server that trickles bytes keeps each socket wait short of its timeout, so the whole exchange needs its own deadline.
-async function withinDeadline(work: Promise<unknown>, timeoutMs: number | undefined) {
-  if (timeoutMs === undefined) return void (await work)
+async function withinDeadline(work: Promise<unknown>, timeoutMs: number, abort: () => void) {
   let timer: ReturnType<typeof setTimeout> | undefined
   const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(`SMTP server did not finish within ${timeoutMs} ms`)), timeoutMs)
+    timer = setTimeout(() => {
+      abort()
+      reject(new Error(`SMTP server did not finish within ${timeoutMs} ms`))
+    }, timeoutMs)
   })
   try {
     await Promise.race([work, deadline])
