@@ -1,5 +1,12 @@
 # ras-stack
 
+## 5.5.1
+
+### Patch Changes
+
+- 73cd699: Require nodemailer 9.0.3 or later, the first version that upgrades a supplied socket to TLS, so that a `secure` SMTP connection with `timeoutMs` never sends credentials in cleartext.
+- 1a84fda: Close the SMTP connection when a send or verification passes `timeoutMs`, so that a server that trickles bytes cannot keep the socket open after the caller gave up.
+
 ## 5.5.0
 
 ### Minor Changes
