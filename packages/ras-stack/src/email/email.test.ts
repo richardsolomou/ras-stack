@@ -99,8 +99,9 @@ describe('SMTP delivery', () => {
     expect(mocks.createTransport).toHaveBeenCalledWith(expect.objectContaining({ host: '203.0.113.10', servername: 'smtp.example.com' }))
   })
 
-  it('bounds each wait on the server by the timeout', () => {
-    createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false, timeoutMs: 15_000 })
+  it('bounds each wait on the server by the timeout', async () => {
+    mocks.verify.mockResolvedValue(true)
+    await createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false, timeoutMs: 15_000 }).verify()
     expect(mocks.createTransport).toHaveBeenCalledWith(
       expect.objectContaining({ connectionTimeout: 15_000, greetingTimeout: 15_000, socketTimeout: 15_000 }),
     )
