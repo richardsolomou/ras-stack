@@ -328,7 +328,7 @@ const upload = createTusUpload({
 await startTusUpload(upload, { signal, terminateOnAbort: true })
 ```
 
-`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. Each callback waits for delivery before returning; pass them only when delivery is configured. An application with its own copy writes its own callbacks around `EmailDelivery.send`. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
+`standardAuthEmails` returns the `sendResetPassword` and `sendVerificationEmail` callbacks with the plain-text and HTML copy most applications ship, parameterized only by product name. Each callback waits for delivery before returning; pass them only when delivery is configured. An application with its own copy writes its own callbacks around `EmailDelivery.send`. A message can carry `attachments`; give one a `cid` to show it inline, such as a logo referenced by `<img src="cid:logo">`. `startTusUpload` accepts an `AbortSignal`; `terminateOnAbort` also removes the partial remote upload instead of leaving it resumable.
 
 Applications retain ownership of email templates, whether email is required, missing-email behavior, upload metadata, authorization, quotas, and completion processing.
 

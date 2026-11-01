@@ -65,6 +65,14 @@ describe('SMTP delivery', () => {
     expect(mocks.sendMail).toHaveBeenCalledWith({ from: 'from@example.com', to: 'to@example.com', subject: 'Hello', text: 'Body' })
   })
 
+  it('passes inline attachments to the transport', async () => {
+    mocks.sendMail.mockResolvedValue({})
+    const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })
+    const logo = { filename: 'logo.png', content: Buffer.from('png'), contentType: 'image/png', cid: 'logo' }
+    await delivery.send({ to: 'to@example.com', subject: 'Hello', text: 'Body', html: '<img src="cid:logo">', attachments: [logo] })
+    expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ attachments: [logo] }))
+  })
+
   it('exposes transport verification', async () => {
     mocks.verify.mockResolvedValue(true)
     const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })

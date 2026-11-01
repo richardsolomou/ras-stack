@@ -1,6 +1,9 @@
 import { createTransport } from 'nodemailer'
 
-export type EmailMessage = { to: string; subject: string; text: string; html?: string }
+/** `cid` lets the HTML body reference the attachment inline as `cid:<value>`. */
+export type EmailAttachment = { filename: string; content: Buffer; contentType: string; cid?: string }
+
+export type EmailMessage = { to: string; subject: string; text: string; html?: string; attachments?: EmailAttachment[] }
 
 export type SmtpConfig = {
   from: string
