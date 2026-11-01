@@ -94,6 +94,11 @@ describe('SMTP delivery', () => {
     expect(mocks.sendMail).toHaveBeenCalledWith(expect.objectContaining({ replyTo: 'shop@example.com' }))
   })
 
+  it('verifies TLS against the hostname when connecting to a resolved address', () => {
+    createSmtpDelivery({ from: 'from@example.com', host: '203.0.113.10', port: 465, secure: true, servername: 'smtp.example.com' })
+    expect(mocks.createTransport).toHaveBeenCalledWith(expect.objectContaining({ host: '203.0.113.10', servername: 'smtp.example.com' }))
+  })
+
   it('exposes transport verification', async () => {
     mocks.verify.mockResolvedValue(true)
     const delivery = createSmtpDelivery({ from: 'from@example.com', host: 'smtp.example.com', port: 587, secure: false })

@@ -21,6 +21,8 @@ export type SmtpConfig = {
   secure: boolean
   user?: string
   password?: string
+  /** The name TLS presents and verifies when `host` is an address the application already resolved. */
+  servername?: string
 }
 
 export type SmtpEnvironmentOptions = {
@@ -77,6 +79,7 @@ export function createSmtpDelivery(config: SmtpConfig): EmailDelivery {
     host: config.host,
     port: config.port,
     secure: config.secure,
+    servername: config.servername,
     auth: config.user ? { user: config.user, pass: config.password } : undefined,
   })
   return {
