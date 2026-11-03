@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.5.2
+
+### Patch Changes
+
+- 19c7c0f: Build arm64 preview images on a native ARM runner with a 30-minute timeout, so that emulated builds no longer crash or hang for hours.
+
 ## 5.5.1
 
 ### Patch Changes
