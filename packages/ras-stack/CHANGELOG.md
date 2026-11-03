@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.5.3
+
+### Patch Changes
+
+- a6493b7: Install Better Auth 1.7.14, so that applications can keep `@better-auth/*` plugins on the same version as the core.
+
 ## 5.5.2
 
 ### Patch Changes
