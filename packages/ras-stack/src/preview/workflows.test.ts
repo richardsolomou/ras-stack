@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
-type Step = { name?: string; with?: Record<string, string> }
+type Step = { name?: string; uses?: string; if?: string; with?: Record<string, string> }
 type Workflow = {
   on: {
     workflow_call: {
@@ -10,7 +10,10 @@ type Workflow = {
       secrets?: Record<string, { required?: boolean }>
     }
   }
-  jobs: Record<string, { 'runs-on'?: string; steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }>
+  jobs: Record<
+    string,
+    { 'runs-on'?: string; 'timeout-minutes'?: number; steps?: Step[]; with?: Record<string, string>; secrets?: Record<string, string> }
+  >
 }
 
 describe('Dokploy preview workflows', () => {
@@ -23,6 +26,20 @@ describe('Dokploy preview workflows', () => {
     }).toEqual({
       defaultRunner: 'ubuntu-latest',
       deploymentRunner: '${{ inputs.runner }}',
+    })
+  })
+
+  it('builds arm64 previews on a native runner with a bounded timeout', async () => {
+    const build = (await workflow('build-preview-image.yml')).jobs.build
+
+    expect({
+      runner: build?.['runs-on'],
+      timeout: build?.['timeout-minutes'],
+      emulation: build?.steps?.find((candidate) => candidate.uses?.startsWith('docker/setup-qemu-action'))?.if,
+    }).toEqual({
+      runner: "${{ inputs.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}",
+      timeout: 30,
+      emulation: "inputs.platform != 'linux/amd64' && inputs.platform != 'linux/arm64'",
     })
   })
 

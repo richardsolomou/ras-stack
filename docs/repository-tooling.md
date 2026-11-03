@@ -143,7 +143,7 @@ Dokploy applications share the complete preview lifecycle through three reusable
 - `deploy-dokploy-preview.yml` publishes fork artifacts, resolves immutable image digests, deploys or deletes the Dokploy application, verifies health, reports status, and removes closed-PR images.
 - `prune-dokploy-previews.yml` removes orphaned applications and images on a schedule.
 
-Preview builds accept one `platform`, defaulting to `linux/amd64`. Set `platform: linux/arm64` when previews run on an ARM host; both registry images and fork artifacts use that target, with QEMU available during cross-platform builds. Fork artifacts use Docker's single-platform archive format.
+Preview builds accept one `platform`, defaulting to `linux/amd64`. Set `platform: linux/arm64` when previews run on an ARM host; both registry images and fork artifacts use that target. `linux/amd64` and `linux/arm64` build on a native runner, and other platforms build under QEMU. A build that runs longer than 30 minutes fails instead of holding a runner. Fork artifacts use Docker's single-platform archive format.
 
 The deployment workflow accepts a `runner`, defaulting to `ubuntu-latest`. Choose a runner matching the image architecture when deployment hooks pull or inspect its filesystem, such as `ubuntu-24.04-arm` for ARM64 images. Pull-request classification and approval jobs keep their default runner.
 
