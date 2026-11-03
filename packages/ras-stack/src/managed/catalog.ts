@@ -11,7 +11,7 @@ export const tanstackQuery = defineIntegration({
   includes: [react],
   packages: { '@tanstack/react-query': '5.104.1' },
 })
-export const betterAuth = defineIntegration({ name: 'better-auth', packages: { 'better-auth': '1.7.10' } })
+export const betterAuth = defineIntegration({ name: 'better-auth', packages: { 'better-auth': '1.7.14' } })
 export const tanstackStart = defineIntegration({
   name: 'tanstack-start',
   includes: [tanstackQuery],
