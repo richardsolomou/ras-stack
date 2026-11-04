@@ -18,3 +18,6 @@ minimumReleaseAgeExclude:
   - ras-stack
   - better-auth
   - '@better-auth/*'
+  # PostHog is a trusted publisher whose SDK fixes RAS should pick up the day they ship.
+  - 'posthog-*'
+  - '@posthog/*'

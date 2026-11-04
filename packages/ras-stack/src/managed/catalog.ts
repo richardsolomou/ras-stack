@@ -28,14 +28,14 @@ export const libsql = defineIntegration({ name: 'libsql', packages: { '@libsql/c
 export const email = defineIntegration({ name: 'email', packages: { nodemailer: '10.1.0' }, devPackages: { '@types/nodemailer': '8.0.2' } })
 export const uploads = defineIntegration({ name: 'uploads', packages: { 'tus-js-client': '4.3.1' } })
 export const realtime = defineIntegration({ name: 'realtime', packages: { centrifuge: '5.7.4' } })
-const posthogBrowser = defineIntegration({ name: 'posthog-browser', packages: { 'posthog-js': '1.438.12' } })
+const posthogBrowser = defineIntegration({ name: 'posthog-browser', packages: { 'posthog-js': '1.445.3' } })
 export const posthog = {
   browser: posthogBrowser,
   react: defineIntegration({ name: 'posthog-react', includes: [react, posthogBrowser], packages: { '@posthog/react': '1.11.3' } }),
   server: defineIntegration({
     name: 'posthog-server',
     packages: {
-      'posthog-node': '5.56.2',
+      'posthog-node': '5.61.2',
       '@opentelemetry/api-logs': '0.223.0',
       '@opentelemetry/exporter-logs-otlp-http': '0.223.0',
       '@opentelemetry/resources': '2.12.0',
@@ -44,7 +44,7 @@ export const posthog = {
   }),
   build: defineIntegration({
     name: 'posthog-build',
-    devPackages: { '@posthog/rollup-plugin': '1.6.1' },
+    devPackages: { '@posthog/rollup-plugin': '1.6.2' },
     presets: { vite: ['posthog'] },
   }),
 } as const
