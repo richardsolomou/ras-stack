@@ -31,7 +31,7 @@
     "centrifuge": "5.7.4",
     "drizzle-orm": "0.45.4",
     "nodemailer": "^10.1.7",
-    "posthog-js": "^1.445.3",
+    "posthog-js": "^1.445.4",
     "posthog-node": "^5.61.2",
     "ras-stack": "workspace:*",
     "react": "19.3.1",
