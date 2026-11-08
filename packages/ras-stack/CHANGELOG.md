@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.5.5
+
+### Patch Changes
+
+- d4a63eb: Keep retrying the SpacetimeDB download in `setup-spacetime` for about a minute, so that a brief GitHub release outage no longer fails the job.
+
 ## 5.5.4
 
 ### Patch Changes
