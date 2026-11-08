@@ -30,7 +30,7 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 archive="$installation/release.tar.gz"
-curl --fail --location --proto '=https' --tlsv1.2 --retry 2 --max-time 120 \
+curl --fail --location --proto '=https' --tlsv1.2 --retry 8 --retry-delay 10 --retry-all-errors --max-time 60 \
   "https://github.com/clockworklabs/SpacetimeDB/releases/download/v${SPACETIME_VERSION}/spacetime-${target}.tar.gz" \
   --output "$archive"
 echo "$SPACETIME_SHA256  $archive" | sha256sum -c -
