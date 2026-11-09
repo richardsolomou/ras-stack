@@ -1,5 +1,11 @@
 # ras-stack
 
+## 5.5.6
+
+### Patch Changes
+
+- 1647b15: Cache the verified SpacetimeDB release archive in `setup-spacetime`, so that a GitHub release outage no longer fails jobs for a version already downloaded.
+
 ## 5.5.5
 
 ### Patch Changes

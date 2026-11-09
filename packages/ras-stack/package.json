@@ -1,6 +1,6 @@
 {
   "name": "ras-stack",
-  "version": "5.5.5",
+  "version": "5.5.6",
   "description": "Composable full-stack primitives shared across Richard Solomou's applications.",
   "keywords": [
     "authentication",
