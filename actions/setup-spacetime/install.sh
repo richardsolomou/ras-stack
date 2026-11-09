@@ -29,13 +29,19 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-archive="$installation/release.tar.gz"
-curl --fail --location --proto '=https' --tlsv1.2 --retry 8 --retry-delay 10 --retry-all-errors --max-time 60 \
-  "https://github.com/clockworklabs/SpacetimeDB/releases/download/v${SPACETIME_VERSION}/spacetime-${target}.tar.gz" \
-  --output "$archive"
-echo "$SPACETIME_SHA256  $archive" | sha256sum -c -
+archive="$SPACETIME_ARCHIVE"
+verified() {
+  echo "$SPACETIME_SHA256  $1" | sha256sum -c -
+}
+if [[ ! -f "$archive" ]] || ! verified "$archive"; then
+  download="$installation/release.tar.gz"
+  curl --fail --location --proto '=https' --tlsv1.2 --retry 8 --retry-delay 10 --retry-all-errors --max-time 60 \
+    "https://github.com/clockworklabs/SpacetimeDB/releases/download/v${SPACETIME_VERSION}/spacetime-${target}.tar.gz" \
+    --output "$download"
+  verified "$download"
+  mv "$download" "$archive"
+fi
 tar -xzf "$archive" -C "$installation" spacetimedb-cli spacetimedb-standalone
-rm "$archive"
 chmod +x "$installation/spacetimedb-cli" "$installation/spacetimedb-standalone"
 "$installation/spacetimedb-cli" --version
 ln -s spacetimedb-cli "$installation/spacetime"

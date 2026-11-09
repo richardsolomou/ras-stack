@@ -1,7 +1,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { chmod, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,11 +46,12 @@ async function fixture(overrides: Record<string, string> = {}) {
     RUNNER_OS: 'Linux',
     RUNNER_ARCH: 'X64',
     RUNNER_TEMP: temporary,
+    SPACETIME_ARCHIVE: join(root, 'cached.tar.gz'),
     GITHUB_OUTPUT: output,
     GITHUB_PATH: path,
     ...overrides,
   }
-  return { env, output, path, temporary }
+  return { env, output, path, temporary, archive, curl: join(bin, 'curl'), cached: join(root, 'cached.tar.gz') }
 }
 
 describe('pinned SpacetimeDB setup', () => {
@@ -64,6 +65,21 @@ describe('pinned SpacetimeDB setup', () => {
       stdout: 'spacetimedb-cli version 2.6.0',
       outputs: [`cli-path=${directory}/spacetimedb-cli`, `standalone-path=${directory}/spacetimedb-standalone`],
     })
+  })
+
+  it('installs from a restored archive without downloading', async () => {
+    const setup = await fixture()
+    await copyFile(setup.archive, setup.cached)
+    await writeFile(setup.curl, '#!/bin/sh\nexit 22\n')
+    const result = spawnSync('bash', [script], { env: setup.env, encoding: 'utf8' })
+    expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: '' })
+  })
+
+  it('replaces a restored archive that fails verification', async () => {
+    const setup = await fixture()
+    await writeFile(setup.cached, 'tampered')
+    const result = spawnSync('bash', [script], { env: setup.env, encoding: 'utf8' })
+    expect({ status: result.status, cached: await readFile(setup.cached) }).toEqual({ status: 0, cached: await readFile(setup.archive) })
   })
 
   it('cleans up a failed download without exposing executables', async () => {

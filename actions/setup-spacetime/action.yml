@@ -20,10 +20,26 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Restore release archive
+      id: restore
+      uses: actions/cache/restore@v6
+      env:
+        SEGMENT_DOWNLOAD_TIMEOUT_MINS: '2'
+      with:
+        path: ${{ runner.temp }}/spacetimedb-release.tar.gz
+        key: spacetimedb-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}-${{ inputs.sha256 }}
     - name: Install pinned binaries
       id: install
       shell: bash
       env:
         SPACETIME_VERSION: ${{ inputs.version }}
         SPACETIME_SHA256: ${{ inputs.sha256 }}
+        SPACETIME_ARCHIVE: ${{ runner.temp }}/spacetimedb-release.tar.gz
       run: bash "$GITHUB_ACTION_PATH/install.sh"
+    # Saved here rather than after the job, so a failing test run still leaves the archive for the next one.
+    - name: Save release archive
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ runner.temp }}/spacetimedb-release.tar.gz
+        key: ${{ steps.restore.outputs.cache-primary-key }}
