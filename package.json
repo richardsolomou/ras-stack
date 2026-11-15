@@ -18,7 +18,7 @@
     "@changesets/cli": "^2.31.1",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
-    "oxlint-tsgolint": "^7.0.2005",
+    "oxlint-tsgolint": "^7.0.2006",
     "vitest": "^4.1.12"
   },
   "engines": {
