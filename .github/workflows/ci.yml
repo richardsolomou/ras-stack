@@ -79,16 +79,26 @@ jobs:
           severity-cutoff: high
           only-fixed: true
           output-format: table
-      - name: Boot, check health, and stop cleanly
+      - name: Boot, sign up and in, and stop cleanly
+        env:
+          ORIGIN: http://127.0.0.1:3120
         run: |
           docker volume create ras-stack-recipe-data
           docker run -d --name ras-stack-recipe \
             --mount source=ras-stack-recipe-data,target=/data \
             -p 3120:3000 \
-            -e APP_URL=http://127.0.0.1:3120 \
+            -e APP_URL="$ORIGIN" \
             -e BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
             ras-stack-recipe:full-stack
-          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3120/api/health
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors "$ORIGIN/api/health"
+          # The built server bundles its own copy of each dependency, so sign-in can fail here while the stack's tests pass.
+          account='{"name":"Recipe Check","email":"recipe-check@example.test","password":"correct horse battery staple"}'
+          for path in sign-up/email sign-in/email; do
+            curl --fail-with-body --silent --show-error --cookie-jar "$RUNNER_TEMP/cookies" \
+              -H 'content-type: application/json' -H "origin: $ORIGIN" -d "$account" "$ORIGIN/api/auth/$path"
+          done
+          curl --fail-with-body --silent --show-error --cookie "$RUNNER_TEMP/cookies" "$ORIGIN/api/auth/get-session" \
+            | jq -e '.user.email == "recipe-check@example.test"'
           docker stop --time 15 ras-stack-recipe
           test "$(docker inspect ras-stack-recipe --format '{{ .State.ExitCode }}')" = 0
       - name: Capture container logs
