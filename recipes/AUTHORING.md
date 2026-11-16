@@ -62,6 +62,7 @@ Frontmatter values are plain scalars or `[a, b]` lists; quote an item that start
 - Use the layered layout `tooling`'s Oxlint configuration checks with the `layers.json` preset: `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, and `src/contracts`, plus `scripts/` and `.github/`. `src/core` needs the `domain.json` preset added alongside it.
 - Import other files with relative paths, and only from recipes in `requires`.
 - Ship tests beside the code as `*.test.ts`. They become the application's tests, so they test behavior the application relies on, and derive expectations from constants the application is told to change rather than repeating their values.
+- Test React components and hooks by rendering them with React's own `createRoot` and `act` in happy-dom, named in a `// @vitest-environment happy-dom` comment at the top of the test, so the default Node environment stays fast for everything else. `react-test-renderer` is deprecated.
 - Mark placeholder files the application is expected to replace as `starters`, so updates never merge recipe changes into the application's real page or schema.
 - Two recipes in one stack cannot ship the same path. A file that several recipes change belongs to one of them and appears in the others' `wires`.
 - Follow the repository's comment rules: comment only the reason, invariant, or gotcha a skilled reader would miss.
