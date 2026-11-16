@@ -1,5 +1,5 @@
 import type { NitroApp } from 'nitro/types'
-import { afterEach, expect, it } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 import { app, closeApp } from './app'
 import shutdown from './shutdown'
 
@@ -14,7 +14,7 @@ function closeHooks() {
 }
 
 it('closes the app when Nitro closes', async () => {
-  const running = app()
+  const close = vi.spyOn(app(), 'close')
   await Promise.all(closeHooks().map((hook) => hook()))
-  expect(app()).not.toBe(running)
+  expect(close).toHaveBeenCalledOnce()
 })
