@@ -51,7 +51,8 @@ export class CentrifugoPublisher {
     if (pending) {
       const replaced = coalesce ? pending.queued.findIndex((publication) => publication.coalesce) : -1
       if (replaced !== -1) pending.queued.splice(replaced, 1)
-      else if (pending.queued.length >= maxQueuedPerChannel) {
+      // A coalescing publication holds at most one slot, so only the ones that never coalesce can fill the queue.
+      else if (!coalesce && pending.queued.length >= maxQueuedPerChannel) {
         this.reportError(new Error('Realtime publisher queue is full'), channel)
         return false
       }

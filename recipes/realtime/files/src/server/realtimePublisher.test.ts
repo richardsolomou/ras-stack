@@ -161,6 +161,13 @@ describe('Centrifugo publisher', () => {
     expect(accepted.indexOf(false)).toBe(64)
   })
 
+  it('accepts a change behind a full queue of publications that do not coalesce', () => {
+    const publisher = publisherWith(vi.fn<typeof fetch>(() => new Promise<Response>(() => undefined)))
+    publisher.publish('one', {})
+    for (let index = 0; index < 64; index++) publisher.publish('one', { index }, { coalesce: false })
+    expect(publisher.publish('one', { type: 'message.created' })).toBe(true)
+  })
+
   it('does not lose a publication queued by the error handler', async () => {
     const request = vi.fn<typeof fetch>(ok).mockResolvedValueOnce(new Response('{}', { status: 400 }))
     const publisher: CentrifugoPublisher = publisherWith(request, { onError: () => publisher.publish('one', { version: 2 }) })
