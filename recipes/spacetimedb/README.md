@@ -1,6 +1,6 @@
 ---
 name: spacetimedb
-version: 3
+version: 4
 summary: A SpacetimeDB module beside a TanStack Start application, with committed bindings, the browser connection, the server HTTP API helper, and a guarded publish.
 requires: []
 conflicts: []
@@ -17,6 +17,7 @@ wires:
     src/server/contentSecurityPolicy.ts,
     Dockerfile,
     .github/workflows/deploy.yml,
+    pnpm-workspace.yaml,
   ]
 starters: [spacetimedb/src/index.ts, spacetimedb/src/index.test.ts, src/spacetime/generated/]
 ---
@@ -70,7 +71,8 @@ Use `convex` instead when no module logic needs to run next to the data in a cus
 
 ## Wiring
 
-With `start-app` and `tooling`, see `stacks/spacetime/`:
+- `pnpm-workspace.yaml`: add `packages: ['.']`. Without it pnpm treats `spacetimedb/package.json` as a workspace project, decides the install is stale, and reinstalls before every `pnpm exec` and `pnpm run`.
+  With `start-app` and `tooling`, see `stacks/spacetime/`:
 
 - `src/routes/__root.tsx`: wrap `<Outlet />` in `<SpacetimeProvider>`, in the root's `Root` component, so a missing setting reaches the root's error boundary.
 - `src/server/contentSecurityPolicy.ts`: add `"'unsafe-eval'"` to `script-src` and `...spacetimeConnectSources(import.meta.env.VITE_SPACETIME_URL)` to `connect-src`.

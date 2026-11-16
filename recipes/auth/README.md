@@ -1,12 +1,12 @@
 ---
 name: auth
-version: 2
+version: 3
 summary: Email, password, and social sign-in with Better Auth, sessions for server functions, and the client pieces sign-in pages share.
 requires: [start-app]
 conflicts: []
 dependencies: [better-auth, drizzle-orm, zod]
 devDependencies: [happy-dom]
-wires: [src/server/app.ts, src/db/schema.ts, drizzle/meta/_journal.json, .github/workflows/preview-deploy.yml]
+wires: [src/server/app.ts, src/db/schema.ts, drizzle/meta/_journal.json, .github/workflows/preview-deploy.yml, .github/dependabot.yml]
 ---
 
 # auth
@@ -61,7 +61,8 @@ An application whose backend owns identity, such as Convex Auth or SpacetimeDB's
 
 ## Wiring
 
-**`src/server/app.ts`** (from `start-app`). Create Better Auth in `createApp` after the database and return it. See `stacks/full-stack/src/server/app.ts`:
+- `.github/dependabot.yml` (from `ci`): add a `better-auth` group with the patterns `better-auth` and `'@better-auth/*'`, listed before the patch and minor groups, because Dependabot puts a package in its first matching group and Better Auth's plugins pin its core version, so a lone bump splits the types and breaks the build. See `stacks/full-stack/.github/dependabot.yml`.
+  **`src/server/app.ts`** (from `start-app`). Create Better Auth in `createApp` after the database and return it. See `stacks/full-stack/src/server/app.ts`:
 
 ```ts
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'

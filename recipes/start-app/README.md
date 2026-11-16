@@ -41,6 +41,8 @@ A client-only tool with no backend data, such as an image converter, uses it too
 - **Tailwind scans only `src/`**, through `source('./')` on the import in `src/styles.css`, so build output and generated files outside `src/` never add classes. The path is relative to the stylesheet, so a stylesheet moved elsewhere changes it, for example to `source('../')` from `src/styles/app.css`; otherwise Tailwind silently scans a different directory and drops classes.
 - **Port 3000 in development**, the same as Nitro's production default, so local `APP_URL` and OAuth redirect URLs do not change between the two.
 
+- **Server functions get TanStack's CSRF check, which needs origin information.** Browsers send `Sec-Fetch-Site`, and the default `Referrer-Policy` sends `Referer` on same-origin requests, so every legitimate call passes. An application that sets `no-referrer` should leave GET server functions out of the check (`request.method !== 'GET'` in the filter): a client without `Sec-Fetch-Site`, such as an Android WebView on http or Safari before 16.4, then sends no origin information on a same-origin read, and a cross-site read cannot be read back anyway.
+
 ## Files
 
 | File                                  | Job                                                                                                  |
