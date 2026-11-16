@@ -69,7 +69,7 @@ export function createTelemetry(env: Record<string, string | undefined> = proces
 
     /**
      * Sends what is queued; the log exporter gets its own deadline because it can wait on a stalled connection. The default
-     * is this resource's share of the shutdown budget in start-app's RECIPE.md.
+     * is this resource's share of the shutdown budget in start-app's README.
      */
     async shutdown(timeoutMs = 2_000) {
       try {

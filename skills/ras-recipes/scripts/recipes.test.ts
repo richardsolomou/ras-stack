@@ -54,7 +54,7 @@ beforeEach(() => {
   cpSync(join(repository, 'recipes/recipe.mjs'), join(source, 'recipes/recipe.mjs'))
   write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7' } }))
   write(source, 'packages/ras-stack/package.json', JSON.stringify({ version: '5.0.0' }))
-  write(source, 'recipes/greet/RECIPE.md', recipe(1))
+  write(source, 'recipes/greet/README.md', recipe(1))
   write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 1\n\nGreets.\n')
   write(source, 'recipes/greet/files/src/core/greet.ts', v1)
   write(source, 'recipes/greet/files/src/core/old.ts', 'export const old = 1\n')
@@ -73,7 +73,7 @@ afterEach(() => {
 })
 
 function releaseV2() {
-  write(source, 'recipes/greet/RECIPE.md', recipe(2))
+  write(source, 'recipes/greet/README.md', recipe(2))
   write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nExclaims.\n\nUpgrade: none.\n\n## 1\n\nGreets.\n')
   write(source, 'recipes/greet/files/src/core/greet.ts', v2)
   rmSync(join(source, 'recipes/greet/files/src/core/old.ts'))
@@ -83,7 +83,7 @@ function releaseV2() {
 }
 
 function releaseV3() {
-  write(source, 'recipes/greet/RECIPE.md', recipe(3))
+  write(source, 'recipes/greet/README.md', recipe(3))
   write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 3\n\nAdds more.\n\n## 2\n\nExclaims.\n\n## 1\n\nGreets.\n')
   write(source, 'recipes/greet/files/src/core/new.ts', 'export const added = 3\n')
   return commit('greet v3')
@@ -169,7 +169,7 @@ describe('add', () => {
 
   describe('with a recipe that wires pnpm-workspace.yaml', () => {
     beforeEach(() => {
-      write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { wires: '[pnpm-workspace.yaml]' }))
+      write(source, 'recipes/greet/README.md', recipe(1, undefined, { wires: '[pnpm-workspace.yaml]' }))
       commit('greet wires the workspace')
     })
 
@@ -187,7 +187,7 @@ describe('add', () => {
     beforeEach(() => {
       write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7', 'ras-stack': 'workspace:*' } }))
       write(source, 'packages/ras-stack/package.json', JSON.stringify({ version: '6.0.0' }))
-      write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { dependencies: '[ras-stack]' }))
+      write(source, 'recipes/greet/README.md', recipe(1, undefined, { dependencies: '[ras-stack]' }))
       commit('greet on ras-stack')
       write(app, 'package.json', JSON.stringify({ devDependencies: { 'ras-stack': '^5.2.0' } }))
     })
@@ -232,8 +232,8 @@ describe('add', () => {
   })
 
   it('refuses a recipe that a recorded recipe conflicts with', () => {
-    write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { conflicts: '[wave]' }))
-    write(source, 'recipes/wave/RECIPE.md', recipe(1, '[]', { name: 'wave' }))
+    write(source, 'recipes/greet/README.md', recipe(1, undefined, { conflicts: '[wave]' }))
+    write(source, 'recipes/wave/README.md', recipe(1, '[]', { name: 'wave' }))
     write(source, 'recipes/wave/CHANGELOG.md', '# wave\n\n## 1\n\nWaves.\n')
     write(source, 'recipes/wave/files/src/core/wave.ts', 'export const wave = 1\n')
     commit('wave')
@@ -244,6 +244,26 @@ describe('add', () => {
   it('refuses a recipe that is already recorded', () => {
     run('add', 'greet')
     expect(run('add', 'greet').status).toBe(1)
+  })
+})
+
+describe('with a recipe described in RECIPE.md', () => {
+  beforeEach(() => {
+    execFileSync('git', ['-C', source, 'mv', 'recipes/greet/README.md', 'recipes/greet/RECIPE.md'])
+    commit('describe greet in RECIPE.md')
+  })
+
+  it('adds the recipe', () => {
+    run('add', 'greet')
+    expect(read('src/core/greet.ts')).toBe(v1)
+  })
+
+  it('updates from a recorded commit to one with README.md', () => {
+    run('add', 'greet')
+    rmSync(join(source, 'recipes/greet/RECIPE.md'))
+    releaseV2()
+    run('update', 'greet')
+    expect(read('src/core/greet.ts')).toBe(v2)
   })
 })
 
@@ -355,7 +375,7 @@ describe('update', () => {
 
   it('keeps a file that became a starter and stops tracking it', () => {
     run('add', 'greet')
-    write(source, 'recipes/greet/RECIPE.md', recipe(2, '[src/core/starter.ts, src/core/old.ts]'))
+    write(source, 'recipes/greet/README.md', recipe(2, '[src/core/starter.ts, src/core/old.ts]'))
     write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nOld is yours.\n\n## 1\n\nGreets.\n')
     write(source, 'recipes/greet/files/src/core/old.ts', 'export const old = 2\n')
     commit('greet v2')
@@ -365,7 +385,7 @@ describe('update', () => {
 
   it('copies a starter file new in the recipe', () => {
     run('add', 'greet')
-    write(source, 'recipes/greet/RECIPE.md', recipe(2, '[src/core/starter.ts, src/core/page.ts]'))
+    write(source, 'recipes/greet/README.md', recipe(2, '[src/core/starter.ts, src/core/page.ts]'))
     write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nA page.\n\n## 1\n\nGreets.\n')
     write(source, 'recipes/greet/files/src/core/page.ts', 'export const page = 1\n')
     commit('greet v2')
@@ -397,21 +417,21 @@ describe('update', () => {
 
   it('names packages the recipe no longer uses', () => {
     run('add', 'greet')
-    write(source, 'recipes/greet/RECIPE.md', recipe(2, undefined, { dependencies: '[]' }))
+    write(source, 'recipes/greet/README.md', recipe(2, undefined, { dependencies: '[]' }))
     write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nNo zod.\n\n## 1\n\nGreets.\n')
     commit('greet v2')
     expect(run('update', 'greet').output).toContain('The recipe no longer uses: zod')
   })
 
   it('warns when a required recipe is behind', () => {
-    write(source, 'recipes/shout/RECIPE.md', recipe(1, '[]', { name: 'shout', requires: '[greet]' }))
+    write(source, 'recipes/shout/README.md', recipe(1, '[]', { name: 'shout', requires: '[greet]' }))
     write(source, 'recipes/shout/CHANGELOG.md', '# shout\n\n## 1\n\nShouts.\n')
     write(source, 'recipes/shout/files/src/core/loud.ts', 'export const loud = 1\n')
     commit('shout v1')
     run('add', 'greet')
     run('add', 'shout')
     releaseV2()
-    write(source, 'recipes/shout/RECIPE.md', recipe(2, '[]', { name: 'shout', requires: '[greet]' }))
+    write(source, 'recipes/shout/README.md', recipe(2, '[]', { name: 'shout', requires: '[greet]' }))
     write(source, 'recipes/shout/CHANGELOG.md', '# shout\n\n## 2\n\nLouder.\n\n## 1\n\nShouts.\n')
     write(source, 'recipes/shout/files/src/core/loud.ts', 'export const loud = 2\n')
     commit('shout v2')
@@ -452,7 +472,7 @@ describe('show', () => {
 
   it("says the wired stack files may carry other recipes' changes", () => {
     const first = execFileSync('git', ['-C', source, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
-    write(source, 'recipes/greet/RECIPE.md', recipe(2, undefined, { wires: '[vite.config.ts]' }))
+    write(source, 'recipes/greet/README.md', recipe(2, undefined, { wires: '[vite.config.ts]' }))
     commit('greet wires vite')
     expect(run('show', 'greet', '--since', first).output).toContain("other recipes' changes")
   })

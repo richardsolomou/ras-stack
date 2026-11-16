@@ -1,11 +1,11 @@
 ---
 name: ras-recipes
-description: Add, update, adopt, or check RAS recipes, the copy-and-own code Richard's applications are built from (TanStack Start shell, PostHog, Better Auth, email, databases, realtime, uploads, Convex, SpacetimeDB, Dokploy and Cloudflare deploys, CI). Use when starting an application, adding one of those capabilities, updating an application's recipes, checking how far an application has drifted, or working in a repository with a ras-recipes.json.
+description: Add, update, adopt, or check RAS recipes, copy-and-own application code (TanStack Start shell, PostHog, Better Auth, email, databases, realtime, uploads, Convex, SpacetimeDB, Dokploy and Cloudflare deploys, CI). Use when starting an application, adding one of those capabilities, updating an application's recipes, checking how far an application has drifted, or working in a repository with a ras-recipes.json.
 ---
 
 # RAS recipes
 
-A recipe is working code an application copies once and then owns, plus the instructions to wire it in. Recipes live in [ras-stack](https://github.com/richardsolomou/ras-stack) under `recipes/<name>/`: `RECIPE.md` (when to use it, the decisions and why, files, wiring, configuration, verification), `CHANGELOG.md`, and `files/`. Each application records what it took in `ras-recipes.json`:
+A recipe is working code an application copies once and then owns, plus the instructions to wire it in. Recipes live in [ras-stack](https://github.com/richardsolomou/ras-stack) under `recipes/<name>/`: `README.md` (when to use it, the decisions and why, files, wiring, configuration, verification), `CHANGELOG.md`, and `files/`. Each application records what it took in `ras-recipes.json`:
 
 ```json
 {
@@ -30,7 +30,7 @@ A recipe is working code an application copies once and then owns, plus the inst
 | Command                                           | Does                                                                          |
 | ------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `recipes.mjs list`                                | Every recipe, its version, and summary.                                       |
-| `recipes.mjs show <recipe>`                       | The recipe's `RECIPE.md`.                                                     |
+| `recipes.mjs show <recipe>`                       | The recipe's `README.md`.                                                     |
 | `recipes.mjs show <recipe> --file <path>`         | One recipe file.                                                              |
 | `recipes.mjs show <recipe> --since <commit>`      | Changelog entries, the recipe diff, and the wired stack files since a commit. |
 | `recipes.mjs status`                              | The application's recipes, how many files it edited, and which are behind.    |
@@ -43,13 +43,13 @@ The decision guide is `recipes/README.md` in ras-stack (`git -C <ras-stack> show
 
 ## Add a recipe
 
-1. Read the decision guide and the recipe's `RECIPE.md` in full. Confirm it fits under **Use it when**, and add its `requires` first, in order. A new application starts with `tooling` and `start-app`.
+1. Read the decision guide and the recipe's `README.md` in full. Confirm it fits under **Use it when**, and add its `requires` first, in order. A new application starts with `tooling` and `start-app`.
 2. Choose where the files go. Keep recipe paths unless the application already has a different layout, then `--map` each file. `--skip` a file only when the application deliberately does without it; `--skip` also keeps a starter file, or a starter directory given with a trailing `/`, from being copied over code the application already has.
 3. Run `add`. It copies files that do not exist, copies starter files, leaves existing files alone, and records the recipe. When it lists imports broken by `--map`, fix them in the application's copies.
 4. Apply the `pnpm-workspace.yaml` wiring first when the recipe has it, because pnpm refuses to install a package with build scripts that `allowBuilds` does not list. Then install the packages it prints with the application's package manager; it leaves out packages only skipped files import. Keep a version the application already has when it is newer within the same major.
 5. Reconcile each existing file it lists: bring the recipe's behaviour into the application's file and keep the application's own content.
 6. Apply every other **Wiring** step, using the stack files as the reference.
-7. Apply **Configuration**: add variables to `.env.example`, change the names and values the recipe asks the application to choose, and collect secrets and outside setup (PostHog templates, DNS, provider credentials) into a short list for Richard.
+7. Apply **Configuration**: add variables to `.env.example`, change the names and values the recipe asks the application to choose, and collect secrets and outside setup (PostHog templates, DNS, provider credentials) into a short list for the user.
 8. Run the formatter, then the application's checks and the recipe's **Verify** steps.
 9. Add a `notes` entry for every deliberate difference, one sentence each with the reason.
 
@@ -86,4 +86,4 @@ Run `status --app <dir>` for each application. Report behind recipes with the ch
 
 ## Problems in a recipe
 
-When a recipe is wrong for every application, not just this one, fix the application, record a note, and tell Richard so the fix can go into ras-stack. Changes to recipes follow `recipes/AUTHORING.md` in ras-stack.
+When a recipe is wrong for every application, not just this one, fix the application, record a note, and tell the user so the fix can go into ras-stack as an issue or pull request. Changes to recipes follow `recipes/AUTHORING.md` in ras-stack.

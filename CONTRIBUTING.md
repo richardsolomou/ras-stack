@@ -25,7 +25,7 @@ Keep application names, repository revisions, and application-specific checks in
 
 ## Documentation ownership
 
-The [documentation index](docs/README.md) lists the guides. A recipe's `RECIPE.md` owns its decisions, wiring, configuration, and verification; link to it rather than repeating it. The repository tooling guide owns the Actions and reusable workflow contracts.
+The [documentation index](docs/README.md) lists the guides. A recipe's `README.md` owns its decisions, wiring, configuration, and verification; link to it rather than repeating it. The repository tooling guide owns the Actions and reusable workflow contracts.
 
 ## Releases
 

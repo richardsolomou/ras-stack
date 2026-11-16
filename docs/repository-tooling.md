@@ -162,7 +162,7 @@ The standard Dokploy workflows compose this reporter with the lower-level image 
 
 ## Runtime binaries
 
-The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. The [`realtime` recipe](../recipes/realtime/RECIPE.md) copies them from an immutable release pinned by digest, and Dependabot proposes each new release to applications.
+The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. The [`realtime` recipe](../recipes/realtime/README.md) copies them from an immutable release pinned by digest, and Dependabot proposes each new release to applications.
 
 `runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases, and a `runtime-v*` tag publishes only a commit on `main` whose CI passed, including the build and inspection of the image. Land and publish a changed runtime version before advancing the recipe, stack, and documentation references; they keep the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned. `pnpm runtime:pin` checks that every pinned reference names the same digest and that it resolves for `linux/amd64` and `linux/arm64`.
 

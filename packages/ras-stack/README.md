@@ -1,17 +1,25 @@
 # ras-stack
 
-RAS is how Richard Solomou's applications are built: from [recipes](https://github.com/richardsolomou/ras-stack/blob/main/recipes/README.md), working code an application copies once and then owns, with the decisions behind it written down. The [`ras-recipes` skill](https://github.com/richardsolomou/ras-stack/blob/main/skills/ras-recipes/SKILL.md) adds recipes to an application, merges later recipe changes into its copy, and reports drift. The [stacks](https://github.com/richardsolomou/ras-stack/tree/main/stacks) are complete applications assembled from recipes and checked in CI.
+Compiler and lint presets, and the preview deployment tooling, for applications built from [ras-stack recipes](https://github.com/richardsolomou/ras-stack#readme).
 
-This npm package holds the few things applications share instead of copying:
+[Recipes](https://github.com/richardsolomou/ras-stack/blob/main/recipes/README.md) · [Documentation](https://github.com/richardsolomou/ras-stack/blob/main/docs/README.md) · [Changelog](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/CHANGELOG.md) · [Migrate from v5](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md)
 
-- TypeScript and Oxlint presets, which the `tooling` recipe extends.
-- The `ras preview` command and the `ras-stack/preview/dokploy` export, which the shared Dokploy preview workflows run.
+Applications built from recipes copy and own their code: the app shell, accounts, databases, email, realtime, uploads, analytics, and deploys. This package holds the two things they share instead:
 
-[npm](https://www.npmjs.com/package/ras-stack) · [Documentation](https://github.com/richardsolomou/ras-stack/blob/main/docs/README.md) · [Recipes](https://github.com/richardsolomou/ras-stack/blob/main/recipes/README.md) · [Migrate from v5](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md)
+- **Presets** for TypeScript and Oxlint, which the [`tooling` recipe](https://github.com/richardsolomou/ras-stack/tree/main/recipes/tooling) extends.
+- **Preview tooling**: the `ras preview` command and the `ras-stack/preview/dokploy` export, which the shared Dokploy preview workflows run.
+
+It publishes `config/` (the presets), `dist/` (the `ras` command and the preview export), this README, and the license. Requires Node 24.
 
 ## Presets
 
-Install `ras-stack` as a development dependency and extend the presets by file path, which works with any module resolution setting:
+Install the package as a development dependency:
+
+```sh
+pnpm add -D ras-stack
+```
+
+Extend the presets by file path, which works with any module resolution setting:
 
 ```json
 {
@@ -33,6 +41,7 @@ Install `ras-stack` as a development dependency and extend the presets by file p
 | `typescript/browser.json` | Browser code without Vite.                                                                             |
 | `typescript/bundler.json` | Bundled code without the DOM, such as a Convex or SpacetimeDB module.                                  |
 | `typescript/library.json` | Node libraries and tools compiled with `NodeNext`.                                                     |
+| `typescript/base.json`    | The strict compiler options the other TypeScript presets share.                                        |
 | `oxlint/application.json` | Application lint rules.                                                                                |
 | `oxlint/domain.json`      | Keeps `src/core/**` free of Node builtins, framework and persistence packages, and application layers. |
 | `oxlint/layers.json`      | Restricts imports between `src/client`, `server`, `adapters`, `db`, `contracts`, and `routes`.         |
@@ -41,17 +50,35 @@ The boundary presets hold only their import restrictions, so list them after `ap
 
 ## Previews
 
-The [Dokploy preview workflows](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md#dokploy-previews) run `pnpm exec ras preview` from the application's install. An application with its own preview resources writes a deploy script on `ras-stack/preview/dokploy`.
+The [Dokploy preview workflows](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md#dokploy-previews) deploy each pull request to Dokploy and report its status on the pull request. They run the `ras` command from the application's install, so keep `ras-stack` as a development dependency.
 
-## Contributing
+| Command                                                    | Does                                                                                              |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `ras preview dokploy <deploy\|delete\|prune>`              | Deploys a pull request's image, deletes its preview, or removes previews of closed pull requests. |
+| `ras preview <awaiting\|building\|ready\|failed\|deleted>` | Updates the pull request's preview comment and check run.                                         |
 
-The workspace uses Node 24, pnpm 11.15.0, and Just 1.58.0:
+Both read their configuration from environment variables the workflows set; the [repository tooling guide](https://github.com/richardsolomou/ras-stack/blob/main/docs/repository-tooling.md#dokploy-previews) lists them.
 
-```sh
-just install
-just check
+An application with its own preview resources, such as a tenant to provision, points the workflow's `deploy-script` at a script built on `ras-stack/preview/dokploy`:
+
+```ts
+import { dokployPreviewFromEnvironment } from 'ras-stack/preview/dokploy'
+
+const { manager } = dokployPreviewFromEnvironment()
+await manager.deploy({
+  prNumber: process.env.PR_NUMBER!,
+  image: process.env.PREVIEW_IMAGE!,
+  environment: ({ url }) => `APP_URL=${url}\n`,
+  configure: async ({ applicationId, url }) => provisionTenantFor(applicationId, url),
+})
 ```
 
-See [CONTRIBUTING.md](https://github.com/richardsolomou/ras-stack/blob/main/CONTRIBUTING.md) for development and releases, and [SECURITY.md](https://github.com/richardsolomou/ras-stack/blob/main/SECURITY.md) for private vulnerability reports.
+The export also provides `DokployClient` for the raw Dokploy API, `loadPreviewAppSecrets` to copy allowlisted keys of the `PREVIEW_APP_SECRETS` secret into the environment, and `pullRequestNumber`.
 
-[MIT license](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE).
+## Everything else
+
+Runtime code is not in this package. Copy it from the [recipes](https://github.com/richardsolomou/ras-stack#readme) with the [`ras-recipes` skill](https://github.com/richardsolomou/ras-stack/blob/main/skills/ras-recipes/SKILL.md), which also merges later recipe changes into your copy.
+
+See [CONTRIBUTING.md](https://github.com/richardsolomou/ras-stack/blob/main/CONTRIBUTING.md) to work on the package, and [SECURITY.md](https://github.com/richardsolomou/ras-stack/blob/main/SECURITY.md) for private vulnerability reports.
+
+[MIT license](https://github.com/richardsolomou/ras-stack/blob/main/packages/ras-stack/LICENSE)
