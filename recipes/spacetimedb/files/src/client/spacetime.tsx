@@ -16,23 +16,27 @@ function browserStorage(): TokenStore | undefined {
   }
 }
 
+/** The server and database the browser connects to, which the build bakes in; a page cannot render without them. */
+export function spacetimeSettings(
+  uri: string | undefined = import.meta.env.VITE_SPACETIME_URL,
+  database: string | undefined = import.meta.env.VITE_SPACETIME_DATABASE,
+) {
+  if (!uri || !database) throw new Error('VITE_SPACETIME_URL and VITE_SPACETIME_DATABASE must be set')
+  return { uri, database }
+}
+
 /**
  * The connection to the application's database. A visitor keeps the anonymous identity SpacetimeDB issued on their first
  * visit by presenting its stored token. A token the server no longer accepts is dropped and the page reloads to connect as
  * a new identity, because the provider's own retries would present the rejected token forever.
  */
-export function spacetimeConnection(
-  uri: string | undefined = import.meta.env.VITE_SPACETIME_URL,
-  database: string | undefined = import.meta.env.VITE_SPACETIME_DATABASE,
-  storage = browserStorage(),
-  reload = () => window.location.reload(),
-) {
-  if (!uri || !database) throw new Error('VITE_SPACETIME_URL and VITE_SPACETIME_DATABASE must be set')
+export function spacetimeConnection(uri?: string, database?: string, storage = browserStorage(), reload = () => window.location.reload()) {
+  const settings = spacetimeSettings(uri, database)
   // The SDK logs every connect at info through console.log, which browser console capture would record as noise.
   setGlobalLogLevel('warn')
   return DbConnection.builder()
-    .withUri(uri)
-    .withDatabaseName(database)
+    .withUri(settings.uri)
+    .withDatabaseName(settings.database)
     .withToken(storage?.getItem(tokenKey) ?? undefined)
     .onConnect((_connection, _identity, token) => storage?.setItem(tokenKey, token))
     .onConnectError((_context, error) => {

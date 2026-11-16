@@ -27,8 +27,7 @@ jobs:
         with:
           version: '1.58.0'
       - run: just check-actions
-      - name: Lint recipe and stack workflows
-        run: actionlint recipes/*/files/.github/workflows/*.yml stacks/*/.github/workflows/*.yml
+      - run: just check-recipe-workflows
 
   recipes:
     name: Recipe stacks

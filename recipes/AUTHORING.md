@@ -41,7 +41,7 @@ wires: [src/server/auth.ts]
 | `version`         | A positive integer. Raise it by one for every change an application has to take.                                                         |
 | `summary`         | One sentence for the catalogue.                                                                                                          |
 | `requires`        | Recipes whose files this recipe's files import. Not `tooling`, and not a recipe it only wires into when present.                         |
-| `conflicts`       | Recipes that make the other choice for the same job. They cannot be in one application.                                                  |
+| `conflicts`       | Recipes that make the other choice for the same job. They cannot be in one application, and each lists the other.                        |
 | `dependencies`    | Runtime packages. Versions live only in `recipes/package.json`.                                                                          |
 | `devDependencies` | Development packages, with versions in `recipes/package.json` too.                                                                       |
 | `wires`           | Files other recipes own that this recipe edits when that recipe is present, such as `vite.config.ts`.                                    |
@@ -59,7 +59,7 @@ Frontmatter values are plain scalars or `[a, b]` lists; quote an item that start
 ## Files
 
 - Write concrete application code. Leave out options no application needs today; an application that needs one edits its copy.
-- Use the layered layout the `layers.json` lint preset checks: `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, `src/core`, and `src/contracts`, plus `scripts/` and `.github/`.
+- Use the layered layout `tooling`'s Oxlint configuration checks with the `layers.json` preset: `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, and `src/contracts`, plus `scripts/` and `.github/`. `src/core` needs the `domain.json` preset added alongside it.
 - Import other files with relative paths, and only from recipes in `requires`.
 - Ship tests beside the code as `*.test.ts`. They become the application's tests, so they test behavior the application relies on, and derive expectations from constants the application is told to change rather than repeating their values.
 - Mark placeholder files the application is expected to replace as `starters`, so updates never merge recipe changes into the application's real page or schema.
@@ -98,4 +98,4 @@ pnpm --filter @ras-stack/recipes check full-stack # one stack
 node recipes/check.mjs --assemble-only full-stack # assemble into $TMPDIR/ras-stack-recipes/full-stack and stop
 ```
 
-The check also validates every recipe's frontmatter, its changelog entry for the current version, that every listed package has a version in `recipes/package.json`, and that every package there is used by a recipe.
+The check also validates every recipe's frontmatter, that every package a recipe's files import is declared by the recipe, its `requires`, or `tooling`, its changelog entry for the current version, that every listed package has a version in `recipes/package.json`, and that every package there is used by a recipe.

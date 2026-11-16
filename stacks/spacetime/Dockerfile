@@ -10,6 +10,7 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 # The PostHog project token is public, since it ships in the browser bundle; the upload key arrives as a secret instead.
 ARG VITE_POSTHOG_PROJECT_TOKEN VITE_POSTHOG_HOST POSTHOG_UPLOAD_SOURCEMAPS POSTHOG_CLI_PROJECT_ID POSTHOG_CLI_HOST
+ARG VITE_SPACETIME_URL VITE_SPACETIME_DATABASE
 RUN --mount=type=secret,id=posthog_cli_api_key,env=POSTHOG_CLI_API_KEY pnpm build
 
 FROM node:24-alpine

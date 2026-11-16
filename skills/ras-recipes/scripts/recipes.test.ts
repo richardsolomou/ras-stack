@@ -15,8 +15,12 @@ function write(root: string, path: string, content: string) {
   writeFileSync(join(root, path), content)
 }
 
-function recipe(version: number, starters = '[src/core/starter.ts]') {
-  return `---\nname: greet\nversion: ${version}\nsummary: Greets.\nrequires: []\nconflicts: []\ndependencies: [zod]\ndevDependencies: []\nwires: []\nstarters: ${starters}\n---\n`
+function recipe(
+  version: number,
+  starters = '[src/core/starter.ts]',
+  { name = 'greet', requires = '[]', dependencies = '[zod]', conflicts = '[]' } = {},
+) {
+  return `---\nname: ${name}\nversion: ${version}\nsummary: Greets.\nrequires: ${requires}\nconflicts: ${conflicts}\ndependencies: ${dependencies}\ndevDependencies: []\nwires: []\nstarters: ${starters}\n---\n`
 }
 
 function commit(message: string) {
@@ -110,6 +114,11 @@ describe('add', () => {
     expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7')
   })
 
+  it('asks for the tested major when the application has an older one', () => {
+    write(app, 'package.json', JSON.stringify({ dependencies: { zod: '^3.0.0' } }))
+    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7   (the application has ^3.0.0')
+  })
+
   it('copies a starter file without tracking it', () => {
     run('add', 'greet')
     expect([read('src/core/starter.ts'), 'src/core/starter.ts' in manifest().recipes.greet.files]).toEqual([
@@ -128,6 +137,16 @@ describe('add', () => {
     )
   })
 
+  it('refuses a recipe that a recorded recipe conflicts with', () => {
+    write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { conflicts: '[wave]' }))
+    write(source, 'recipes/wave/RECIPE.md', recipe(1, '[]', { name: 'wave' }))
+    write(source, 'recipes/wave/CHANGELOG.md', '# wave\n\n## 1\n\nWaves.\n')
+    write(source, 'recipes/wave/files/src/core/wave.ts', 'export const wave = 1\n')
+    commit('wave')
+    run('add', 'greet')
+    expect(run('add', 'wave').output).toContain('wave conflicts with greet')
+  })
+
   it('refuses a recipe that is already recorded', () => {
     run('add', 'greet')
     expect(run('add', 'greet').status).toBe(1)
@@ -142,12 +161,12 @@ describe('update', () => {
     expect(read('src/core/greet.ts')).toBe(v2)
   })
 
-  it('keeps local changes the recipe change does not touch', () => {
+  it('merges a local change the recipe change does not touch without conflict', () => {
     run('add', 'greet')
-    write(app, 'src/core/greet.ts', v1.replace('export const punctuation = "."', 'export const punctuation = "."\nexport const local = 1'))
+    write(app, 'src/core/greet.ts', `export const local = 1\n\n${v1}`)
     releaseV2()
-    run('update', 'greet')
-    expect(read('src/core/greet.ts')).toContain('Hello, ${name}!')
+    const { output } = run('update', 'greet')
+    expect([read('src/core/greet.ts'), output.includes('merged with local changes')]).toEqual([`export const local = 1\n\n${v2}`, true])
   })
 
   it('reports a skipped file the recipe changed', () => {
@@ -240,6 +259,71 @@ describe('update', () => {
     expect(run('update', 'greet').status).toBe(1)
   })
 
+  it('keeps a file that became a starter and stops tracking it', () => {
+    run('add', 'greet')
+    write(source, 'recipes/greet/RECIPE.md', recipe(2, '[src/core/starter.ts, src/core/old.ts]'))
+    write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nOld is yours.\n\n## 1\n\nGreets.\n')
+    write(source, 'recipes/greet/files/src/core/old.ts', 'export const old = 2\n')
+    commit('greet v2')
+    run('update', 'greet')
+    expect([read('src/core/old.ts'), 'src/core/old.ts' in manifest().recipes.greet.files]).toEqual(['export const old = 1\n', false])
+  })
+
+  it('copies a starter file new in the recipe', () => {
+    run('add', 'greet')
+    write(source, 'recipes/greet/RECIPE.md', recipe(2, '[src/core/starter.ts, src/core/page.ts]'))
+    write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nA page.\n\n## 1\n\nGreets.\n')
+    write(source, 'recipes/greet/files/src/core/page.ts', 'export const page = 1\n')
+    commit('greet v2')
+    run('update', 'greet')
+    expect(read('src/core/page.ts')).toBe('export const page = 1\n')
+  })
+
+  it('refuses a recorded path outside the application', () => {
+    run('add', 'greet')
+    const recorded = manifest()
+    recorded.recipes.greet.files['src/core/greet.ts'] = '../victim.ts'
+    writeFileSync(join(app, 'ras-recipes.json'), JSON.stringify(recorded))
+    releaseV2()
+    expect([run('update', 'greet').status, existsSync(join(app, '../victim.ts'))]).toEqual([1, false])
+  })
+
+  it('refuses a recorded commit outside the history it updates to', () => {
+    run('add', 'greet')
+    execFileSync('git', ['-C', source, 'checkout', '-qb', 'side'])
+    write(source, 'recipes/greet/files/src/core/greet.ts', 'export const side = 1\n')
+    const side = commit('side')
+    execFileSync('git', ['-C', source, 'checkout', '-q', 'main'])
+    const recorded = manifest()
+    recorded.recipes.greet.commit = side
+    writeFileSync(join(app, 'ras-recipes.json'), JSON.stringify(recorded))
+    releaseV2()
+    expect(run('update', 'greet').output).toContain('is not in the history')
+  })
+
+  it('names packages the recipe no longer uses', () => {
+    run('add', 'greet')
+    write(source, 'recipes/greet/RECIPE.md', recipe(2, undefined, { dependencies: '[]' }))
+    write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nNo zod.\n\n## 1\n\nGreets.\n')
+    commit('greet v2')
+    expect(run('update', 'greet').output).toContain('The recipe no longer uses: zod')
+  })
+
+  it('warns when a required recipe is behind', () => {
+    write(source, 'recipes/shout/RECIPE.md', recipe(1, '[]', { name: 'shout', requires: '[greet]' }))
+    write(source, 'recipes/shout/CHANGELOG.md', '# shout\n\n## 1\n\nShouts.\n')
+    write(source, 'recipes/shout/files/src/core/loud.ts', 'export const loud = 1\n')
+    commit('shout v1')
+    run('add', 'greet')
+    run('add', 'shout')
+    releaseV2()
+    write(source, 'recipes/shout/RECIPE.md', recipe(2, '[]', { name: 'shout', requires: '[greet]' }))
+    write(source, 'recipes/shout/CHANGELOG.md', '# shout\n\n## 2\n\nLouder.\n\n## 1\n\nShouts.\n')
+    write(source, 'recipes/shout/files/src/core/loud.ts', 'export const loud = 2\n')
+    commit('shout v2')
+    expect(run('update', 'shout').output).toContain('requires greet, which is behind')
+  })
+
   it('records the new version and commit', () => {
     run('add', 'greet')
     const head = releaseV2()
@@ -264,7 +348,23 @@ describe('update', () => {
   })
 })
 
+describe('show', () => {
+  it('prints the changelog and diff since a commit', () => {
+    const first = execFileSync('git', ['-C', source, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+    releaseV2()
+    const { output } = run('show', 'greet', '--since', first)
+    expect([output.includes('Exclaims.'), output.includes('+  return `Hello, ${name}!`')]).toEqual([true, true])
+  })
+})
+
 describe('status', () => {
+  it('reports a recipe removed from the source', () => {
+    run('add', 'greet')
+    rmSync(join(source, 'recipes/greet'), { recursive: true })
+    commit('remove greet')
+    expect(run('status').output).toContain('removed from ras-stack')
+  })
+
   it('counts files the application edited', () => {
     run('add', 'greet')
     write(app, 'src/core/greet.ts', 'mine\n')

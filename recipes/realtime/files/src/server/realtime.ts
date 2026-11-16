@@ -1,5 +1,5 @@
 import crypto from 'node:crypto'
-import { requireSameOrigin } from './origins'
+import { isSameOriginRequest } from './origins'
 import { canSubscribe, serverChannels } from './realtimeChannels'
 import { CentrifugoPublisher } from './realtimePublisher'
 
@@ -45,12 +45,7 @@ export function createRealtime(viewer: RealtimeViewerLookup) {
  * request and 403 for a channel `canSubscribe` refuses; the browser client treats both as final instead of retrying.
  */
 export async function realtimeTicket(request: Request, viewer: RealtimeViewerLookup, secret: string, now = Date.now()) {
-  try {
-    requireSameOrigin(request)
-  } catch (error) {
-    if (error instanceof Response) return error
-    throw error
-  }
+  if (!isSameOriginRequest(request)) return new Response('cross-origin mutation rejected', { status: 403 })
   const body: unknown = await request.json().catch(() => ({}))
   const channel = body && typeof body === 'object' && 'channel' in body ? body.channel : undefined
   if (channel !== undefined && typeof channel !== 'string') return Response.json({ error: 'invalid channel' }, { status: 400 })

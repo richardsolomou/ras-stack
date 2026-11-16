@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { FileStore } from '@tus/file-store'
 import { Server, type Upload } from '@tus/server'
-import { requireSameOrigin } from './origins'
+import { isSameOriginRequest } from './origins'
 import { acceptUpload, abandonedAfterMs, expireAfterMs, maxUploadBytes, uploadRejected } from './uploadPolicy'
 
 export type { Upload } from '@tus/server'
@@ -73,9 +73,12 @@ export function createUploads(hooks: UploadHooks, directory = uploadsDirectory()
   /** Every stored upload, after deleting `owner`'s abandoned ones, and the subset `owner` stored. */
   async function storedUploads(owner: string) {
     const all: Upload[] = []
-    for (const id of await store.configstore.list!()) {
-      const upload = await store.getUpload(id).catch(() => undefined)
+    const ids = await store.configstore.list!()
+    // Read together, since every creation on the deployment waits on this scan.
+    const uploads = await Promise.all(ids.map((id) => store.getUpload(id).catch(() => undefined)))
+    for (const [index, upload] of uploads.entries()) {
       if (!upload) continue
+      const id = ids[index]!
       const owned = upload.metadata?.[ownerKey] === owner
       // An unfinished upload its owner has not touched for a while is abandoned, so it stops holding their quota.
       if (owned && upload.offset !== upload.size && Date.now() - (await fs.stat(upload.storage!.path)).mtimeMs > abandonedAfterMs) {
@@ -102,14 +105,7 @@ export function createUploads(hooks: UploadHooks, directory = uploadsDirectory()
   return {
     /** Answers the tus protocol for `/api/uploads` and `/api/uploads/<id>`. */
     async handle(request: Request) {
-      if (request.method !== 'HEAD') {
-        try {
-          requireSameOrigin(request)
-        } catch (error) {
-          if (error instanceof Response) return error
-          throw error
-        }
-      }
+      if (request.method !== 'HEAD' && !isSameOriginRequest(request)) return new Response('cross-origin mutation rejected', { status: 403 })
       const owner = await hooks.owner(request)
       if (owner === undefined) return new Response('unauthenticated', { status: 401 })
       owners.set(request, owner)

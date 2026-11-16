@@ -2,7 +2,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
-import { dirname, join, posix, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const USAGE = `Usage: recipes.mjs <command> [arguments] [--app DIR] [--ref REF]
@@ -32,7 +32,8 @@ function findSource() {
   const cache = join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ras-stack')
   if (!existsSync(cache)) {
     console.error(`Cloning ${REPOSITORY} into ${cache}`)
-    execFileSync('git', ['clone', '--quiet', '--filter=blob:none', REPOSITORY, cache], { stdio: 'inherit' })
+    // A full clone, because a partial one fetches each file it reads over the network and fetches unknown commits on demand.
+    execFileSync('git', ['clone', '--quiet', REPOSITORY, cache], { stdio: 'inherit' })
   }
   return cache
 }
@@ -72,8 +73,7 @@ async function recipeAt(commit, name) {
   if (text === undefined) return undefined
   const parser = await parserAt(commit)
   const recipe = parser.parseRecipe(text, `recipes/${name}/RECIPE.md at ${commit.slice(0, 12)}`)
-  recipe.starters ??= []
-  const starter = (path) => recipe.starters.some((entry) => (entry.endsWith('/') ? path.startsWith(entry) : path === entry))
+  const starter = (path) => parser.isStarter(recipe, path)
   const all = git(['ls-tree', '-r', '--name-only', commit, `recipes/${name}/files/`])
     .split('\n')
     .filter(Boolean)
@@ -121,6 +121,25 @@ function saveManifest(app, manifest) {
   // Formats the manifest the way the application's formatter would, so recording a recipe adds no formatting diff.
   const oxfmt = join(app, 'node_modules', '.bin', 'oxfmt')
   if (existsSync(oxfmt)) spawnSync(oxfmt, [MANIFEST], { cwd: app, stdio: 'ignore' })
+}
+
+/** Whether a path stays inside the application, following symbolic links that already exist. */
+function insideApp(app, path) {
+  const target = resolve(app, path)
+  let real = target
+  for (let existing = target; ; existing = dirname(existing)) {
+    if (existsSync(existing)) {
+      real = join(realpathSync(existing), relative(existing, target))
+      break
+    }
+  }
+  const offset = relative(realpathSync(app), real)
+  return offset !== '' && !offset.startsWith('..') && !isAbsolute(offset)
+}
+
+function checkTargets(app, name, targets) {
+  const outside = targets.filter((target) => typeof target === 'string' && !insideApp(app, target))
+  if (outside.length > 0) throw new Error(`${name}: refusing paths outside the application: ${outside.join(', ')}`)
 }
 
 function writeAppFile(app, path, content) {
@@ -259,15 +278,18 @@ async function status(app, commit) {
       : behind
         ? `behind: v${entry.version} → v${latest.version}`
         : `current at v${entry.version}`
-    const mapped = Object.entries(entry.files).filter(([, path]) => path !== null)
+    const outside = Object.values(entry.files).filter((path) => path !== null && !insideApp(app, path))
+    const mapped = Object.entries(entry.files).filter(([, path]) => path !== null && !outside.includes(path))
     const missing = mapped.filter(([, path]) => !existsSync(join(app, path))).map(([, path]) => path)
     const edited = mapped.filter(([from, path]) => {
       const current = readAppFile(app, path)
       return current !== undefined && current !== readAt(entry.commit, `recipes/${name}/files/${from}`)
     })
-    const details = [edited.length > 0 && `${edited.length} edited here`, missing.length > 0 && `missing: ${missing.join(', ')}`].filter(
-      Boolean,
-    )
+    const details = [
+      edited.length > 0 && `${edited.length} edited here`,
+      missing.length > 0 && `missing: ${missing.join(', ')}`,
+      outside.length > 0 && `ignored paths outside the application: ${outside.join(', ')}`,
+    ].filter(Boolean)
     console.log(`${name.padEnd(24)} ${state}${details.length > 0 ? ` (${details.join('; ')})` : ''}`)
     if (behind)
       for (const changelog of changelogEntries(commit, name, entry.version))
@@ -282,14 +304,15 @@ async function add(app, commit, name, options) {
   if (!recipe) throw new Error(`no recipe ${name} at ${commit.slice(0, 12)}`)
   const missing = recipe.requires.filter((required) => !manifest.recipes[required])
   if (missing.length > 0) throw new Error(`${name} requires ${missing.join(', ')}; add those first`)
-  const conflicting = recipe.conflicts.filter((other) => manifest.recipes[other])
+  const recorded = await Promise.all(Object.keys(manifest.recipes).map((other) => recipeAt(commit, other)))
+  const conflicting = Object.keys(manifest.recipes).filter(
+    (other, index) => recipe.conflicts.includes(other) || recorded[index]?.conflicts.includes(name),
+  )
   if (conflicting.length > 0) throw new Error(`${name} conflicts with ${conflicting.join(', ')}`)
   for (const path of [...Object.keys(options.map), ...options.skip]) {
     if (!recipe.files.includes(path)) throw new Error(`${name} has no tracked file ${path}`)
   }
-  for (const target of Object.values(options.map)) {
-    if (relative(app, resolve(app, target)).startsWith('..')) throw new Error(`--map target ${target} is outside the application`)
-  }
+  checkTargets(app, name, Object.values(options.map))
 
   const files = {}
   const existing = []
@@ -335,6 +358,13 @@ async function update(app, commit, name, options) {
   if (entry.commit === commit) return console.log(`${name} is already at ${commit.slice(0, 12)}.`)
   if (!options.allowDirty && dirtyFiles(app))
     throw new Error('the application has uncommitted changes; commit them so the update is reviewable, or pass --allow-dirty')
+  checkTargets(app, name, Object.values(entry.files))
+  // The recorded commit's parser runs as code, so it must come from the history being updated to rather than wherever the manifest points.
+  if (spawnSync('git', ['-C', source, 'merge-base', '--is-ancestor', entry.commit, commit]).status !== 0) {
+    throw new Error(
+      `${name}'s recorded commit ${entry.commit.slice(0, 12)} is not in the history of ${commit.slice(0, 12)}; refusing to read it`,
+    )
+  }
   const previous = await recipeAt(entry.commit, name)
   if (!previous) throw new Error(`${name} does not exist at its recorded commit ${entry.commit.slice(0, 12)}`)
   const next = await recipeAt(commit, name)
@@ -347,6 +377,11 @@ async function update(app, commit, name, options) {
   /** @type {{ updated: string[], conflicted: string[], manual: string[] }} */
   const report = { updated: [], conflicted: [], manual: [] }
   for (const path of [...new Set([...previous.files, ...next.files])].toSorted((a, b) => a.localeCompare(b))) {
+    if (next.starterFiles.includes(path)) {
+      if (files[path] !== undefined) report.updated.push(`${files[path] ?? path} (now a starter the application owns; no longer tracked)`)
+      delete files[path]
+      continue
+    }
     const base = readAt(entry.commit, `recipes/${name}/files/${path}`)
     const latest = next.files.includes(path) ? readAt(commit, `recipes/${name}/files/${path}`) : undefined
     if (base === latest) continue
@@ -397,6 +432,16 @@ async function update(app, commit, name, options) {
     writes.push([target, merged.content])
     if (merged.conflicts > 0) report.conflicted.push(`${target} (${merged.conflicts} conflict${merged.conflicts === 1 ? '' : 's'})`)
     else report.updated.push(`${target} (merged with local changes)`)
+  }
+
+  for (const path of next.starterFiles) {
+    if (previous.starterFiles.includes(path) || previous.files.includes(path)) continue
+    if (existsSync(join(app, path)))
+      report.manual.push(`${path}: a new starter file, but the application already has a file there. Compare them by hand.`)
+    else {
+      writes.push([path, readAt(commit, `recipes/${name}/files/${path}`)])
+      report.updated.push(`${path} (new starter, yours to replace)`)
+    }
   }
 
   for (const [path, content] of writes) writeAppFile(app, path, content)

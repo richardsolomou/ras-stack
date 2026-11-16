@@ -4,8 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
+  # The deploy workflow calls this to publish, so the module is live before the client built from its bindings.
+  workflow_call:
     inputs:
+      ref:
+        description: The commit to publish.
+        type: string
+        required: true
       break-clients:
         description: Accept a migration that breaks clients still running the previous bindings.
         type: boolean
@@ -24,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: richardsolomou/ras-stack/actions/setup-js@v1
       - uses: ./.github/actions/setup-spacetime
       - uses: richardsolomou/ras-stack/actions/check-spacetime-bindings@v1
@@ -33,10 +40,12 @@ jobs:
 
   publish:
     needs: bindings
-    if: github.ref == 'refs/heads/main'
+    if: inputs.ref != ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
       - uses: richardsolomou/ras-stack/actions/setup-js@v1
       - uses: ./.github/actions/setup-spacetime
       - run: spacetime build --module-path spacetimedb

@@ -6,6 +6,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      break-clients:
+        description: Accept a migration that breaks clients still running the previous bindings.
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-production
@@ -15,9 +20,18 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
+  # The client is built from the commit's bindings, so its module must be live before the image deploys.
+  spacetime:
     # A fork's pull request from its own `main` also matches the branch filter, so only pushes deploy.
     if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    uses: ./.github/workflows/spacetime.yml
+    with:
+      ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      break-clients: ${{ inputs.break-clients || false }}
+    secrets: inherit
+
+  deploy:
+    needs: spacetime
     runs-on: ubuntu-24.04-arm
     environment: production
     permissions:
@@ -46,6 +60,8 @@ jobs:
             POSTHOG_UPLOAD_SOURCEMAPS=${{ secrets.POSTHOG_CLI_API_KEY != '' }}
             POSTHOG_CLI_PROJECT_ID=${{ vars.POSTHOG_CLI_PROJECT_ID }}
             POSTHOG_CLI_HOST=${{ vars.POSTHOG_CLI_HOST }}
+            VITE_SPACETIME_URL=${{ vars.VITE_SPACETIME_URL }}
+            VITE_SPACETIME_DATABASE=${{ vars.VITE_SPACETIME_DATABASE }}
           secrets: |
             posthog_cli_api_key=${{ secrets.POSTHOG_CLI_API_KEY }}
       - name: Deploy to Dokploy

@@ -25,6 +25,6 @@ export const announce = createServerFn({ method: 'POST' })
   .handler(({ data }) =>
     mutationRpc(async () => {
       const user = await requireUser()
-      app().realtime.publish('updates:demo', { text: `${user.name}: ${data}`, at: Date.now() })
+      app().realtime.publish('updates:demo', { id: crypto.randomUUID(), text: `${user.name}: ${data}` })
     }),
   )

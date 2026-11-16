@@ -3,7 +3,7 @@ name: deploy-cloudflare
 version: 1
 summary: TanStack Start on Cloudflare Workers with prerendered pages and the security headers on static assets, deployed by Workers Builds.
 requires: [start-app]
-conflicts: [deploy-dokploy]
+conflicts: [deploy-dokploy, posthog-server]
 dependencies: []
 devDependencies: ['@cloudflare/vite-plugin', wrangler]
 wires: [vite.config.ts, .gitignore, .oxlintrc.json, pnpm-workspace.yaml]

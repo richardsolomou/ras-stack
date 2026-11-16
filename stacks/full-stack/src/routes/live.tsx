@@ -46,10 +46,10 @@ function Live() {
 }
 
 function Updates() {
-  const [messages, setMessages] = useState<{ text: string; at: number }[]>([])
+  const [messages, setMessages] = useState<{ id: string; text: string }[]>([])
   const [text, setText] = useState('')
   const configure = useCallback((subscription: Subscription) => {
-    const receive = ({ data }: PublicationContext) => setMessages((current) => [...current, data as { text: string; at: number }])
+    const receive = ({ data }: PublicationContext) => setMessages((current) => [...current, data as { id: string; text: string }])
     subscription.on('publication', receive)
     return () => void subscription.off('publication', receive)
   }, [])
@@ -71,7 +71,7 @@ function Updates() {
       </form>
       <ul data-testid="messages">
         {messages.map((message) => (
-          <li key={message.at}>{message.text}</li>
+          <li key={message.id}>{message.text}</li>
         ))}
       </ul>
     </section>

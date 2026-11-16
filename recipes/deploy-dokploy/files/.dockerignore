@@ -6,7 +6,7 @@ node_modules
 .tanstack
 .wrangler
 dist
-data
+.data
 .env
 .env.*
 *.log

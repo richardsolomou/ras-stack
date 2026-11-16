@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { cp, mkdir, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { builtinModules } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,8 +54,40 @@ async function loadRecipes(versions) {
     for (const name of [...recipe.requires, ...recipe.conflicts]) {
       if (!recipes.has(name)) throw new Error(`recipes/${recipe.name}: unknown recipe ${name}`)
     }
+    for (const name of recipe.conflicts) {
+      if (!recipes.get(name).conflicts.includes(recipe.name)) throw new Error(`recipes/${name}: must also list ${recipe.name} in conflicts`)
+    }
+    await checkImports(recipe, recipes)
   }
   return recipes
+}
+
+const importSpecifier = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)['"]([^'"]+)['"]/gm
+const packageName = (specifier) =>
+  specifier
+    .split('/')
+    .slice(0, specifier.startsWith('@') ? 2 : 1)
+    .join('/')
+
+/** An application that adds a recipe installs only the packages it and its requires declare, plus tooling's, so every import must be among them. */
+async function checkImports(recipe, recipes) {
+  const declared = new Set([...builtinModules, ...recipes.get('tooling').dependencies, ...recipes.get('tooling').devDependencies])
+  const pending = [recipe.name]
+  for (const seen = new Set(); pending.length > 0;) {
+    const current = recipes.get(pending.pop())
+    if (seen.has(current.name)) continue
+    seen.add(current.name)
+    for (const name of [...current.dependencies, ...current.devDependencies]) declared.add(name)
+    pending.push(...current.requires)
+  }
+  for (const path of recipe.files.filter((file) => /\.(m?[jt]sx?)$/.test(file))) {
+    const content = await readFile(join(recipesDir, recipe.name, 'files', path), 'utf8')
+    for (const [, specifier] of content.matchAll(importSpecifier)) {
+      if (/^[./#]/.test(specifier) || specifier.includes(':')) continue
+      if (!declared.has(packageName(specifier)))
+        throw new Error(`recipes/${recipe.name}: ${path} imports ${specifier}, which the recipe does not declare`)
+    }
+  }
 }
 
 async function loadStacks(recipes, only) {
@@ -110,11 +143,10 @@ async function assemble(stack, recipes, versions, rasStackVersion, install) {
     const names = [...new Set(selected.flatMap((recipe) => recipe[kind]))].toSorted((a, b) => a.localeCompare(b))
     if (names.length > 0) manifest[kind] = Object.fromEntries(names.map((name) => [name, versionOf(name, versions, rasStackVersion)]))
   }
+  // An application installs the published package, and an unreleased workspace version would not resolve; package:check covers the workspace presets.
+  if (install && manifest.devDependencies?.['ras-stack']) manifest.devDependencies['ras-stack'] = 'latest'
   await writeFile(join(out, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
   if (install) {
-    // An application installs the published package, and an unreleased workspace version would not resolve; package:check covers the workspace presets.
-    if (manifest.devDependencies?.['ras-stack']) manifest.devDependencies['ras-stack'] = 'latest'
-    await writeFile(join(out, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
     // A real install catches what the shared node_modules hides, such as a package missing from allowBuilds.
     const result = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: out, stdio: 'inherit' })
     if (result.status !== 0) throw new Error(`${label}: pnpm install failed`)
@@ -153,7 +185,6 @@ try {
   for (const name of names) if (!stacks.has(name)) throw new Error(`unknown stack ${name}`)
   const assembled = []
   for (const stack of stacks.values()) {
-    if (names.length > 0 && !names.includes(stack.name)) continue
     stack.testedWiring = new Set()
     assembled.push({ stack, ...(await assemble(stack, recipes, versions, rasStackVersion, install)) })
     console.log(`assembled ${stack.name} in ${join(assembledDir, stack.name)}`)

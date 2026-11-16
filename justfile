@@ -19,3 +19,18 @@ check-recipes *stacks:
 check-actions:
     shellcheck actions/*/*.sh
     actionlint
+
+# Lints each assembled stack's workflows as its own repository, so local reusable workflows resolve; every recipe is in a stack.
+check-recipe-workflows:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    node recipes/check.mjs --assemble-only > /dev/null
+    assembled="$(node -p "require('node:path').join(require('node:os').tmpdir(), 'ras-stack-recipes')")"
+    for stack in "$assembled"/*/; do
+      [ -d "$stack.github/workflows" ] || continue
+      repository="$(mktemp -d)"
+      cp -R "$stack.github" "$repository/"
+      git -C "$repository" init -q
+      (cd "$repository" && actionlint)
+      rm -rf "$repository"
+    done
