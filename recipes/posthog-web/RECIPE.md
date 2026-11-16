@@ -59,7 +59,7 @@ An application without TanStack Start, such as a game client built with plain Vi
 
 With `start-app` and `tooling`, see `stacks/full-stack/` (and `stacks/client-only/vite.config.ts` for the Cloudflare form of `vite.config.ts`, which client-only tools copy):
 
-- `src/routes/__root.tsx`: wrap `<Outlet />` in `<PostHogIntegration>`, inside `<body>`. Providers that use `usePostHog()`, such as `posthog-auth-identity`'s identity component, go inside it.
+- `src/routes/__root.tsx`: wrap `<Outlet />` in `<PostHogIntegration>`, in the root's `Root` component, not the `Document` shell. Providers that use `usePostHog()`, such as `posthog-auth-identity`'s identity component, go inside it.
 - `src/router.tsx`: pass `defaultOnCatch: captureRenderError` to `createRouter`.
 - `vite.config.ts`: convert the export to `defineConfig(({ mode }) => ...)`, call `postHogSourceMaps({ ...loadEnv(mode, process.cwd(), ''), ...process.env })`, add `sourceMaps?.client` to `plugins`, and set `worker: { plugins: () => [sourceMaps.worker()] }` when it is defined.
 - `pnpm-workspace.yaml`: add `'@posthog/cli': true` to `allowBuilds`, because the upload plugin's CLI downloads its binary in an install script, and `core-js: false`, because `posthog-js` depends on `core-js`, whose install script only prints a banner, and pnpm fails a fresh install on any build script `allowBuilds` does not mention.

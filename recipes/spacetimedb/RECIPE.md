@@ -72,7 +72,7 @@ Use `convex` instead when no module logic needs to run next to the data in a cus
 
 With `start-app` and `tooling`, see `stacks/spacetime/`:
 
-- `src/routes/__root.tsx`: wrap `<Outlet />` in `<SpacetimeProvider>`.
+- `src/routes/__root.tsx`: wrap `<Outlet />` in `<SpacetimeProvider>`, in the root's `Root` component, so a missing setting reaches the root's error boundary.
 - `src/server/contentSecurityPolicy.ts`: add `"'unsafe-eval'"` to `script-src` and `...spacetimeConnectSources(import.meta.env.VITE_SPACETIME_URL)` to `connect-src`.
 - `package.json`: `"typecheck": "tsc --noEmit && tsc --noEmit -p spacetimedb"` and `"spacetime:generate": "spacetime generate --lang typescript --module-path spacetimedb --out-dir src/spacetime/generated --yes"`.
 - `vitest.config.ts`: add `plugins: [spacetimedbModuleTestPlugin()]` (from `spacetimedb/server/test-utils/vitest`) and `'spacetimedb/src/**/*.test.ts'` to `include`.

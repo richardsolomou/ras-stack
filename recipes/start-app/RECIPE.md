@@ -37,30 +37,31 @@ A client-only tool with no backend data, such as an image converter, uses it too
 - **Resources close in reverse order through an `AsyncDisposableStack`.** Each resource registers its cleanup where it is created, so adding one is one block in `createApp`. The stack closes later resources first, since they may depend on earlier ones, runs every cleanup even when one fails, and rejects with all the failures. The deploy target closes the instance when the server stops: `deploy-dokploy` does it from Nitro's close hook after requests in flight finish, and Workers never stop a process. A signal handler here would close resources under requests still running.
 - **The health route builds the composition root.** `GET /api/health` answers `{ ok: true }` once `app()` succeeds, so a missing environment variable fails the container health check instead of the first real request. Failures answer 503 without the cause, which goes to the server log; a check can map a failure to a stable code for monitors. Responses are `no-store`.
 - **A Query client per browser session and per server request**, created by the router, so cached data never crosses between users. `setupRouterSsrQueryIntegration` mounts the provider and carries server-fetched queries into the browser, so there is no separate `QueryClientProvider`. `staleTime` is one second: long enough that hydrated queries are not fetched again straight away, short enough that navigating back shows fresh data. Sixty seconds would refetch less when moving between pages but show data up to a minute old, and every application chose one second. A query whose data rarely changes sets its own longer `staleTime`.
-- **Tailwind scans only `src/`**, through `source('./')` on the import in `src/styles.css`, so build output and generated files outside `src/` never add classes.
+- **The document is the root route's `shellComponent`, and providers mount in its `component`.** The router renders the shell outside the root's error and not-found boundaries and the component inside them. A root `errorComponent` or `notFoundComponent` therefore renders inside `<html>`, keeping the title, stylesheet, body classes, and update notice; with the document in `component`, as TanStack's routing guide shows it, a root error replaced the whole document in the browser. Providers stay in `component`, so an error one throws reaches the root's boundary. TanStack's `start-basic` example, whose root has both components, uses `shellComponent` too. Without a root `errorComponent`, errors go to the router's outermost boundary, which replaces the document either way.
+- **Tailwind scans only `src/`**, through `source('./')` on the import in `src/styles.css`, so build output and generated files outside `src/` never add classes. The path is relative to the stylesheet, so a stylesheet moved elsewhere changes it, for example to `source('../')` from `src/styles/app.css`; otherwise Tailwind silently scans a different directory and drops classes.
 - **Port 3000 in development**, the same as Nitro's production default, so local `APP_URL` and OAuth redirect URLs do not change between the two.
 
 ## Files
 
-| File                                  | Job                                                                                        |
-| ------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `vite.config.ts`                      | Start, React, and Tailwind plugins and the dev server port.                                |
-| `src/start.ts`                        | Request and server function middleware lists.                                              |
-| `src/router.tsx`                      | The router, its Query client, and the SSR Query integration.                               |
-| `src/routes/__root.tsx`               | The document, head tags, chunk recovery, the update notice, and where providers mount.     |
-| `src/routes/index.tsx`                | A placeholder home page; replace it.                                                       |
-| `src/routes/api/health.ts`            | `GET /api/health`.                                                                         |
-| `src/styles.css`                      | The Tailwind entry stylesheet.                                                             |
-| `src/client/queryClient.ts`           | Query client defaults.                                                                     |
-| `src/client/chunkRecovery.ts`         | The inline script that recovers from missing entry modules, and the notice element id.     |
-| `src/server/app.ts`                   | The server composition root: `app()` and `closeApp()`.                                     |
-| `src/server/middleware.ts`            | Canonical host, security headers, CSRF, stale server functions, server function identity.  |
-| `src/server/contentSecurityPolicy.ts` | The Content Security Policy's sources by directive; the application's to change.           |
-| `src/server/origins.ts`               | Request origins: `requireSameOrigin`, `publicOrigin`, `trustedOrigins`, `acceptedOrigins`. |
-| `src/server/rpc.ts`                   | `rpc` and `mutationRpc`, the wrappers every server function handler uses.                  |
-| `src/server/serverFunction.ts`        | The current server function's name, for logs and telemetry.                                |
-| `src/server/health.ts`                | `healthResponse`.                                                                          |
-| `src/**/*.test.ts`                    | Tests for each of the above, including the mutation-origin conformance cases.              |
+| File                                  | Job                                                                                                  |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `vite.config.ts`                      | Start, React, and Tailwind plugins and the dev server port.                                          |
+| `src/start.ts`                        | Request and server function middleware lists.                                                        |
+| `src/router.tsx`                      | The router, its Query client, and the SSR Query integration.                                         |
+| `src/routes/__root.tsx`               | The document shell, head tags, chunk recovery, the update notice, and `Root`, where providers mount. |
+| `src/routes/index.tsx`                | A placeholder home page; replace it.                                                                 |
+| `src/routes/api/health.ts`            | `GET /api/health`.                                                                                   |
+| `src/styles.css`                      | The Tailwind entry stylesheet. Its `source()` path is relative to this file.                         |
+| `src/client/queryClient.ts`           | Query client defaults.                                                                               |
+| `src/client/chunkRecovery.ts`         | The inline script that recovers from missing entry modules, and the notice element id.               |
+| `src/server/app.ts`                   | The server composition root: `app()` and `closeApp()`.                                               |
+| `src/server/middleware.ts`            | Canonical host, security headers, CSRF, stale server functions, server function identity.            |
+| `src/server/contentSecurityPolicy.ts` | The Content Security Policy's sources by directive; the application's to change.                     |
+| `src/server/origins.ts`               | Request origins: `requireSameOrigin`, `publicOrigin`, `trustedOrigins`, `acceptedOrigins`.           |
+| `src/server/rpc.ts`                   | `rpc` and `mutationRpc`, the wrappers every server function handler uses.                            |
+| `src/server/serverFunction.ts`        | The current server function's name, for logs and telemetry.                                          |
+| `src/server/health.ts`                | `healthResponse`.                                                                                    |
+| `src/**/*.test.ts`                    | Tests for each of the above, including the mutation-origin conformance cases.                        |
 
 ### Seams other recipes extend
 
@@ -89,7 +90,7 @@ Every cleanup has a deadline, because the deploy target stops waiting. Docker, a
 
 That is at most 7 seconds without `realtime` and 8 with it. A new cleanup that can wait on the network takes a deadline of its own and fits inside this table; telemetry closes last with its own slot, so the events describing a slow shutdown still leave.
 
-**`src/routes/__root.tsx`.** Wrap `<Outlet />` in providers, such as PostHog's, inside `<body>`. Add inline head scripts to `scripts` in `head()`. Keep the `update-notice` element and the chunk recovery script.
+**`src/routes/__root.tsx`.** Wrap `<Outlet />` in `Root` in providers, such as PostHog's. Keep the document in `Document`, the `shellComponent`, and put a root `errorComponent` or `notFoundComponent` on the route, where it renders inside the document. Add inline head scripts to `scripts` in `head()`. Keep the `update-notice` element and the chunk recovery script.
 
 **`src/start.ts`.** Add request middleware to `requestMiddleware` and server function middleware to `functionMiddleware`. Keep `canonicalHost` first so a redirect skips the rest, and keep `securityHeadersMiddleware` before anything whose responses need the headers. Middleware modules imported here also load in the browser, so they must not import `node:` modules or `@tanstack/react-start/server` at the top level.
 
@@ -117,7 +118,7 @@ healthResponse(
 With `tooling`, see `stacks/client-only/`:
 
 - `package.json`: add `"dev": "vite dev"`, `"build": "vite build"`, and `"preview": "vite preview"`, and put `pnpm build` before `pnpm typecheck` in `check`, since type checking needs the generated route tree.
-- `.gitignore`: add `.tanstack/` and `src/routeTree.gen.ts`.
+- `.gitignore`: add `.tanstack/` and `src/routeTree.gen.ts`. An application that committed the route tree also runs `git rm --cached src/routeTree.gen.ts`, since ignoring a tracked file does nothing.
 - `.oxlintrc.json`: add `src/routeTree.gen.ts` to `ignorePatterns`.
 
 ## Configuration
