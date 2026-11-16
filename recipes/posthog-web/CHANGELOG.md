@@ -1,5 +1,11 @@
 # posthog-web
 
+## 4
+
+Read `import.meta.env` with an optional chain in `src/contracts/posthog.ts`, so a script run with Node or tsx can import the contract instead of failing on load.
+
+Upgrade: a Dockerfile that copies selected files into its build stage, instead of `COPY . .`, adds `scripts/posthogSourceMaps.ts`, which `vite.config.ts` imports.
+
 ## 3
 
 Move `postHogOptions` and its tests into `src/client/posthogOptions.ts` and `posthogOptions.test.ts`, which import neither React nor the router, so an application without them can take the SDK options alone.
