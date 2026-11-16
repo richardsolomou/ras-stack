@@ -1,6 +1,6 @@
 ---
 name: posthog-web
-version: 2
+version: 3
 summary: Browser PostHog with privacy defaults, a same-origin ingest proxy, render error capture, and source-map upload.
 requires: []
 conflicts: []
@@ -24,7 +24,7 @@ wires:
 
 Every application with a browser UI: product analytics, session replay, web vitals, browser exceptions, browser logs and metrics, and feature flags. It fits full-stack applications on either deploy target and the client-only tools on Cloudflare alike, because the ingest proxy is a TanStack Start server route.
 
-An application without TanStack Start, such as a React single-page application or game client built with plain Vite, adds it with `--skip 'src/routes/t/$.ts' --skip src/server/posthogProxy.ts --skip src/server/posthogProxy.test.ts`, leaves out `@tanstack/react-router` unless it already uses it, follows Direct ingestion below, and wraps its root in `PostHogIntegration`. The ingest proxy is a Start server route, and the rest of the recipe imports nothing from `start-app`, so it does not require it.
+An application without TanStack Start, such as a React single-page application or game client built with plain Vite, adds it with `--skip 'src/routes/t/$.ts' --skip src/server/posthogProxy.ts --skip src/server/posthogProxy.test.ts`, follows Direct ingestion below, and wraps its root in `PostHogIntegration`. Without React, it also skips `src/client/posthog.tsx` and `src/client/posthog.test.tsx` and calls `posthog.init` itself with `postHogOptions` from `src/client/posthogOptions.ts`, which imports only `posthog-js` types and `src/contracts/posthog.ts`. The ingest proxy is a Start server route, and the rest of the recipe imports nothing from `start-app`, so it does not require it.
 
 ## Decisions
 
@@ -50,7 +50,8 @@ An application without TanStack Start, such as a React single-page application o
 | File                               | Job                                                                                                                       |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `src/contracts/posthog.ts`         | `serviceName`, `ingestPath`, the variable names and default host, `postHogEnvironment`, and the build's `bundledPostHog`. |
-| `src/client/posthog.tsx`           | SDK options, initialization, `PostHogIntegration`, and `captureRenderError`.                                              |
+| `src/client/posthogOptions.ts`     | `postHogOptions`: the SDK options, free of React and the router.                                                          |
+| `src/client/posthog.tsx`           | Initialization, `PostHogIntegration`, and `captureRenderError`.                                                           |
 | `src/server/posthogProxy.ts`       | `forwardToPostHog`: routing, header filtering, and response cleanup for the proxy.                                        |
 | `src/routes/t/$.ts`                | The ingest proxy route.                                                                                                   |
 | `scripts/posthogSourceMaps.ts`     | `postHogSourceMaps`: when to upload, and the client and worker plugin instances.                                          |
@@ -92,7 +93,7 @@ Workers Builds sets `CI=true` in every build, so uploads turn on once the creden
 
 ### Direct ingestion
 
-To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions` and expect it in `src/client/posthog.test.tsx`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts` with its test, and add the ingestion and assets hosts to `connect-src` and `script-src` in `src/server/contentSecurityPolicy.ts`, or in the application's own policy without `start-app`. Ad blockers then block more events.
+To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions` and expect it in `src/client/posthogOptions.test.ts`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts` with its test, and add the ingestion and assets hosts to `connect-src` and `script-src` in `src/server/contentSecurityPolicy.ts`, or in the application's own policy without `start-app`. Ad blockers then block more events.
 
 ## Verify
 
