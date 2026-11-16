@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -160,6 +160,24 @@ function installedPackages(app) {
 
 const majorOf = (range) => Number(/(\d+)/.exec(range ?? '')?.[1])
 
+/** The first application source file that imports a `ras-stack/` runtime helper, which only v5 and earlier ship. */
+function rasStackHelperImport(app, dir = '') {
+  for (const entry of readdirSync(join(app, dir), { withFileTypes: true })) {
+    if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue
+    const path = dir ? `${dir}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      const found = rasStackHelperImport(app, path)
+      if (found) return found
+    } else if (
+      /\.(?:[cm]?[jt]sx?)$/.test(entry.name) &&
+      /(?:from\s*|import\s*\(\s*)['"]ras-stack\//.test(readFileSync(join(app, path), 'utf8'))
+    ) {
+      return path
+    }
+  }
+  return undefined
+}
+
 function printPackages(app, recipe, versionOf, previous) {
   const installed = installedPackages(app)
   for (const [kind, flag] of [
@@ -170,6 +188,13 @@ function printPackages(app, recipe, versionOf, previous) {
     if (missing.length > 0) console.log(`  pnpm add${flag} ${missing.map((name) => `${name}@${versionOf(name)}`).join(' ')}`)
     const outdated = recipe[kind].filter((name) => installed[name] && majorOf(installed[name]) < majorOf(versionOf(name)))
     for (const name of outdated) {
+      const helperImport = name === 'ras-stack' && rasStackHelperImport(app)
+      if (helperImport) {
+        console.log(
+          `  Keep ras-stack at ${installed[name]} while ${helperImport} imports its helpers; bump it to ${versionOf(name)} once none do.`,
+        )
+        continue
+      }
       console.log(
         `  pnpm add${flag} ${name}@${versionOf(name)}   (the application has ${installed[name]}; the recipe is tested on this major)`,
       )
