@@ -89,6 +89,8 @@ Upgrade: set `EMAIL_TIMEOUT_MS` if ten seconds is too short for the provider.
 
 The `ras-recipes` skill merges file changes into applications. The changelog explains why, and `Upgrade:` lists only what a file merge cannot do, such as renamed environment variables, data migrations, or external setup.
 
+The `ras-recipes` script asks applications for each package at its version in `recipes/package.json`: an exact version stays exact, such as the OpenTelemetry log packages that must match each other, and a range follows the application's style.
+
 Package version changes from Dependabot do not change a recipe's version. Applications keep their own dependency updates.
 
 ## Checks

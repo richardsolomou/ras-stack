@@ -52,7 +52,7 @@ beforeEach(() => {
   execFileSync('git', ['-C', source, 'config', 'user.name', 'Test'])
   cpSync(join(repository, 'skills/ras-recipes/scripts/recipes.mjs'), join(source, 'skills/ras-recipes/scripts/recipes.mjs'))
   cpSync(join(repository, 'recipes/recipe.mjs'), join(source, 'recipes/recipe.mjs'))
-  write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7' } }))
+  write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '^4.6.7' } }))
   write(source, 'packages/ras-stack/package.json', JSON.stringify({ version: '5.0.0' }))
   write(source, 'recipes/greet/README.md', recipe(1))
   write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 1\n\nGreets.\n')
@@ -112,6 +112,12 @@ describe('add', () => {
 
   it('prints the packages the application lacks as caret ranges of their tested versions', () => {
     expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7')
+  })
+
+  it('prints an exact version for a package the recipes pin exactly', () => {
+    write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7' } }))
+    commit('pin zod exactly')
+    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7\n')
   })
 
   it('prints exact versions when the application pins its packages exactly', () => {
@@ -229,6 +235,11 @@ describe('add', () => {
     expect(run('add', 'greet', '--map', 'src/core/greet.ts=src/lib/greet.ts').output).toContain(
       'src/core/shout.ts imports ./greet, which the application keeps at src/lib/greet.ts',
     )
+  })
+
+  it('leaves out the imports of a file it did not copy', () => {
+    write(app, 'src/core/shout.ts', 'mine\n')
+    expect(run('add', 'greet', '--map', 'src/core/greet.ts=src/lib/greet.ts').output).not.toContain('Imports to fix')
   })
 
   it('refuses a recipe that a recorded recipe conflicts with', () => {

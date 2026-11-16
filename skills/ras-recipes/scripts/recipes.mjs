@@ -182,11 +182,14 @@ function isOlder(range, tested) {
   return index !== -1 && have[index] < want[index]
 }
 
-/** Writes a tested version as a range in the application's style: exact when every version range it has is exact, caret otherwise. */
+/**
+ * Writes a tested version as a range in the application's style: exact when every version range it has is exact, caret
+ * otherwise. A version `recipes/package.json` pins exactly stays exact, because the recipe needs that one.
+ */
 function rangeStyle(installed) {
   const ranges = Object.values(installed).filter((range) => /^[\^~]?\d/.test(range))
   const exact = ranges.length > 0 && ranges.every((range) => /^\d/.test(range))
-  return (version) => (exact ? version.replace(/^[\^~]/, '') : `^${version.replace(/^[\^~]/, '')}`)
+  return (version) => (exact || /^\d/.test(version) ? version.replace(/^[\^~]/, '') : `^${version.replace(/^[\^~]/, '')}`)
 }
 
 /** The first application source file that imports a `ras-stack/` runtime helper, which only v5 and earlier ship. */
@@ -294,11 +297,11 @@ function mergeFile(appContent, base, next, labels) {
 
 const stripExtension = (path) => path.replace(/\.(m?[jt]sx?)$/, '')
 
-/** Recipe files whose relative imports reach a file the application moved, which the move leaves pointing nowhere. */
-function importsOfMoved(commit, name, recipe, map) {
+/** Copied recipe files whose relative imports reach a file the application moved, which the move leaves pointing nowhere. */
+function importsOfMoved(commit, name, copied, map) {
   const moved = new Map(Object.entries(map).map(([from, to]) => [stripExtension(from), to]))
   const warnings = []
-  for (const path of recipe.files) {
+  for (const path of copied) {
     const content = readAt(commit, `recipes/${name}/files/${path}`) ?? ''
     for (const [, specifier] of content.matchAll(/(?:from\s*|import\s*\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g)) {
       const target = moved.get(stripExtension(posix.normalize(posix.join(posix.dirname(path), specifier))))
@@ -416,6 +419,7 @@ async function add(app, commit, name, options) {
 
   const files = {}
   const existing = []
+  const copied = []
   for (const path of recipe.files) {
     if (skipped(path)) {
       files[path] = null
@@ -424,7 +428,10 @@ async function add(app, commit, name, options) {
     const target = options.map[path] ?? path
     files[path] = target
     if (existsSync(join(app, target))) existing.push(target === path ? path : `${target} (recipe ${path})`)
-    else writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
+    else {
+      writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
+      copied.push(path)
+    }
   }
   const starters = recipe.starterFiles.filter((path) => !skipped(path) && !existsSync(join(app, path)))
   for (const path of starters) writeAppFile(app, path, readAt(commit, `recipes/${name}/files/${path}`))
@@ -435,7 +442,7 @@ async function add(app, commit, name, options) {
   for (const [title, items] of /** @type {Array<[string, string[]]>} */ ([
     ['These files already existed and were left alone. Reconcile each with the recipe version by hand', existing],
     ['Starter files copied for the application to replace; updates never touch them', starters],
-    ['Imports to fix after moving files', importsOfMoved(commit, name, recipe, options.map)],
+    ['Imports to fix after moving files', importsOfMoved(commit, name, copied, options.map)],
   ])) {
     if (items.length === 0) continue
     console.log(`\n${title}:`)
