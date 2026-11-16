@@ -10,6 +10,7 @@
     "react/react-in-jsx-scope": "off",
     "typescript/consistent-return": "off",
     "typescript/no-unsafe-type-assertion": "off",
+    "unicorn/no-useless-spread": "off",
     "unicorn/filename-case": "off",
     "vitest/require-mock-type-parameters": "off"
   },
