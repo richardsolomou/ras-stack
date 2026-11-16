@@ -1,6 +1,6 @@
 ---
 name: start-app
-version: 2
+version: 3
 summary: TanStack Start, React, Query, and Tailwind application shell with request security and deploy survival.
 requires: []
 conflicts: []
@@ -35,7 +35,7 @@ A client-only tool with no backend data, such as an image converter, uses it too
 - **The default policy allows only the application's origin, and what it blocks fails quietly.** A blocked fetch, worker, or `eval` shows up only as a console error and a `securitypolicyviolation` event, while the feature just stops, so exercise the main feature before deploying (see Verify). Common additions: WebAssembly, including Shiki's Oniguruma regex engine, and in-browser machine learning need `'wasm-unsafe-eval'` in `script-src` and `blob:` in `worker-src` (and in `script-src` or `connect-src` when the runtime loads or fetches blob URLs), and sometimes `'unsafe-eval'` for a library that compiles code with `Function()`; GitHub avatars need `https://github.com` and `https://avatars.githubusercontent.com` in `img-src`, since `github.com/<user>.png` redirects to the second; a third-party model, API, or asset host goes in `connect-src` (and `img-src` for its images).
 - **The server composition root is one global instance.** `app()` creates the server's long-lived resources on first use and stores them on `globalThis`, so Vite's development module reloads reuse the database connection instead of opening another on every edit. The trade-off: editing `createApp` itself takes effect after restarting the dev server. `createApp` stays synchronous, so callers never await `app()`. When `createApp` throws partway, it closes the resources it already opened and rethrows, keeping no instance, so the next `app()` call retries from scratch; without that, a missing secret opened another database connection on every health check. Because `createApp` is synchronous, that cleanup runs in the background and logs its own failures.
 - **Resources close in reverse order through an `AsyncDisposableStack`.** Each resource registers its cleanup where it is created, so adding one is one block in `createApp`. The stack closes later resources first, since they may depend on earlier ones, runs every cleanup even when one fails, and rejects with all the failures. The deploy target closes the instance when the server stops: `deploy-dokploy` does it from Nitro's close hook after requests in flight finish, and Workers never stop a process. A signal handler here would close resources under requests still running.
-- **The health route builds the composition root.** `GET /api/health` answers `{ ok: true }` once `app()` succeeds, so a missing environment variable fails the container health check instead of the first real request. Failures answer 503 without the cause, which goes to the server log; a check can map a failure to a stable code for monitors. Responses are `no-store`.
+- **The health route builds the composition root.** `GET /api/health` answers `{ ok: true }` once `app()` succeeds, so a missing environment variable fails the container health check instead of the first real request. Failures answer 503 without the cause, which goes to the server log. A dependency's check runs inside `checkDependency(code, message, check)`, so only its own failure reaches monitors under that code: mapping every failure to one code reported a missing secret, which `app()` throws before any dependency is checked, as `database_unavailable`. Responses are `no-store`.
 - **A Query client per browser session and per server request**, created by the router, so cached data never crosses between users. `setupRouterSsrQueryIntegration` mounts the provider and carries server-fetched queries into the browser, so there is no separate `QueryClientProvider`. `staleTime` is one second: long enough that hydrated queries are not fetched again straight away, short enough that navigating back shows fresh data. Sixty seconds would refetch less when moving between pages but show data up to a minute old, and every application chose one second. A query whose data rarely changes sets its own longer `staleTime`.
 - **The document is the root route's `shellComponent`, and providers mount in its `component`.** The router renders the shell outside the root's error and not-found boundaries and the component inside them. A root `errorComponent` or `notFoundComponent` therefore renders inside `<html>`, keeping the title, stylesheet, body classes, and update notice; with the document in `component`, as TanStack's routing guide shows it, a root error replaced the whole document in the browser. Providers stay in `component`, so an error one throws reaches the root's boundary. TanStack's `start-basic` example, whose root has both components, uses `shellComponent` too. Without a root `errorComponent`, errors go to the router's outermost boundary, which replaces the document either way.
 - **Tailwind scans only `src/`**, through `source('./')` on the import in `src/styles.css`, so build output and generated files outside `src/` never add classes. The path is relative to the stylesheet, so a stylesheet moved elsewhere changes it, for example to `source('../')` from `src/styles/app.css`; otherwise Tailwind silently scans a different directory and drops classes.
@@ -60,7 +60,7 @@ A client-only tool with no backend data, such as an image converter, uses it too
 | `src/server/origins.ts`               | Request origins: `requireSameOrigin`, `publicOrigin`, `trustedOrigins`, `acceptedOrigins`.           |
 | `src/server/rpc.ts`                   | `rpc` and `mutationRpc`, the wrappers every server function handler uses.                            |
 | `src/server/serverFunction.ts`        | The current server function's name, for logs and telemetry.                                          |
-| `src/server/health.ts`                | `healthResponse`.                                                                                    |
+| `src/server/health.ts`                | `healthResponse` and `checkDependency`.                                                              |
 | `src/**/*.test.ts`                    | Tests for each of the above, including the mutation-origin conformance cases.                        |
 
 ### Seams other recipes extend
@@ -96,13 +96,13 @@ That is at most 7 seconds without `realtime` and 8 with it. A new cleanup that c
 
 **`vite.config.ts`.** Add plugins to `plugins`: Nitro after `tanstackStart()`, the Cloudflare plugin before it. Add dev proxies under `server.proxy`. A recipe that needs `.env` values here converts the export to the `defineConfig(({ mode }) => ...)` form with `loadEnv`.
 
-**`src/routes/api/health.ts`.** Replace the body of the check with the dependency it proves, keeping `app()` in it, and pass a failure mapping when monitors need a stable code. The container's health check restarts the container when this fails, so check only what a restart can fix: a local SQLite file, yes; a database on another server, no (see `database-postgres`).
+**`src/routes/api/health.ts`.** Replace the body of the check with the dependency it proves, keeping `app()` in it, and wrap the dependency's own check in `checkDependency` when monitors need a stable code. The container's health check restarts the container when this fails, so check only what a restart can fix: a local SQLite file, yes; a database on another server, no (see `database-postgres`).
 
 ```ts
-healthResponse(
-  () => app().database.get(sql`SELECT 1`),
-  () => ({ code: 'database_unavailable', message: 'database unavailable' }),
-)
+healthResponse(() => {
+  const { database } = app()
+  return checkDependency('database_unavailable', 'database unavailable', () => database.get(sql`SELECT 1`))
+})
 ```
 
 **`src/server/rpc.ts`.** Telemetry wraps the `try` in `run` with its observer and replaces `reportFailure` with its own reporter, which receives the error and the `RpcErrorContext`. A reporter that can fail must catch its own errors, so the application's failure is the one the client sees.
