@@ -1,5 +1,11 @@
 # spacetimedb
 
+## 4
+
+Wire `packages: ['.']` into `pnpm-workspace.yaml`, because pnpm otherwise treats the module's `package.json` as a workspace project and reinstalls before every `pnpm exec` and `pnpm run`.
+
+Upgrade: add `packages: ['.']` to `pnpm-workspace.yaml`.
+
 ## 3
 
 `SpacetimeRequestError` declares `status` as a field instead of a parameter property, which Node's type stripping refused, so scripts run with `node` can import `src/server/spacetime.ts`. A connection takes an optional `fetch`.
