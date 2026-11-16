@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, beforeEach, expect, it } from 'vitest'
-import { databaseFile, openDatabase } from './database'
+import { databaseFile, databaseFileName, openDatabase } from './database'
 import * as schema from './schema'
 
 let directory: string
@@ -83,7 +83,7 @@ it('requires DATA_DIR in production', () => {
 })
 
 it('stores the database in DATA_DIR', () => {
-  expect(databaseFile({ DATA_DIR: '/data' })).toBe('/data/app.sqlite')
+  expect(databaseFile({ DATA_DIR: '/data' })).toBe(`/data/${databaseFileName}`)
 })
 
 it('has a migration for every schema change', async () => {

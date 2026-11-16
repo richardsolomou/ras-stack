@@ -1,6 +1,6 @@
 ---
 name: database-libsql
-version: 1
+version: 2
 summary: SQLite through the libsql client and Drizzle, migrated at startup, with no native build step.
 requires: [start-app]
 conflicts: [database-sqlite, database-postgres]
@@ -53,7 +53,9 @@ Otherwise prefer `database-sqlite`: its synchronous driver is simpler and it has
 
 In a new application, replace the `note` table, delete `drizzle/`, and run `pnpm db:generate` before the first deploy.
 
-In an existing application, keep its database file name and its migrations. Change `app.sqlite` in `databaseFile()` to the file the deployment already has, because the recipe's name would point production at a new, empty database. Keep the application's own `src/db/schema.ts` and `drizzle/` instead of the recipe's starter ones: Drizzle applies every migration newer than the last one recorded in `__drizzle_migrations`, so a replaced history either runs the starter migration against existing tables or leaves the next schema change unapplied.
+In an existing application, keep its database file name and its migrations. Set `databaseFileName` in `src/db/database.ts` to the file the deployment already has, because the recipe's name would point production at a new, empty database. Keep the application's own `src/db/schema.ts` and `drizzle/` instead of the recipe's starter ones: Drizzle applies every migration newer than the last one recorded in `__drizzle_migrations`, so a replaced history either runs the starter migration against existing tables or leaves the next schema change unapplied.
+
+An existing database that Drizzle's migrator never ran, such as one migrated by the application's own runner, has no `__drizzle_migrations` table, so `openDatabase` would replay the first migration against existing tables and fail. Before the first start with the recipe, record what is already applied: create the table as Drizzle does (`CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)`) and insert a row for the last migration the database has, with `created_at` set to that migration's `when` in `drizzle/meta/_journal.json`. Drizzle compares only the latest `created_at`, so later migrations then apply as usual. Do it once, in a deploy step or a one-off script against a backup first. Where that is not practical, keep the application's own runner, skip the recipe's migration call, and record that as a note.
 
 ## Wiring
 

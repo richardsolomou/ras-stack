@@ -3,6 +3,7 @@ import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, expect, it, vi } from 'vitest'
+import { databaseFileName } from '../db/database'
 import { note } from '../db/schema'
 import { app, closeApp } from './app'
 
@@ -38,7 +39,7 @@ it('enforces foreign keys', async () => {
 })
 
 it('stores the database in DATA_DIR', async () => {
-  expect(await value("SELECT file FROM pragma_database_list WHERE name = 'main'")).toBe(path.join(directory, 'app.sqlite'))
+  expect(await value("SELECT file FROM pragma_database_list WHERE name = 'main'")).toBe(path.join(directory, databaseFileName))
 })
 
 it('applies every checked-in migration at startup', async () => {
