@@ -59,7 +59,7 @@ Frontmatter values are plain scalars or `[a, b]` lists; quote an item that start
 ## Files
 
 - Write concrete application code. Leave out options no application needs today; an application that needs one edits its copy.
-- Use the layered layout `oxlint.layers` checks: `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, `src/core`, and `src/contracts`, plus `scripts/` and `.github/`.
+- Use the layered layout the `layers.json` lint preset checks: `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, `src/core`, and `src/contracts`, plus `scripts/` and `.github/`.
 - Import other files with relative paths, and only from recipes in `requires`.
 - Ship tests beside the code as `*.test.ts`. They become the application's tests, so they test behavior the application relies on, and derive expectations from constants the application is told to change rather than repeating their values.
 - Mark placeholder files the application is expected to replace as `starters`, so updates never merge recipe changes into the application's real page or schema.

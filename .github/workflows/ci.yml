@@ -30,31 +30,6 @@ jobs:
       - name: Lint recipe and stack workflows
         run: actionlint recipes/*/files/.github/workflows/*.yml stacks/*/.github/workflows/*.yml
 
-  postgres:
-    name: PostgreSQL integration
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ras_stack_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./actions/setup-js
-      - name: Exercise the published PostgreSQL connection
-        env:
-          RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
-        run: pnpm --filter ras-stack exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
-
   recipes:
     name: Recipe stacks
     runs-on: ubuntu-latest
@@ -74,7 +49,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./actions/setup-js
-      - run: pnpm --filter ras-stack build
       - name: Check every stack
         env:
           # Only the postgres stack reads it, to run its integration suites against a real server.
@@ -98,6 +72,14 @@ jobs:
         env:
           STACK_DIR: ${{ steps.stack.outputs.directory }}
         run: docker build -t ras-stack-recipe:full-stack "$STACK_DIR"
+      - name: Scan the image
+        uses: anchore/scan-action@v7
+        with:
+          image: ras-stack-recipe:full-stack
+          fail-build: true
+          severity-cutoff: high
+          only-fixed: true
+          output-format: table
       - name: Boot, check health, and stop cleanly
         run: |
           docker volume create ras-stack-recipe-data
@@ -128,21 +110,14 @@ jobs:
       - uses: ./actions/setup-js
       - run: pnpm runtime:pin
 
-  example:
-    name: Full-stack example
+  runtime-binaries:
+    name: Runtime binaries image
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: ./actions/setup-js
-      - uses: ./actions/setup-playwright
-        with:
-          install-dependencies: 'false'
-          working-directory: examples/full-stack
       - uses: docker/setup-buildx-action@v4
-      - name: Build package and example
-        run: pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack check
-      - name: Build and inspect runtime binaries
+      - name: Build runtime binaries
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -157,125 +132,10 @@ jobs:
           test "$(jq -r '."org.opencontainers.image.version"' <<< "$labels")" = "$(cat runtime/VERSION)"
           test "$(docker run --rm --entrypoint /usr/local/bin/caddy ras-stack-runtime-binaries:test version)" = "v$(jq -r '."dev.ras-stack.caddy.version"' <<< "$labels")"
           docker run --rm --entrypoint /usr/local/bin/centrifugo ras-stack-runtime-binaries:test version | grep -F "Centrifugo v$(jq -r '."dev.ras-stack.centrifugo.version"' <<< "$labels") "
-      - name: Build production image
-        run: docker build --build-arg RUNTIME_BINARIES_IMAGE=ras-stack-runtime-binaries:test -f examples/full-stack/Dockerfile -t ras-stack-example:e2e .
-      - name: Scan production image
-        uses: anchore/scan-action@v7
-        with:
-          image: ras-stack-example:e2e
-          fail-build: true
-          severity-cutoff: high
-          only-fixed: true
-          output-format: table
-      - name: Start SMTP sink
-        run: docker run -d --name ras-stack-example-mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit:v1.27
-      - name: Start production image
-        run: |
-          mkdir -p "$RUNNER_TEMP/ras-stack-example-backup"
-          chmod 0777 "$RUNNER_TEMP/ras-stack-example-backup"
-          docker volume create ras-stack-example-data
-          cat > "$RUNNER_TEMP/ras-stack-example.env" <<'EOF'
-          APP_URL=http://127.0.0.1:3110
-          CENTRIFUGO_API_KEY=example-api-key
-          CENTRIFUGO_PROXY_SECRET=example-proxy-secret
-          SMTP_HOST=host.docker.internal
-          SMTP_PORT=1025
-          EMAIL_FROM=ras-stack@example.test
-          EMAIL_REQUIRE_VERIFICATION=false
-          EOF
-          docker run -d --name ras-stack-example-e2e \
-            --read-only \
-            --tmpfs /tmp:rw \
-            --mount source=ras-stack-example-data,target=/data \
-            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup \
-            --add-host=host.docker.internal:host-gateway \
-            -p 3110:3100 \
-            --env-file "$RUNNER_TEMP/ras-stack-example.env" \
-            ras-stack-example:e2e
-          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
-      - name: Exercise full stack
-        run: pnpm --filter @ras-stack/example-full-stack e2e
-      - name: Verify persistence and drill backup restore
-        run: |
-          test "$(curl --fail --silent http://127.0.0.1:8025/api/v1/messages | jq '.messages_count')" -ge 2
-          upload_path="$(docker exec ras-stack-example-e2e find /data/uploads -type f -name '*.bin' -print -quit)"
-          test -n "$upload_path"
-          test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
-          docker restart ras-stack-example-e2e
-          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
-          test "$(docker exec ras-stack-example-e2e cat "$upload_path")" = 'workspace proof'
-          curl --fail --silent --cookie-jar /tmp/example-cookies \
-            -H 'Content-Type: application/json' \
-            -H 'Origin: http://127.0.0.1:3110' \
-            --data '{"email":"alice@example.test","password":"correct horse battery staple"}' \
-            http://127.0.0.1:3110/api/auth/sign-in/email | jq -e '.user.email == "alice@example.test"'
-          curl --fail --silent --cookie /tmp/example-cookies http://127.0.0.1:3110/ | grep -F 'first message'
-          docker exec ras-stack-example-e2e node .output/server/database.mjs backup /backup/example.sqlite
-          test -s "$RUNNER_TEMP/ras-stack-example-backup/example.sqlite"
-          upload_filename="$(basename "$upload_path")"
-          docker stop --time 15 ras-stack-example-e2e
-          docker cp "ras-stack-example-e2e:$upload_path" "$RUNNER_TEMP/ras-stack-example-backup/$upload_filename"
-          test "$(cat "$RUNNER_TEMP/ras-stack-example-backup/$upload_filename")" = 'workspace proof'
-          docker volume create ras-stack-example-restored-data
-          docker run --rm \
-            --read-only \
-            --tmpfs /tmp:rw \
-            --mount source=ras-stack-example-restored-data,target=/data \
-            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup,readonly \
-            --entrypoint node \
-            ras-stack-example:e2e \
-            .output/server/database.mjs restore /backup/example.sqlite
-          docker run --rm \
-            --read-only \
-            --tmpfs /tmp:rw \
-            --mount source=ras-stack-example-restored-data,target=/data \
-            --mount type=bind,source="$RUNNER_TEMP/ras-stack-example-backup",target=/backup,readonly \
-            --env UPLOAD_FILENAME="$upload_filename" \
-            --entrypoint /bin/sh \
-            ras-stack-example:e2e \
-            -c 'mkdir -p /data/uploads && cp "/backup/$UPLOAD_FILENAME" "/data/uploads/$UPLOAD_FILENAME"'
-          docker run -d --name ras-stack-example-restored \
-            --read-only \
-            --tmpfs /tmp:rw \
-            --mount source=ras-stack-example-restored-data,target=/data \
-            --add-host=host.docker.internal:host-gateway \
-            -p 3110:3100 \
-            --env-file "$RUNNER_TEMP/ras-stack-example.env" \
-            ras-stack-example:e2e
-          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3110/api/ready >/dev/null
-          curl --fail --silent --cookie-jar /tmp/restored-example-cookies \
-            -H 'Content-Type: application/json' \
-            -H 'Origin: http://127.0.0.1:3110' \
-            --data '{"email":"alice@example.test","password":"correct horse battery staple"}' \
-            http://127.0.0.1:3110/api/auth/sign-in/email | jq -e '.user.email == "alice@example.test"'
-          curl --fail --silent --cookie /tmp/restored-example-cookies http://127.0.0.1:3110/ | grep -F 'first message'
-          test "$(docker exec ras-stack-example-restored cat "/data/uploads/$upload_filename")" = 'workspace proof'
-      - name: Capture container logs
-        if: always()
-        run: |
-          docker logs ras-stack-example-e2e > example-container.log 2>&1 || true
-          docker logs ras-stack-example-restored > example-restored-container.log 2>&1 || true
-      - name: Upload failure artifacts
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: full-stack-example-failure
-          path: |
-            example-container.log
-            example-restored-container.log
-            examples/full-stack/test-results
-          if-no-files-found: ignore
-          retention-days: 7
-      - name: Remove example resources
-        if: always()
-        run: |
-          docker rm -f ras-stack-example-e2e ras-stack-example-restored ras-stack-example-mailpit 2>/dev/null || true
-          docker volume rm ras-stack-example-data ras-stack-example-restored-data 2>/dev/null || true
-          rm -rf "${RUNNER_TEMP:?}/ras-stack-example-backup" "${RUNNER_TEMP:?}/ras-stack-example.env"
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [actions, check, example, postgres, recipe-image, recipes, runtime-pin]
+    needs: [actions, check, recipe-image, recipes, runtime-binaries, runtime-pin]
     permissions:
       actions: write
       contents: write

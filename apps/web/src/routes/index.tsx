@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 
 const surfaces = [
-  ['TypeScript modules', 'Auth, databases, realtime, email, uploads, PostHog, and TanStack helpers.'],
-  ['Configured stack', 'Opt into compatible dependencies, build defaults, compiler presets, and shared tools.'],
-  ['CLI', 'Synchronize selections, upgrade the stack, run tools, and manage assets and previews.'],
+  ['Recipes', 'Auth, databases, realtime, email, uploads, PostHog, and deployment as code each application copies and owns.'],
+  ['Stacks', 'Complete applications assembled from recipes and checked in CI, to read when wiring is unclear.'],
+  ['Agent skill', 'Adds recipes to an application, merges later recipe changes into its copy, and reports drift.'],
+  ['Presets', 'TypeScript and Oxlint configuration every application extends.'],
   ['GitHub Actions', 'Set up tools, run checks and browser tests, manage previews, and publish releases.'],
   ['Runtime image', 'Verified Caddy and Centrifugo binaries for production images.'],
 ]
@@ -29,10 +30,10 @@ function Home() {
         <section className="summary">
           <h1>TypeScript application infrastructure.</h1>
           <div>
-            <p className="lead">ras-stack provides shared mechanics that repeat across projects.</p>
+            <p className="lead">ras-stack is working code an application copies once and then owns.</p>
             <p>
-              It integrates TanStack Start, Better Auth, Drizzle, Centrifugo, PostHog, GitHub Actions, and production runtime tooling. Each
-              surface is optional and keeps the underlying API accessible.
+              Each recipe covers one job across TanStack Start, Better Auth, Drizzle, Centrifugo, PostHog, and deployment, with the
+              decisions behind it written down. Applications read and change the code in place instead of depending on a library.
             </p>
           </div>
         </section>
@@ -53,7 +54,7 @@ function Home() {
           <h2>The boundary</h2>
           <div className="boundary">
             <div>
-              <strong>ras-stack centralizes</strong>
+              <strong>Recipes decide</strong>
               <p>Security defaults, origin checks, connection lifecycle, migrations, health and shutdown, previews, and releases.</p>
             </div>
             <div>
@@ -67,15 +68,12 @@ function Home() {
           <h2>Start</h2>
           <div className="commands">
             <div>
-              <strong>Apply your selections</strong>
-              <code>
-                <span aria-hidden="true">$</span> pnpm dlx ras-stack@next sync
-              </code>
-              <p>Create ras.config.ts with the integrations and tools you want, then sync. Use the next tag during the v5 prerelease.</p>
+              <strong>Choose recipes</strong>
+              <p>Pick the recipes the application needs, then ask an agent with the ras-recipes skill to add them.</p>
             </div>
           </div>
           <p className="source-link">
-            <a href="https://github.com/richardsolomou/ras-stack/blob/main/docs/managed-installation.md">Read the installation guide ↗</a>
+            <a href="https://github.com/richardsolomou/ras-stack/blob/main/recipes/README.md">Read the recipe guide ↗</a>
           </p>
         </section>
       </main>

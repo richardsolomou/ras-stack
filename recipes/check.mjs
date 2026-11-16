@@ -112,6 +112,9 @@ async function assemble(stack, recipes, versions, rasStackVersion, install) {
   }
   await writeFile(join(out, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
   if (install) {
+    // An application installs the published package, and an unreleased workspace version would not resolve; package:check covers the workspace presets.
+    if (manifest.devDependencies?.['ras-stack']) manifest.devDependencies['ras-stack'] = 'latest'
+    await writeFile(join(out, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
     // A real install catches what the shared node_modules hides, such as a package missing from allowBuilds.
     const result = spawnSync('pnpm', ['install', '--no-frozen-lockfile'], { cwd: out, stdio: 'inherit' })
     if (result.status !== 0) throw new Error(`${label}: pnpm install failed`)

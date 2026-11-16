@@ -1,4 +1,0 @@
-{
-  "outputDirectory": ".output/server",
-  "assets": [{ "source": "drizzle", "destination": "drizzle" }]
-}

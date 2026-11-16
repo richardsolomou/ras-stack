@@ -1,34 +1,8 @@
 # Repository tooling
 
-[Documentation](README.md) · [Configuration](configuration.md) · [Upgrades](upgrades.md)
+[Documentation](README.md) · [Recipes](../recipes/README.md)
 
-These configs, commands, actions, and workflows keep repository mechanics consistent without taking ownership of application-specific paths, services, permissions, or deployment policy.
-
-## Project configuration
-
-[Configuration](configuration.md) owns the typed selection catalogue, compiler/linter presets, Vite overrides, and managed CLI reference. Native pnpm installation applies selections and regenerates ignored local presets. `ras sync` also refreshes managed bot policy. [Upgrades](upgrades.md) owns version changes, dependency ownership, and Dependabot policy.
-
-## Changeset validation
-
-Committed Changesets, Dependabot and pnpm configuration belong to the repository. `ras changesets check` validates existing changeset syntax and workspace package names without requiring a release note for every change. It uses upstream parsing and package discovery and never rewrites files. Empty changesets and CRLF frontmatter are accepted; malformed entries and unknown names fail the check.
-
-## Production server assets
-
-A bundled server usually needs files the bundler does not carry, such as Drizzle migrations. Declare them in `ras-stack.assets.json` and copy them into the build output after it exists:
-
-```json
-{
-  "outputDirectory": ".output/server",
-  "assets": [{ "source": "drizzle", "destination": "drizzle" }]
-}
-```
-
-```sh
-pnpm exec ras assets sync
-pnpm exec ras assets check
-```
-
-`sync` copies each declared source into the output, and `check` fails when the output drifts from the source, so a stale build cannot ship. Both refuse paths that escape the repository or the output directory, overlapping destinations, and symbolic links.
+These actions, workflows, and commands keep repository mechanics consistent without taking ownership of application-specific paths, services, permissions, or deployment policy.
 
 ## Pinned SpacetimeDB setup
 
@@ -64,7 +38,6 @@ The JavaScript setup action reads the Node version from `engines.node` and the p
 steps:
   - uses: actions/checkout@v7
   - uses: richardsolomou/ras-stack/actions/setup-js@v1
-  - run: pnpm exec ras sync --check
   - run: pnpm check
 ```
 
@@ -187,53 +160,11 @@ The workflows report each transition through `ras preview <state>`, which keeps 
 
 The standard Dokploy workflows compose this reporter with the lower-level image actions. Their `workflow_run` boundary ensures fork code receives neither deployment secrets nor a writable package token: a fork creates a one-day image artifact, and trusted default-branch workflow code publishes and deploys it after approval.
 
-## Runtime services and binaries
+## Runtime binaries
 
-Self-hosted images that run the app, Centrifugo, and Caddy together can share the lifecycle without sharing a Dockerfile:
+The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. The [`realtime` recipe](../recipes/realtime/RECIPE.md) copies them from an immutable release pinned by digest, and Dependabot proposes each new release to applications.
 
-```ts
-import { runRealtimeStack } from 'ras-stack/runtime'
-
-await runRealtimeStack({
-  app: { command: 'node', args: ['.output/server/index.mjs'], env: { ...process.env, PORT: '3001' } },
-  centrifugo: {
-    configPath: '/app/realtime.json',
-    env: process.env,
-    environment: realtime,
-  },
-  caddy: {
-    configPath: '/tmp/app/Caddyfile',
-    env: process.env,
-  },
-})
-```
-
-`runRealtimeStack()` creates the Caddy configuration and supervises the standard app, Centrifugo, and Caddy topology. Any unexpected child exit stops its siblings; orchestrator signals receive a graceful window before remaining children are force-killed. Forward container signals to the supervisor itself, for example with `tini -- node runtime.mjs`; group-wide forwarding (`tini -g`) bypasses its dependency-ordered shutdown. `caddyRealtimeProxy()` returns the same Caddyfile on its own when a topology differs. Applications retain base images, namespaces, ports, volumes, secrets, per-process environment inheritance, preview seeding, and distributed-mode policy.
-
-The separately released `ghcr.io/richardsolomou/ras-stack-runtime-binaries` image provides verified static Caddy and Centrifugo binaries without imposing an application base image. Copy the binaries from an immutable release and pin its digest:
-
-```dockerfile
-FROM ghcr.io/richardsolomou/ras-stack-runtime-binaries:runtime-v1.0.4@sha256:183261400ef822d3dfb7ae9391dc3836d343e01de41ab131df6a42751f87288e AS runtime-binaries
-COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
-COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
-```
-
-For local development, the package can run the same pinned Centrifugo binary in Docker while the application and its Vite proxy remain local:
-
-```sh
-ras realtime \
-  --config realtime.json \
-  --name example-realtime \
-  --port 8000 \
-  --origin http://localhost:3000 \
-  --secret development-secret
-```
-
-The foreground command follows terminal signals and leaves an existing named container alone. Add `--detach` to replace that named development container and return after startup. The host binding defaults to `127.0.0.1`; container-based callers that must reach Centrifugo through the Docker host can explicitly pass `--bind-address 0.0.0.0`. Applications with a Centrifugo connect proxy can pass its Docker-reachable URL through `--connect-proxy-endpoint`; channel definitions, proxy authorization, application environment, and Vite configuration remain in the application.
-
-`runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases so binary changes must pass the full-stack production-container gate before a `runtime-v*` tag is created. Land and publish a changed runtime version before advancing application, development, or documentation references; those consumers must continue using the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned.
-
-Read-only containers can pass writable `configHome` and `dataHome` paths through `caddy.runtime`; both default to isolated directories under `/tmp`.
+`runtime/VERSION` and `runtime/Dockerfile` own the release and source versions. Runtime tags publish independently from npm releases, and a `runtime-v*` tag publishes only a commit on `main` whose CI passed, including the build and inspection of the image. Land and publish a changed runtime version before advancing the recipe, stack, and documentation references; they keep the last published immutable digest until the new multi-platform index exists and its actual digest can be pinned. `pnpm runtime:pin` checks that every pinned reference names the same digest and that it resolves for `linux/amd64` and `linux/arm64`.
 
 ## Shared check workflows
 

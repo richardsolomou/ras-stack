@@ -76,7 +76,7 @@ When an application already does what a recipe does, from the old `ras-stack` pa
 1. Adopt one recipe at a time, starting with the ones others `require`. Adopting `start-app` into an existing application is the largest step, because it owns the composition root other recipes register with; do it first and on its own.
 2. `add <recipe>` with `--map` for each recipe file the application already has elsewhere, and `--skip` the ones it deliberately does without. Existing files are left alone and listed.
 3. Make each listed file match the recipe except for the application's real differences, and record those in `notes`. The smaller the remaining difference, the cleaner future updates merge. Never change what the data depends on to match the recipe: keep the application's database file name, migrations folder and history, secret names in use, and storage paths, and record them as notes.
-4. Replace imports of `ras-stack/<module>` runtime helpers with the recipe's local files, and delete tests of the old package's helpers (such as `ras-stack/conformance` assertions) once the recipe's own tests cover the same behaviour. Keep the `ras-stack` package: `tooling` still uses its compiler and lint presets.
+4. Replace imports of `ras-stack/<module>` runtime helpers with the recipe's local files, and delete tests of the old package's helpers (such as `ras-stack/conformance` assertions) once the recipe's own tests cover the same behaviour. Keep the `ras-stack` package: `tooling` still uses its compiler and lint presets. Once every helper is replaced, remove the v5 managed install as [Migrate from v5](https://github.com/richardsolomou/ras-stack/blob/main/docs/upgrades.md) describes.
 
 ## Check drift across applications
 

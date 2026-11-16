@@ -1,38 +1,20 @@
 # RAS documentation
 
-RAS 5 manages opted-in dependency versions and configuration through the main `ras-stack` package. It keeps normal upstream imports, application-owned manifests, and native pnpm installs. The separate `ras-stack-config` package is retired.
+RAS builds applications from [recipes](../recipes/README.md): working code an application copies once and then owns, with the decisions behind it written down. Each application records the recipes it took in `ras-recipes.json`, and the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) adds them, merges later recipe changes into the application's copy, and reports drift. The [stacks](../stacks) are complete applications assembled from recipes and checked in CI.
 
-## Recipes
+The `ras-stack` npm package holds what applications share without copying: the TypeScript and Oxlint presets the `tooling` recipe extends, and the `ras preview` command and `ras-stack/preview/dokploy` export the preview workflows run.
 
-New and updated applications take their runtime code from [recipes](../recipes/README.md): working code an application copies and owns, recorded in its `ras-recipes.json` and kept current with the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md). The guides below describe the package that recipes replace; they stay accurate for applications that have not moved yet.
-
-## Set up or maintain an application
-
-| Need                                                       | Guide                                                                                                           |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Add RAS or install a fresh clone                           | [Installation](managed-installation.md)                                                                         |
-| Select an integration or tool                              | [Configuration catalogue](configuration.md)                                                                     |
-| Customize builds, styles, compiler settings, or lint rules | [Configuration](configuration.md#build-configuration)                                                           |
-| Upgrade, opt out, or transfer dependency ownership         | [Upgrades and dependency ownership](upgrades.md)                                                                |
-| Understand Dependabot or a failed install                  | [Update policy](upgrades.md#dependabot-and-security-updates) and [troubleshooting](upgrades.md#troubleshooting) |
-| Replace the v4 configuration package                       | [Migrate from v4](upgrades.md#migrate-from-v4)                                                                  |
-
-Use `ras-stack@5` to bootstrap stable v5. The [installation guide](managed-installation.md) explains bootstrapping, and the [upgrade guide](upgrades.md#prerelease-candidates) records candidate limitations.
-
-## Use the runtime and delivery helpers
-
-| Surface                                                                                       | Guide                                                                 |
-| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Query, authentication, request security, databases, realtime, SpacetimeDB, email, and uploads | [Application primitives](application-primitives.md)                   |
-| PostHog providers, identity, logs, metrics, tracing, proxies, and source maps                 | [PostHog integration](posthog.md)                                     |
-| Assets, Actions, preview workflows, releases, and runtime binaries                            | [Repository tooling](repository-tooling.md)                           |
-| The executable integration fixture                                                            | [Full-stack example](full-stack-example.md)                           |
-| Backup, restore, migration, rollback, shutdown, and proxy boundaries                          | [Production reference operations](production-reference-operations.md) |
+| Need                                                                           | Guide                                                 |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Choose the recipes for an application                                          | [Recipes](../recipes/README.md)                       |
+| Add, update, or adopt recipes in an application                                | [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) |
+| Write or change a recipe or stack                                              | [Authoring recipes](../recipes/AUTHORING.md)          |
+| Extend the compiler and lint presets                                           | [Presets](../README.md#presets)                       |
+| Use the shared Actions, reusable workflows, previews, and the runtime binaries | [Repository tooling](repository-tooling.md)           |
+| Move an application off v5's runtime helpers and managed installs              | [Migrate from v5](upgrades.md)                        |
 
 ## Where guidance belongs
 
-These guides own the shared RAS installation, configuration, CLI, dependency ownership, upgrade, and deployment contracts. Consumer repositories link here rather than copying those instructions. Consumer docs retain their own commands, ports, credentials, product behavior, and operating procedures.
-
-Use documentation from the RAS revision being reviewed or the installed release when the default branch describes a newer contract. Candidate-specific merge requirements belong in the migration PR, not in an application's permanent contributing guide.
+A recipe's `RECIPE.md` owns its decisions, wiring, configuration, and verification; other pages link to it rather than repeating it. The guides here own the shared package, Actions, and workflow contracts. Application repositories keep their own commands, ports, credentials, product behaviour, and operating procedures, and record their differences from a recipe in `ras-recipes.json`.
 
 [Package overview](../README.md) · [Contributing to RAS](../CONTRIBUTING.md)
