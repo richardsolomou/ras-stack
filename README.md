@@ -3,13 +3,13 @@
 
 # ras-stack
 
-**Opinionated recipes for the stack I build on. Copy them in, extend them, own them.**
+**Opinionated recipes for TypeScript web apps. Copy them in, extend them, own them.**
 
 [Recipes](#recipes-) · [Get started](#get-started-) · [Documentation](docs/README.md) · [npm](https://www.npmjs.com/package/ras-stack)
 
 [![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](LICENSE)
 
-Working, tested code for the parts my applications keep needing: the app shell, accounts, email, databases, realtime, uploads, analytics, deploys, and CI. The configuration is still there; you just don't have to think about it.
+Working, tested code for the parts web apps keep needing: the app shell, accounts, email, databases, realtime, uploads, analytics, deploys, and CI. The configuration is still there; you just don't have to think about it.
 
 </div>
 
@@ -30,7 +30,7 @@ Copying usually means losing updates. Recipes keep them: `ras-recipes.json` reco
 
 ## Opinionated on purpose 🎯
 
-These are the tools I use and trust, not a menu of every option. Each recipe makes one choice and writes down why, often because of something that broke in production. From [`email-posthog`](recipes/email-posthog):
+One focused set of tools, not a menu of every option. Each recipe makes one choice and writes down why, often because of something that broke in production. From [`email-posthog`](recipes/email-posthog):
 
 > **Errors throw.** `posthog.emails.send` resolves `{ data, error }` and never rejects; the adapter turns `error` into a rejection, so a failed reset email fails the request instead of silently succeeding.
 
