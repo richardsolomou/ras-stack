@@ -160,6 +160,26 @@ function installedPackages(app) {
 
 const majorOf = (range) => Number(/(\d+)/.exec(range ?? '')?.[1])
 
+/** The lowest version a range allows, as numbers, or undefined for a range that is not a plain caret, tilde, or exact version. */
+function lowestVersion(range) {
+  const match = /^[\^~]?(\d+)\.(\d+)\.(\d+)/.exec(range ?? '')
+  return match ? match.slice(1).map(Number) : undefined
+}
+
+function isOlder(range, tested) {
+  const [have, want] = [lowestVersion(range), lowestVersion(tested)]
+  if (!have || !want) return majorOf(range) < majorOf(tested)
+  const index = have.findIndex((part, position) => part !== want[position])
+  return index !== -1 && have[index] < want[index]
+}
+
+/** Writes a tested version as a range in the application's style: exact when every version range it has is exact, caret otherwise. */
+function rangeStyle(installed) {
+  const ranges = Object.values(installed).filter((range) => /^[\^~]?\d/.test(range))
+  const exact = ranges.length > 0 && ranges.every((range) => /^\d/.test(range))
+  return (version) => (exact ? version.replace(/^[\^~]/, '') : `^${version.replace(/^[\^~]/, '')}`)
+}
+
 /** The first application source file that imports a `ras-stack/` runtime helper, which only v5 and earlier ship. */
 function rasStackHelperImport(app, dir = '') {
   for (const entry of readdirSync(join(app, dir), { withFileTypes: true })) {
@@ -178,26 +198,35 @@ function rasStackHelperImport(app, dir = '') {
   return undefined
 }
 
-function printPackages(app, recipe, versionOf, previous) {
+function printPackages(app, recipe, testedVersion, previous) {
   const installed = installedPackages(app)
+  const versionOf = (name) => rangeStyle(installed)(testedVersion(name))
+  let installs = 0
   for (const [kind, flag] of [
     ['dependencies', ''],
     ['devDependencies', ' -D'],
   ]) {
     const missing = recipe[kind].filter((name) => !installed[name] && !previous?.[kind].includes(name))
     if (missing.length > 0) console.log(`  pnpm add${flag} ${missing.map((name) => `${name}@${versionOf(name)}`).join(' ')}`)
-    const outdated = recipe[kind].filter((name) => installed[name] && majorOf(installed[name]) < majorOf(versionOf(name)))
+    installs += missing.length
+    const outdated = recipe[kind].filter((name) => installed[name] && isOlder(installed[name], testedVersion(name)))
     for (const name of outdated) {
-      const helperImport = name === 'ras-stack' && rasStackHelperImport(app)
-      if (helperImport) {
+      const helperImport = name === 'ras-stack' && majorOf(installed[name]) < 6 && rasStackHelperImport(app)
+      if (helperImport && majorOf(installed[name]) < 5) {
+        console.log(
+          `  Set ras-stack to ^5 while ${helperImport} imports its helpers: v5 still ships them, plus the presets tooling extends. Bump it to ${versionOf(name)} once none do.`,
+        )
+        installs++
+      } else if (helperImport) {
         console.log(
           `  Keep ras-stack at ${installed[name]} while ${helperImport} imports its helpers; bump it to ${versionOf(name)} once none do.`,
         )
-        continue
+      } else {
+        console.log(
+          `  pnpm add${flag} ${name}@${versionOf(name)}   (the application has ${installed[name]}; the recipe is tested with ${testedVersion(name)})`,
+        )
+        installs++
       }
-      console.log(
-        `  pnpm add${flag} ${name}@${versionOf(name)}   (the application has ${installed[name]}; the recipe is tested on this major)`,
-      )
     }
   }
   if (previous) {
@@ -206,7 +235,8 @@ function printPackages(app, recipe, versionOf, previous) {
     if (dropped.length > 0)
       console.log(`  The recipe no longer uses: ${dropped.join(', ')}. Remove each unless the application uses it elsewhere.`)
   }
-  if (recipe.wires.includes('pnpm-workspace.yaml')) console.log('  Apply the pnpm-workspace.yaml wiring (allowBuilds) before installing.')
+  if (installs > 0 && recipe.wires.includes('pnpm-workspace.yaml'))
+    console.log('  Apply the pnpm-workspace.yaml wiring (allowBuilds) before installing.')
 }
 
 /** Three-way merges a recipe file change into the application's copy, leaving diff3 conflict markers. */
@@ -287,6 +317,10 @@ async function show(commit, name, options) {
     console.log(changelogEntries(commit, name, before?.version ?? 0).join('\n\n') || 'No changelog entries.')
     console.log()
     const wired = recipe.wires.map((path) => `:(glob)stacks/*/${path}`)
+    if (wired.length > 0)
+      console.log(
+        `The diff includes the stack files this recipe wires (${recipe.wires.join(', ')}) with every change in this range, including other recipes' changes; apply only this recipe's part.\n`,
+      )
     process.stdout.write(git(['diff', since, commit, '--', `recipes/${name}`, ...wired]))
   } else process.stdout.write(readAt(commit, `recipes/${name}/RECIPE.md`))
 }
@@ -368,6 +402,8 @@ async function add(app, commit, name, options) {
   }
   console.log('\nPackages:')
   printPackages(app, recipe, packageVersions(commit))
+  if (options.skip.length > 0)
+    console.log("  Some packages may be imported only by the skipped files; install only the packages the application's copies import.")
   console.log(`\nNext: apply Wiring and Configuration from \`recipes.mjs show ${name}\`, format, then run the application's checks.`)
 }
 
