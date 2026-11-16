@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { gunzipSync } from 'node:zlib'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { withServerFunction } from './serverFunction'
-import { serviceName } from '../contracts/posthog'
+import { hostVariable, projectTokenVariable, serviceName } from '../contracts/posthog'
 import { createTelemetry, requestContext } from './telemetry'
 
 type Received = { path: string; authorization: string | undefined; body: any }
@@ -41,7 +41,7 @@ beforeEach(() => {
   stallLogs = false
 })
 
-const enabled = () => createTelemetry({ VITE_POSTHOG_PROJECT_TOKEN: 'phc_test', VITE_POSTHOG_HOST: host, NODE_ENV: 'production' })
+const enabled = () => createTelemetry({ [projectTokenVariable]: 'phc_test', [hostVariable]: host, NODE_ENV: 'production' })
 const sent = (path: string) => received.filter((request) => request.path === path)
 const logRecords = () => sent('/i/v1/logs').flatMap(({ body }) => body.resourceLogs[0].scopeLogs[0].logRecords)
 const attributes = (record: { attributes: { key: string; value: Record<string, unknown> }[] }) =>
