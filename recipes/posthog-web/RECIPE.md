@@ -42,7 +42,7 @@ An application without TanStack Start, such as a game client built with plain Vi
 - **Source maps upload only from CI with credentials.** `POSTHOG_CLI_API_KEY` and `POSTHOG_CLI_PROJECT_ID`, the names `posthog-cli` itself reads, plus `CI=true` turn uploads on, so a developer with the key in a local `.env` does not upload every local build. `POSTHOG_UPLOAD_SOURCEMAPS=true` forces an upload anywhere, such as a Docker build where `CI` is not passed, and fails the build without credentials; `false` turns uploads off. Upload credentials stay in the build environment, never in `VITE_` variables, which reach the browser.
 - **Uploaded maps are hidden and deleted.** The plugin builds hidden maps, which carry no `sourceMappingURL`, and deletes them after upload, so the original source never ships on the public site. A test builds with a stand-in `posthog-cli` and checks both.
 - **Only the browser bundle and its web workers are uploaded.** That is the code whose minified stack traces PostHog symbolicates. The server bundle is not what browsers run, and Nitro bundles it again, so maps from Vite's server environment would describe nothing deployed. Workers build separately with their own plugin instance.
-- **The Content Security Policy needs no change.** Events, remote config, and the SDK's lazy-loaded scripts all come through `/t` on the application's own origin, which `start-app`'s `'self'` sources allow. Canvas recording in replay needs `worker-src 'self' blob:`, and survey images or the toolbar need their PostHog hosts; add those to `securityHeaders` only when the application uses them.
+- **The Content Security Policy needs no change.** Events, remote config, and the SDK's lazy-loaded scripts all come through `/t` on the application's own origin, which `start-app`'s `'self'` sources allow. Canvas recording in replay needs `worker-src 'self' blob:`, and survey images or the toolbar need their PostHog hosts; add those to `src/server/contentSecurityPolicy.ts` only when the application uses them.
 
 ## Files
 
@@ -87,7 +87,7 @@ Set `serviceName` in `src/contracts/posthog.ts` to the application's name. On Do
 
 ### Direct ingestion
 
-To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts`, and add the ingestion and assets hosts to `connect-src` and `script-src` in `securityHeaders`. Ad blockers then block more events.
+To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts`, and add the ingestion and assets hosts to `connect-src` and `script-src` in `src/server/contentSecurityPolicy.ts`. Ad blockers then block more events.
 
 ## Verify
 

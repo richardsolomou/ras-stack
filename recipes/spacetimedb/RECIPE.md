@@ -1,6 +1,6 @@
 ---
 name: spacetimedb
-version: 1
+version: 2
 summary: A SpacetimeDB module beside a TanStack Start application, with committed bindings, the browser connection, the server HTTP API helper, and a guarded publish.
 requires: []
 conflicts: []
@@ -14,7 +14,7 @@ wires:
     vitest.config.ts,
     src/routes/__root.tsx,
     src/routes/api/health.ts,
-    src/server/middleware.ts,
+    src/server/contentSecurityPolicy.ts,
     Dockerfile,
     .github/workflows/deploy.yml,
   ]
@@ -73,7 +73,7 @@ Use `convex` instead when no module logic needs to run next to the data in a cus
 With `start-app` and `tooling`, see `stacks/spacetime/`:
 
 - `src/routes/__root.tsx`: wrap `<Outlet />` in `<SpacetimeProvider>`.
-- `src/server/middleware.ts`: in `securityHeaders`, add `'unsafe-eval'` to `script-src`, and build `connect-src` as `["'self'", ...spacetimeConnectSources(import.meta.env.VITE_SPACETIME_URL)].join(' ')`, making the policy a template string.
+- `src/server/contentSecurityPolicy.ts`: add `"'unsafe-eval'"` to `script-src` and `...spacetimeConnectSources(import.meta.env.VITE_SPACETIME_URL)` to `connect-src`.
 - `package.json`: `"typecheck": "tsc --noEmit && tsc --noEmit -p spacetimedb"` and `"spacetime:generate": "spacetime generate --lang typescript --module-path spacetimedb --out-dir src/spacetime/generated --yes"`.
 - `vitest.config.ts`: add `plugins: [spacetimedbModuleTestPlugin()]` (from `spacetimedb/server/test-utils/vitest`) and `'spacetimedb/src/**/*.test.ts'` to `include`.
 - `.oxlintrc.json`: add `src/spacetime/generated/**` and `spacetimedb/dist/**` to `ignorePatterns`.

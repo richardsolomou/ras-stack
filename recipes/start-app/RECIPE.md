@@ -1,6 +1,6 @@
 ---
 name: start-app
-version: 1
+version: 2
 summary: TanStack Start, React, Query, and Tailwind application shell with request security and deploy survival.
 requires: []
 conflicts: []
@@ -8,7 +8,7 @@ dependencies:
   ['@tanstack/react-query', '@tanstack/react-router', '@tanstack/react-router-ssr-query', '@tanstack/react-start', react, react-dom]
 devDependencies: ['@tailwindcss/vite', '@types/react', '@types/react-dom', '@vitejs/plugin-react', tailwindcss]
 wires: [package.json, .gitignore, .oxlintrc.json]
-starters: [src/routes/index.tsx]
+starters: [src/routes/index.tsx, src/server/contentSecurityPolicy.ts]
 ---
 
 # start-app
@@ -31,7 +31,8 @@ A client-only tool with no backend data, such as an image converter, uses it too
 - **Stale server functions answer 404 with plain text.** A tab opened before a deploy can call a server function the deploy removed. TanStack answers with a JSON 500 that its client treats as a successful result; the middleware replaces it with a plain-text 404 that the client throws, with a message telling the user to refresh.
 - **Chunk recovery is an inline head script.** When a deploy removes the entry modules an open page needs, the server-rendered HTML stays inert. The script reloads the page, at most once per ten seconds through `sessionStorage`, and then reveals the `update-notice` element instead. It ignores module scripts from other origins, such as those browser extensions inject. TanStack Router already reloads for lazy route chunks; this covers the entry graph the router cannot reach. The function is serialized with `toString()`, so it must not use imports or closures.
 - **One canonical host.** With `APP_URL` set, a request for any other hostname gets a 301 to `APP_URL` with the same path, so old links keep working and land on the current name. The redirect lives in the application because Dokploy regenerates its Traefik routers on every deploy and would drop one written there. Loopback callers are never redirected: Centrifugo's connect proxy calls over `127.0.0.1`, and Go's HTTP client turned the redirected POST into a GET that landed on the page shell, so Centrifugo parsed HTML as JSON and retried forever. `/api/health` is served on any host, because container health checks use the internal name.
-- **Security headers come from Start request middleware**, not Nitro route rules, so the same headers reach both deploy targets. They cover everything Start renders (pages, server functions, API routes) but not static assets the platform serves directly, which do not need a page policy. A route that sets a header keeps its own value. `Response.redirect()` and `fetch()` responses have immutable headers, so those are copied before the headers are added. The policy allows inline scripts because Start streams hydration data as inline scripts and the root route adds chunk recovery.
+- **Security headers come from Start request middleware**, not Nitro route rules, so the same headers reach both deploy targets. They cover everything Start renders (pages, server functions, API routes) but not static assets the platform serves directly, which do not need a page policy. A route that sets a header keeps its own value. `Response.redirect()` and `fetch()` responses have immutable headers, so those are copied before the headers are added. The policy allows inline scripts because Start streams hydration data as inline scripts and the root route adds chunk recovery. Its sources live in `src/server/contentSecurityPolicy.ts`, a starter the application owns, because every application adds its own and an edit inside the middleware conflicted with each recipe update.
+- **The default policy allows only the application's origin, and what it blocks fails quietly.** A blocked fetch, worker, or `eval` shows up only as a console error and a `securitypolicyviolation` event, while the feature just stops, so exercise the main feature before deploying (see Verify). Common additions: WebAssembly and in-browser machine learning need `'wasm-unsafe-eval'` in `script-src` and `blob:` in `worker-src` (and in `script-src` or `connect-src` when the runtime loads or fetches blob URLs), and sometimes `'unsafe-eval'` for a library that compiles code with `Function()`; a third-party model, API, or asset host goes in `connect-src` (and `img-src` for its images).
 - **The server composition root is one global instance.** `app()` creates the server's long-lived resources on first use and stores them on `globalThis`, so Vite's development module reloads reuse the database connection instead of opening another on every edit. The trade-off: editing `createApp` itself takes effect after restarting the dev server. `createApp` stays synchronous, so callers never await `app()`. When `createApp` throws partway, it closes the resources it already opened and rethrows, keeping no instance, so the next `app()` call retries from scratch; without that, a missing secret opened another database connection on every health check. Because `createApp` is synchronous, that cleanup runs in the background and logs its own failures.
 - **Resources close in reverse order through an `AsyncDisposableStack`.** Each resource registers its cleanup where it is created, so adding one is one block in `createApp`. The stack closes later resources first, since they may depend on earlier ones, runs every cleanup even when one fails, and rejects with all the failures. The deploy target closes the instance when the server stops: `deploy-dokploy` does it from Nitro's close hook after requests in flight finish, and Workers never stop a process. A signal handler here would close resources under requests still running.
 - **The health route builds the composition root.** `GET /api/health` answers `{ ok: true }` once `app()` succeeds, so a missing environment variable fails the container health check instead of the first real request. Failures answer 503 without the cause, which goes to the server log; a check can map a failure to a stable code for monitors. Responses are `no-store`.
@@ -41,24 +42,25 @@ A client-only tool with no backend data, such as an image converter, uses it too
 
 ## Files
 
-| File                           | Job                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `vite.config.ts`               | Start, React, and Tailwind plugins and the dev server port.                                |
-| `src/start.ts`                 | Request and server function middleware lists.                                              |
-| `src/router.tsx`               | The router, its Query client, and the SSR Query integration.                               |
-| `src/routes/__root.tsx`        | The document, head tags, chunk recovery, the update notice, and where providers mount.     |
-| `src/routes/index.tsx`         | A placeholder home page; replace it.                                                       |
-| `src/routes/api/health.ts`     | `GET /api/health`.                                                                         |
-| `src/styles.css`               | The Tailwind entry stylesheet.                                                             |
-| `src/client/queryClient.ts`    | Query client defaults.                                                                     |
-| `src/client/chunkRecovery.ts`  | The inline script that recovers from missing entry modules, and the notice element id.     |
-| `src/server/app.ts`            | The server composition root: `app()` and `closeApp()`.                                     |
-| `src/server/middleware.ts`     | Canonical host, security headers, CSRF, stale server functions, server function identity.  |
-| `src/server/origins.ts`        | Request origins: `requireSameOrigin`, `publicOrigin`, `trustedOrigins`, `acceptedOrigins`. |
-| `src/server/rpc.ts`            | `rpc` and `mutationRpc`, the wrappers every server function handler uses.                  |
-| `src/server/serverFunction.ts` | The current server function's name, for logs and telemetry.                                |
-| `src/server/health.ts`         | `healthResponse`.                                                                          |
-| `src/**/*.test.ts`             | Tests for each of the above, including the mutation-origin conformance cases.              |
+| File                                  | Job                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `vite.config.ts`                      | Start, React, and Tailwind plugins and the dev server port.                                |
+| `src/start.ts`                        | Request and server function middleware lists.                                              |
+| `src/router.tsx`                      | The router, its Query client, and the SSR Query integration.                               |
+| `src/routes/__root.tsx`               | The document, head tags, chunk recovery, the update notice, and where providers mount.     |
+| `src/routes/index.tsx`                | A placeholder home page; replace it.                                                       |
+| `src/routes/api/health.ts`            | `GET /api/health`.                                                                         |
+| `src/styles.css`                      | The Tailwind entry stylesheet.                                                             |
+| `src/client/queryClient.ts`           | Query client defaults.                                                                     |
+| `src/client/chunkRecovery.ts`         | The inline script that recovers from missing entry modules, and the notice element id.     |
+| `src/server/app.ts`                   | The server composition root: `app()` and `closeApp()`.                                     |
+| `src/server/middleware.ts`            | Canonical host, security headers, CSRF, stale server functions, server function identity.  |
+| `src/server/contentSecurityPolicy.ts` | The Content Security Policy's sources by directive; the application's to change.           |
+| `src/server/origins.ts`               | Request origins: `requireSameOrigin`, `publicOrigin`, `trustedOrigins`, `acceptedOrigins`. |
+| `src/server/rpc.ts`                   | `rpc` and `mutationRpc`, the wrappers every server function handler uses.                  |
+| `src/server/serverFunction.ts`        | The current server function's name, for logs and telemetry.                                |
+| `src/server/health.ts`                | `healthResponse`.                                                                          |
+| `src/**/*.test.ts`                    | Tests for each of the above, including the mutation-origin conformance cases.              |
 
 ### Seams other recipes extend
 
@@ -106,7 +108,9 @@ healthResponse(
 
 **`src/server/origins.ts`.** Import, do not copy. Better Auth takes `trustedOrigins` as its `trustedOrigins` callback and `publicOrigin(request)` for absolute links.
 
-**`src/server/middleware.ts`.** Add a path to `pathsServedOnAnyHost` when something calls it by an internal name other than loopback. Change `securityHeaders` when the application loads from another origin, such as PostHog assets or realtime WebSockets on another host.
+**`src/server/middleware.ts`.** Add a path to `pathsServedOnAnyHost` when something calls it by an internal name other than loopback.
+
+**`src/server/contentSecurityPolicy.ts`.** Add sources to a directive when the application loads from another origin, such as a Convex deployment or realtime WebSockets on another host. Recipes that need a source wire it here, never into `middleware.ts`.
 
 ## Wiring
 
@@ -130,6 +134,7 @@ Rename the application: `"name": "app"` in `package.json` and the `title` in `sr
 ## Verify
 
 - `pnpm dev`, open the app, and see the home page with no console errors (a Content Security Policy violation shows there).
+- In a browser, run `addEventListener('securitypolicyviolation', (event) => console.warn(event.violatedDirective, event.blockedURI))` in the console, then use the application's main feature end to end, including anything that loads models, workers, or WebAssembly. Every violation it logs, or any `Content Security Policy` console error, names a source to add to `src/server/contentSecurityPolicy.ts`. Repeat against `pnpm build && pnpm preview`, because production bundles load some code differently.
 - `curl -i localhost:3000/api/health` answers 200 with `{"ok":true}`, `cache-control: no-store`, and the security headers.
 - A server function called with `Sec-Fetch-Site: cross-site` answers 403, and a call to a made-up `/_serverFn/<id>` answers 404 with the refresh message.
 - With `APP_URL=https://example.com`, `curl -i -H 'Host: old.example' localhost:3000/some/path` gets a 301 to `https://example.com/some/path`.

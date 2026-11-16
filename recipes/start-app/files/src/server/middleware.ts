@@ -1,4 +1,5 @@
 import { createCsrfMiddleware, createMiddleware } from '@tanstack/react-start'
+import { contentSecurityPolicy } from './contentSecurityPolicy'
 import { acceptedOrigins, configuredOrigin } from './origins'
 import { withServerFunction } from './serverFunction'
 
@@ -30,9 +31,9 @@ export const canonicalHost = createMiddleware({ type: 'request' }).server(({ req
 })
 
 export const securityHeaders: Record<string, string> = {
-  // Inline scripts stay allowed because Start streams its hydration data as inline scripts, and the root route adds chunk recovery.
-  'content-security-policy':
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  'content-security-policy': Object.entries(contentSecurityPolicy)
+    .map(([directive, sources]) => [directive, ...sources].join(' '))
+    .join('; '),
   'referrer-policy': 'strict-origin-when-cross-origin',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
   'x-content-type-options': 'nosniff',
