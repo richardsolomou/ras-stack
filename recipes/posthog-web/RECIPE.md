@@ -1,10 +1,10 @@
 ---
 name: posthog-web
-version: 2
+version: 3
 summary: Browser PostHog with privacy defaults, a same-origin ingest proxy, render error capture, and source-map upload.
-requires: [start-app]
+requires: []
 conflicts: []
-dependencies: [posthog-js, '@posthog/react']
+dependencies: [posthog-js, '@posthog/react', react, react-dom, '@tanstack/react-router']
 devDependencies: ['@posthog/rollup-plugin']
 wires:
   [
@@ -24,7 +24,7 @@ wires:
 
 Every application with a browser UI: product analytics, session replay, web vitals, browser exceptions, browser logs and metrics, and feature flags. It fits full-stack applications on either deploy target and the client-only tools on Cloudflare alike, because the ingest proxy is a TanStack Start server route.
 
-An application without TanStack Start, such as a game client built with plain Vite, initializes `posthog-js` itself with the options from `postHogOptions` and sends straight to the PostHog host (see Direct ingestion below).
+An application without TanStack Start, such as a React single-page application or game client built with plain Vite, adds it with `--skip 'src/routes/t/$.ts' --skip src/server/posthogProxy.ts --skip src/server/posthogProxy.test.ts`, follows Direct ingestion below, and wraps its root in `PostHogIntegration`. Without React, it also skips `src/client/posthog.tsx` and `src/client/posthog.test.tsx` and calls `posthog.init` itself with `postHogOptions` from `src/client/posthogOptions.ts`, which imports only `posthog-js` types and `src/contracts/posthog.ts`. The ingest proxy is a Start server route, and the rest of the recipe imports nothing from `start-app`, so it does not require it.
 
 ## Decisions
 
@@ -34,7 +34,7 @@ An application without TanStack Start, such as a game client built with plain Vi
 - **The ingest proxy is a server route at `/t`, not a Vite or Nitro proxy.** One `ANY` handler in `src/routes/t/$.ts` serves `vite dev`, `vite preview`, the Nitro server from `deploy-dokploy`, and the Worker from `deploy-cloudflare`. Nitro route rules exist only with Nitro, and Cloudflare has no Nitro, so the earlier pair of Vite and Nitro proxy tables would have needed a third implementation; the route also gets the security headers and canonical host handling every other route gets. The path is `/t` because ad-blocker lists match the literal `/ingest` segment on any host. `static/` and `array/` paths go to the assets host, everything else to the ingestion host.
 - **The proxy forwards neither credentials nor cookies.** Every same-origin request carries the application's session cookie and any bearer token, and PostHog reads neither, so `cookie` and `authorization` are dropped before forwarding; an earlier proxy forwarded both to PostHog. `set-cookie` from upstream is dropped too, so a third party cannot set cookies on the application's origin. Hop-by-hop headers, `host`, `content-length`, and `accept-encoding` are left to `fetch`, which decodes the response body itself; the response's `content-encoding` and `content-length` are removed because they describe bytes the response no longer carries.
 - **`X-Forwarded-For` is forwarded as received, and set from `CF-Connecting-IP` on Cloudflare.** PostHog records the first address as the client's. Behind Traefik that is already the client. A Worker's own fetch would otherwise give every event Cloudflare's location, so the Cloudflare client address replaces the header there, and other `cf-` headers are not forwarded. An edge that rewrites `X-Forwarded-For` to its own address gives every event the same location; have it put the client first.
-- **PostHog initializes when the browser first loads `src/client/posthog.tsx`**, before hydration, instead of in the provider's effect. React runs children's effects before their parents', so with the provider initializing, a child's first-render capture or identify ran against an unloaded SDK, which applications worked around by queueing events until `loaded`. `PostHogProvider` receives the initialized client.
+- **PostHog initializes when the browser first loads `src/client/posthog.tsx`**, before hydration, instead of in the provider's effect. React runs children's effects before their parents', so with the provider initializing, a child's first-render capture or identify ran against an unloaded SDK, which applications worked around by queueing events until `loaded`. `PostHogProvider` receives the initialized client. An application that must change the URL before PostHog records it, such as stripping a share link's fragment, moves the `posthog.init` call into an exported function and calls it after cleaning the URL and before rendering, and records that as a note.
 - **The SDK options are pinned and privacy-first.** `defaults: '2026-05-30'` pins the SDK's dated defaults (history-change pageviews, head-injected scripts that do not break hydration), so an SDK upgrade does not change behavior until the date is raised on purpose. `person_profiles: 'identified_only'` is explicit even though it is the SDK default today, because anonymous profiles are billed. URLs are masked with `mask_personal_data_properties`, plus the `token` query parameter that reset and invitation links carry. Replay masks every input regardless of the project's replay settings; `.ph-no-capture` blocking is the SDK's own default.
 - **Tracing headers go only to this application's host.** `tracing_headers` adds the PostHog person and session headers to same-origin `fetch` and XHR requests, which `posthog-server` reads; no third party receives them.
 - **Browser logs and metrics name the service `<serviceName>-web`.** `serviceName` in `src/contracts/posthog.ts` names both sides, and the server reports as `<serviceName>-server`, so the two are told apart in PostHog's logs and metrics.
@@ -50,7 +50,8 @@ An application without TanStack Start, such as a game client built with plain Vi
 | File                               | Job                                                                                                                       |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `src/contracts/posthog.ts`         | `serviceName`, `ingestPath`, the variable names and default host, `postHogEnvironment`, and the build's `bundledPostHog`. |
-| `src/client/posthog.tsx`           | SDK options, initialization, `PostHogIntegration`, and `captureRenderError`.                                              |
+| `src/client/posthogOptions.ts`     | `postHogOptions`: the SDK options, free of React and the router.                                                          |
+| `src/client/posthog.tsx`           | Initialization, `PostHogIntegration`, and `captureRenderError`.                                                           |
 | `src/server/posthogProxy.ts`       | `forwardToPostHog`: routing, header filtering, and response cleanup for the proxy.                                        |
 | `src/routes/t/$.ts`                | The ingest proxy route.                                                                                                   |
 | `scripts/posthogSourceMaps.ts`     | `postHogSourceMaps`: when to upload, and the client and worker plugin instances.                                          |
@@ -92,7 +93,7 @@ Workers Builds sets `CI=true` in every build, so uploads turn on once the creden
 
 ### Direct ingestion
 
-To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts`, and add the ingestion and assets hosts to `connect-src` and `script-src` in `src/server/contentSecurityPolicy.ts`. Ad blockers then block more events.
+To send straight to PostHog instead of through `/t`, for example to keep a Worker out of every analytics request, set `api_host: environment.host` in `postHogOptions` and expect it in `src/client/posthogOptions.test.ts`, delete `src/routes/t/$.ts` and `src/server/posthogProxy.ts` with its test, and add the ingestion and assets hosts to `connect-src` and `script-src` in `src/server/contentSecurityPolicy.ts`, or in the application's own policy without `start-app`. Ad blockers then block more events.
 
 ## Verify
 

@@ -1,5 +1,11 @@
 # posthog-web
 
+## 3
+
+Move `postHogOptions` and its tests into `src/client/posthogOptions.ts` and `posthogOptions.test.ts`, which import neither React nor the router, so an application without them can take the SDK options alone.
+
+Upgrade: if the application changed `postHogOptions` or its tests, carry those changes into the new files and keep the recipe's removal from `src/client/posthog.tsx` and `posthog.test.tsx` when resolving their conflicts.
+
 ## 2
 
 Move the token and host variable names and the default host into `projectTokenVariable`, `hostVariable`, and `defaultHost` at the top of `src/contracts/posthog.ts`, so an application that keeps another name or defaults to EU Cloud edits constants instead of `bundledPostHog`. The recipe also documents source-map uploads from Cloudflare Workers Builds.

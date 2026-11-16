@@ -18,9 +18,9 @@ function write(root: string, path: string, content: string) {
 function recipe(
   version: number,
   starters = '[src/core/starter.ts]',
-  { name = 'greet', requires = '[]', dependencies = '[zod]', conflicts = '[]' } = {},
+  { name = 'greet', requires = '[]', dependencies = '[zod]', conflicts = '[]', wires = '[]' } = {},
 ) {
-  return `---\nname: ${name}\nversion: ${version}\nsummary: Greets.\nrequires: ${requires}\nconflicts: ${conflicts}\ndependencies: ${dependencies}\ndevDependencies: []\nwires: []\nstarters: ${starters}\n---\n`
+  return `---\nname: ${name}\nversion: ${version}\nsummary: Greets.\nrequires: ${requires}\nconflicts: ${conflicts}\ndependencies: ${dependencies}\ndevDependencies: []\nwires: ${wires}\nstarters: ${starters}\n---\n`
 }
 
 function commit(message: string) {
@@ -110,13 +110,77 @@ describe('add', () => {
     expect([read('src/core/greet.ts'), output.includes('Reconcile')]).toEqual(['mine\n', true])
   })
 
-  it('prints the packages the application lacks with their tested versions', () => {
-    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7')
+  it('prints the packages the application lacks as caret ranges of their tested versions', () => {
+    expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7')
   })
 
-  it('asks for the tested major when the application has an older one', () => {
+  it('prints exact versions when the application pins its packages exactly', () => {
+    write(app, 'package.json', JSON.stringify({ dependencies: { react: '19.3.1' } }))
+    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7\n')
+  })
+
+  it('asks for the tested version when the application has an older major', () => {
     write(app, 'package.json', JSON.stringify({ dependencies: { zod: '^3.0.0' } }))
-    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7   (the application has ^3.0.0')
+    expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7   (the application has ^3.0.0')
+  })
+
+  it('asks for the tested version when the application has an older one in the same major', () => {
+    write(app, 'package.json', JSON.stringify({ dependencies: { zod: '^4.5.0' } }))
+    expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7   (the application has ^4.5.0')
+  })
+
+  it('keeps a newer version the application already has', () => {
+    write(app, 'package.json', JSON.stringify({ dependencies: { zod: '^4.7.0' } }))
+    expect(run('add', 'greet').output).not.toContain('pnpm add')
+  })
+
+  describe('with a package only one file imports', () => {
+    beforeEach(() => {
+      write(source, 'recipes/greet/files/src/core/old.ts', "import { z } from 'zod'\n\nexport const old = z.number()\n")
+      commit('old imports zod')
+    })
+
+    it('leaves out a package only skipped files import', () => {
+      expect(run('add', 'greet', '--skip', 'src/core/old.ts').output).not.toContain('pnpm add')
+    })
+
+    it('names the package it left out', () => {
+      expect(run('add', 'greet', '--skip', 'src/core/old.ts').output).toContain('Only skipped files import: zod')
+    })
+
+    it('keeps a package a copied file imports', () => {
+      expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7')
+    })
+  })
+
+  it('leaves out a skipped starter file', () => {
+    const { status } = run('add', 'greet', '--skip', 'src/core/starter.ts')
+    expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
+  })
+
+  it('leaves out a skipped starter directory', () => {
+    const { status } = run('add', 'greet', '--skip', 'src/core/')
+    expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
+  })
+
+  it('refuses to skip a path the recipe does not ship', () => {
+    expect(run('add', 'greet', '--skip', 'src/core/missing.ts').status).toBe(1)
+  })
+
+  describe('with a recipe that wires pnpm-workspace.yaml', () => {
+    beforeEach(() => {
+      write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { wires: '[pnpm-workspace.yaml]' }))
+      commit('greet wires the workspace')
+    })
+
+    it('asks for the wiring before installing', () => {
+      expect(run('add', 'greet').output).toContain('Apply the pnpm-workspace.yaml wiring')
+    })
+
+    it('leaves the wiring out of the packages when nothing needs installing', () => {
+      write(app, 'package.json', JSON.stringify({ dependencies: { zod: '^4.6.7' } }))
+      expect(run('add', 'greet').output).not.toContain('Apply the pnpm-workspace.yaml wiring')
+    })
   })
 
   describe('with an application on an older ras-stack', () => {
@@ -132,6 +196,14 @@ describe('add', () => {
       write(app, 'src/router.tsx', "import { createRouter } from 'ras-stack/tanstack/router'\n")
       expect(run('add', 'greet').output).toContain(
         'Keep ras-stack at ^5.2.0 while src/router.tsx imports its helpers; bump it to ^6.0.0 once none do.',
+      )
+    })
+
+    it('asks for v5 while the source imports the helpers of a version without presets', () => {
+      write(app, 'package.json', JSON.stringify({ devDependencies: { 'ras-stack': '^4.1.0' } }))
+      write(app, 'src/router.tsx', "import { createRouter } from 'ras-stack/tanstack/router'\n")
+      expect(run('add', 'greet').output).toContain(
+        'Set ras-stack to ^5 while src/router.tsx imports its helpers: v5 still ships them, plus the presets tooling extends. Bump it to ^6.0.0 once none do.',
       )
     })
 
@@ -376,6 +448,13 @@ describe('show', () => {
     releaseV2()
     const { output } = run('show', 'greet', '--since', first)
     expect([output.includes('Exclaims.'), output.includes('+  return `Hello, ${name}!`')]).toEqual([true, true])
+  })
+
+  it("says the wired stack files may carry other recipes' changes", () => {
+    const first = execFileSync('git', ['-C', source, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+    write(source, 'recipes/greet/RECIPE.md', recipe(2, undefined, { wires: '[vite.config.ts]' }))
+    commit('greet wires vite')
+    expect(run('show', 'greet', '--since', first).output).toContain("other recipes' changes")
   })
 })
 
