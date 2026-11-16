@@ -1,5 +1,11 @@
 # ras-stack
 
+## 6.0.2
+
+### Patch Changes
+
+- 5a48c01: Read only the `Version` line in `setup-playwright`, so the install pnpm 11 runs before `pnpm exec` when `node_modules` is out of date no longer breaks the step's output.
+
 ## 6.0.1
 
 ### Patch Changes

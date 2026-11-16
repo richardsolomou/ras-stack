@@ -1,6 +1,6 @@
 {
   "name": "ras-stack",
-  "version": "6.0.1",
+  "version": "6.0.2",
   "description": "Compiler and lint presets and preview deployment tooling for applications built from RAS recipes.",
   "keywords": [
     "dokploy",
