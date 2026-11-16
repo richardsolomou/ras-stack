@@ -6,6 +6,8 @@ RAS 6 removes the runtime helpers and managed installs. Applications own their r
 
 Applications can stay on `^5` until they migrate. Migrate one application at a time with the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md): follow its [Adopt existing code](../skills/ras-recipes/SKILL.md#adopt-existing-code) section, one recipe at a time, starting with `tooling` and `start-app`. The `tooling` step sets `ras-stack` to `^6` when nothing imports a `ras-stack/` helper, and otherwise to `^5`, including from v4 or earlier, which has no presets.
 
+An application with the managed install (a `ras.config.ts` and the `pnpmfile` hook in `pnpm-workspace.yaml`) removes it in the same commit that adopts `tooling`, following [Remove the managed install](#remove-the-managed-install). The hook rejects a managed package declared in `package.json`, so `tooling`'s packages, and every recipe's after it, cannot be installed while it is there. That commit also replaces `defineViteConfig` from `ras-stack/vite` with a plain `vite.config.ts` like `start-app`'s, because the managed Vite preset goes with the install. Keep `ras-stack` on `^5` in that commit while other `ras-stack/` helpers are still imported.
+
 `tooling`'s `lint` runs type-aware over the whole repository, and its `typecheck` includes `e2e/` and root `*.ts` files. v5's managed commands may have checked less, so adopting it can surface errors to fix in that step.
 
 ## What moved where
@@ -29,11 +31,11 @@ Applications can stay on `^5` until they migrate. Migrate one application at a t
 
 An application that never used the managed install, with `ras-stack` and perhaps `ras-stack-config` as ordinary dependencies and no `ras.config.ts`, needs only steps 3 and 7, and in step 3 also removes `ras-stack-config`. Do step 3 only once nothing imports a `ras-stack/` helper; until then `ras-stack` stays on `^5`, which ships the same presets at the same paths.
 
-After the recipes are adopted:
+With the managed install, in the commit that adopts `tooling`:
 
 1. Delete `ras.config.ts` and `.ras/`.
-2. In `pnpm-workspace.yaml`, remove `configDependencies` and the `pnpmfile` line that points at `ras-stack`, and remove `allowBuilds` entries for packages the application no longer installs. On pnpm 12, `pnpm-lock.yaml` starts with a document that records config dependencies; delete its `configDependencies` entry and its `ras-stack` package and snapshot entries, which `pnpm install` leaves behind.
-3. Add every package the application imports to `package.json`, at the version in `recipes/package.json` unless the application already pins another, and set `ras-stack` to `^6` in `devDependencies`.
+2. In `pnpm-workspace.yaml`, remove `configDependencies` and the `pnpmfile` line that points at `ras-stack`, and remove `allowBuilds` entries for packages the application no longer installs. `pnpm install` leaves the old config dependency in `pnpm-lock.yaml`: on pnpm 12 the lockfile starts with a document that records config dependencies. Delete its `configDependencies` entry and the `ras-stack@5` package and snapshot entries it pulled in, unless the application still depends on `ras-stack` 5 itself.
+3. Add every package the application imports to `package.json`, at the version in `recipes/package.json` unless the application already pins another, and set `ras-stack` in `devDependencies` to `^6`, or to `^5` while a `ras-stack/` helper is still imported.
 4. If `ras.config.ts` used the `tailwind` preset, add `@import 'tailwindcss' source('./');` to the top of the stylesheet (`src/styles.css`, or the path set in `ras.stylesheet`), followed by `@import 'tw-animate-css';` with `tailwind.animations`. The preset's Vite plugin injected both, so without them the build succeeds and the styles are gone. Keep the `source()` path relative to the stylesheet.
 5. In `.github/dependabot.yml`, delete the ignore entries marked `Managed by RAS.`, so Dependabot updates those packages again.
 6. Delete the workflow that calls `update-stack.yml`, which now only prints a notice.

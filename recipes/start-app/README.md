@@ -130,6 +130,14 @@ With `tooling`, see `stacks/client-only/`:
 
 Both are optional in development.
 
+### Self-hosted products
+
+An image that operators run themselves is reached by whatever names they give it (a domain, a LAN hostname, an IP address) through a proxy they chose, so there is no one `APP_URL` to set:
+
+- Leave `APP_URL` unset. Setting it to one name turns on the canonical redirect, which sends every other name the operator uses to it, and makes every absolute link use that name.
+- The origin checks still hold without it. `requireSameOrigin` and the server function CSRF middleware compare the browser's `Origin` with the origin of the request the application received, so they work under any name as long as the proxy passes the original `Host`. A proxy that rewrites `Host` must send `X-Forwarded-Host` and `X-Forwarded-Proto`, and the operator sets `TRUST_PROXY=true`, which only a proxy that replaces those headers makes safe; document both for operators.
+- With `auth`, Better Auth has no `baseURL`, so it builds reset links and OAuth redirect URIs from each request's origin, through the forwarded headers when `TRUST_PROXY` is set. In production it then marks cookies `Secure`, which browsers drop over plain HTTP, so an installation served over HTTP on a LAN cannot sign in. Offer a setting for `advanced.useSecureCookies`, or decide it per request, and register each name an operator uses with OAuth providers.
+
 Rename the application: `"name": "app"` in `package.json` and the `title` in `src/routes/__root.tsx`.
 
 ## Verify
