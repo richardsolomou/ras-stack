@@ -40,15 +40,7 @@ Resend and other email providers are not recipes: PostHog sends the same email w
 
 ## Stacks
 
-Each stack in [`../stacks`](../stacks) is a complete application assembled from recipes and checked in CI. Read the matching stack file when a recipe's wiring is unclear.
-
-| Stack                                  | Shape                                                                               |
-| -------------------------------------- | ----------------------------------------------------------------------------------- |
-| [`full-stack`](../stacks/full-stack)   | Accounts, SQLite, PostHog email, realtime, and uploads in one container on Dokploy. |
-| [`postgres`](../stacks/postgres)       | Accounts on PostgreSQL with SMTP email, on Dokploy.                                 |
-| [`spacetime`](../stacks/spacetime)     | A SpacetimeDB application with accounts on libsql, on Dokploy.                      |
-| [`convex`](../stacks/convex)           | A Convex application on Cloudflare.                                                 |
-| [`client-only`](../stacks/client-only) | A browser tool with no backend data on Cloudflare.                                  |
+Each stack in [`../stacks`](../stacks) is a complete application assembled from recipes and checked in CI; its `stack.json` lists the recipes, and the [README](../README.md#stacks-) describes each one. Read the matching stack file when a recipe's wiring is unclear.
 
 ## Checks
 

@@ -199,6 +199,9 @@ try {
     const readme = await readFile(join(recipesDir, 'README.md'), 'utf8')
     const unlisted = [...recipes.keys()].filter((name) => !readme.includes(`[\`${name}\`](${name}/README.md)`))
     if (unlisted.length > 0) throw new Error(`recipes/README.md does not link: ${unlisted.join(', ')}`)
+    const catalogue = await readFile(join(root, 'README.md'), 'utf8')
+    const uncatalogued = [...recipes.keys()].filter((name) => !catalogue.includes(`[\`${name}\`](recipes/${name})`))
+    if (uncatalogued.length > 0) throw new Error(`README.md does not list: ${uncatalogued.join(', ')}`)
     const tested = new Set(assembled.flatMap(({ stack }) => [...stack.testedWiring]))
     const untested = [...recipes.values()]
       .flatMap((recipe) => recipe.wires.map((path) => `${recipe.name} → ${path}`))
