@@ -103,13 +103,13 @@ importers:
   recipes:
     devDependencies:
       '@cloudflare/vite-plugin':
-        specifier: 1.65.0
+        specifier: ^1.65.0
         version: 1.65.0(@types/node@26.6.6)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))(workerd@1.20261023.1)(wrangler@4.154.0(@types/node@26.6.6))
       '@convex-dev/react-query':
-        specifier: 0.1.0
+        specifier: ^0.1.0
         version: 0.1.0(@tanstack/react-query@5.105.1(@types/react@19.3.0)(react@19.3.1))(convex@1.49.0(react@19.3.1))
       '@libsql/client':
-        specifier: 0.18.0
+        specifier: ^0.18.0
         version: 0.18.0
       '@opentelemetry/api-logs':
         specifier: 0.223.1
@@ -124,25 +124,25 @@ importers:
         specifier: 0.223.1
         version: 0.223.1(@opentelemetry/api@1.9.1)
       '@posthog/react':
-        specifier: 1.11.3
+        specifier: ^1.11.3
         version: 1.11.3(@types/react@19.3.0)(posthog-js@1.445.4(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)
       '@posthog/rollup-plugin':
-        specifier: 1.6.4
+        specifier: ^1.6.4
         version: 1.6.4(rollup@4.64.6)
       '@tailwindcss/vite':
-        specifier: 4.3.5
+        specifier: ^4.3.5
         version: 4.3.5(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))
       '@tanstack/react-query':
-        specifier: 5.105.1
+        specifier: ^5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
       '@tanstack/react-router':
-        specifier: 1.170.46
+        specifier: ^1.170.46
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-router-ssr-query':
-        specifier: 1.167.3
+        specifier: ^1.167.3
         version: 1.167.3(@tanstack/query-core@5.105.1)(@tanstack/react-query@5.105.1(@types/react@19.3.0)(react@19.3.1))(@tanstack/react-router@1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@tanstack/router-core@1.171.39)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-start':
-        specifier: 1.169.5
+        specifier: ^1.169.5
         version: 1.169.5(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.18)(rollup@4.64.6)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.109.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32))
       '@tus/file-store':
         specifier: ^2.1.2
@@ -151,7 +151,7 @@ importers:
         specifier: ^2.4.7
         version: 2.4.7(@opentelemetry/api@1.9.1)(supports-color@10.2.2)
       '@types/better-sqlite3':
-        specifier: 9.6.0
+        specifier: ^9.6.0
         version: 9.6.0
       '@types/node':
         specifier: ^26.6.6
@@ -160,22 +160,22 @@ importers:
         specifier: ^8.0.1
         version: 8.0.1
       '@types/react':
-        specifier: 19.3.0
+        specifier: ^19.3.0
         version: 19.3.0
       '@types/react-dom':
-        specifier: 19.3.0
+        specifier: ^19.3.0
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
-        specifier: 6.1.2
+        specifier: ^6.1.2
         version: 6.1.2(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))
       better-auth:
-        specifier: 1.7.18
+        specifier: ^1.7.18
         version: 1.7.18(@opentelemetry/api@1.9.1)(@tanstack/react-start@1.169.5(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.18)(rollup@4.64.6)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))(webpack@5.109.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)))(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@libsql/client@0.18.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3@12.11.1)(kysely@0.29.8)(postgres@3.4.9))(next@16.2.6(@babel/core@7.29.13(supports-color@10.2.2))(@opentelemetry/api@1.9.1)(@playwright/test@1.64.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@4.1.12)
       better-sqlite3:
-        specifier: 12.11.1
+        specifier: ^12.11.1
         version: 12.11.1
       centrifuge:
-        specifier: 5.8.0
+        specifier: ^5.8.0
         version: 5.8.0
       convex:
         specifier: ^1.46.0
@@ -184,10 +184,10 @@ importers:
         specifier: ^0.31.11
         version: 0.31.11
       drizzle-orm:
-        specifier: 0.45.4
+        specifier: ^0.45.4
         version: 0.45.4(@libsql/client@0.18.0)(@opentelemetry/api@1.9.1)(@types/better-sqlite3@9.6.0)(better-sqlite3@12.11.1)(kysely@0.29.8)(postgres@3.4.9)
       happy-dom:
-        specifier: 21.0.4
+        specifier: ^21.0.4
         version: 21.0.4
       nitro:
         specifier: 3.0.260903-beta
@@ -205,31 +205,31 @@ importers:
         specifier: ^7.0.2006
         version: 7.0.2006
       postgres:
-        specifier: 3.4.9
+        specifier: ^3.4.9
         version: 3.4.9
       posthog-js:
-        specifier: 1.445.4
+        specifier: ^1.445.4
         version: 1.445.4(@types/react@19.3.0)(react@19.3.1)
       posthog-node:
-        specifier: 5.61.2
+        specifier: ^5.61.2
         version: 5.61.2(@opentelemetry/api@1.9.1)
       ras-stack:
         specifier: workspace:*
         version: link:../packages/ras-stack
       react:
-        specifier: 19.3.1
+        specifier: ^19.3.1
         version: 19.3.1
       react-dom:
-        specifier: 19.3.1
+        specifier: ^19.3.1
         version: 19.3.1(react@19.3.1)
       spacetimedb:
         specifier: 2.14.1
         version: 2.14.1(@tanstack/react-query@5.105.1(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)
       tailwindcss:
-        specifier: 4.3.5
+        specifier: ^4.3.5
         version: 4.3.5
       tsx:
-        specifier: 4.23.15
+        specifier: ^4.23.15
         version: 4.23.15
       tus-js-client:
         specifier: ^4.3.1
@@ -238,13 +238,13 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
       vite:
-        specifier: 8.3.7
+        specifier: ^8.3.7
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1)
       vitest:
         specifier: ^4.1.12
         version: 4.1.12(@opentelemetry/api@1.9.1)(@types/node@26.6.6)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.1))
       wrangler:
-        specifier: 4.154.0
+        specifier: ^4.154.0
         version: 4.154.0(@types/node@26.6.6)
       zod:
         specifier: ^4.6.7
