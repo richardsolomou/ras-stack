@@ -169,6 +169,36 @@ describe('add', () => {
     expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
   })
 
+  describe('with a starter directory', () => {
+    beforeEach(() => {
+      write(source, 'recipes/greet/README.md', recipe(1, '[src/core/starter.ts, migrations/]'))
+      write(source, 'recipes/greet/files/migrations/0000_init.sql', 'CREATE TABLE note (id integer);\n')
+      commit('greet has starter migrations')
+    })
+
+    it('copies the directory when the application has none', () => {
+      run('add', 'greet')
+      expect(read('migrations/0000_init.sql')).toBe('CREATE TABLE note (id integer);\n')
+    })
+
+    it('leaves alone a directory the application already has', () => {
+      write(app, 'migrations/0000_existing.sql', 'CREATE TABLE list (id integer);\n')
+      run('add', 'greet')
+      expect(existsSync(join(app, 'migrations/0000_init.sql'))).toBe(false)
+    })
+
+    it('does not add a new starter file to a directory the application owns', () => {
+      write(app, 'migrations/0000_existing.sql', 'CREATE TABLE list (id integer);\n')
+      run('add', 'greet')
+      write(source, 'recipes/greet/README.md', recipe(2, '[src/core/starter.ts, migrations/]'))
+      write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nMore.\n\n## 1\n\nGreets.\n')
+      write(source, 'recipes/greet/files/migrations/0001_more.sql', 'ALTER TABLE note ADD x integer;\n')
+      commit('greet v2')
+      run('update', 'greet')
+      expect(existsSync(join(app, 'migrations/0001_more.sql'))).toBe(false)
+    })
+  })
+
   it('refuses to skip a path the recipe does not ship', () => {
     expect(run('add', 'greet', '--skip', 'src/core/missing.ts').status).toBe(1)
   })
