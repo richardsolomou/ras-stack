@@ -61,6 +61,6 @@ In the Cloudflare dashboard, under **Workers & Pages > Create > Import a reposit
 ## Verify
 
 - `pnpm build` prints the prerendered pages and `Parsed 1 valid header rule`, and `dist/client/_headers` lists every header in `securityHeaders`.
-- `pnpm preview`, then `curl -i localhost:4173/` returns the prerendered page with `content-security-policy`, and `curl -i localhost:4173/api/health` answers `{"ok":true}` from the Worker.
+- `pnpm preview --strictPort`, which fails instead of moving to another port when 4173 is taken, so the checks never probe a different application. Then `curl -i localhost:4173/` returns the prerendered page, with this application's `<title>`, and `content-security-policy`, and `curl -i localhost:4173/api/health` answers `{"ok":true}` from the Worker.
 - `pnpm exec wrangler deploy --dry-run` after a build lists the Worker and its assets with no errors.
 - After the first Workers Builds deploy, the custom domain serves the page with the same headers.
