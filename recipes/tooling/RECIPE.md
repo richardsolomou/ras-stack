@@ -1,6 +1,6 @@
 ---
 name: tooling
-version: 1
+version: 2
 summary: TypeScript, Oxlint, Oxfmt, and Vitest on the shared presets, behind one `pnpm check`.
 requires: []
 conflicts: []
@@ -21,7 +21,8 @@ Every application starts here. The other recipes assume its scripts, compiler se
 - **Oxlint and Oxfmt instead of ESLint and Prettier.** They are fast enough to run on every save and in every agent loop, and type-aware linting catches floating promises and unsafe `any` use that TypeScript allows.
 - **`pnpm check` runs everything CI runs**, in the order that fails fastest: formatting, lint, types, tests. Recipes that add a build or end-to-end step extend this script.
 - **Node 24 and pnpm 11, declared in `engines` and `packageManager`.** The shared `setup-js` action reads both, so CI and local development use the same toolchain.
-- **Packages must be a week old before they install.** `minimumReleaseAge` keeps a freshly published, compromised release out of local installs and CI alike, matching Dependabot's seven-day cooldown in the `ci` recipe. PostHog packages are exempt because their SDK fixes are wanted the day they ship. `allowBuilds` lists every package allowed to run install scripts; recipes that add a native package, such as `better-sqlite3`, add it there.
+- **Packages must be a week old before they install.** `minimumReleaseAge` keeps a freshly published, compromised release out of local installs and CI alike, matching Dependabot's seven-day cooldown in the `ci` recipe. PostHog packages and `ras-stack` are exempt: they are first-party, and their fixes are wanted the day they ship. `allowBuilds` lists every package allowed to run install scripts; recipes that add a native package, such as `better-sqlite3`, add it there.
+- **One formatting style: single quotes, no semicolons, 140 columns.** Every recipe file is written in the style `.oxfmtrc.json` sets, so recipe updates merge into applications without formatting changes. Adopting `tooling` reformats most of an existing application; commit that reformat on its own, so later diffs show only real changes.
 - **`AGENTS.md` points agents at `ras-recipes.json`.** Agents working in the application then know which code came from a recipe and where to look before changing it.
 
 ## Files
@@ -39,7 +40,7 @@ Every application starts here. The other recipes assume its scripts, compiler se
 
 ## Wiring
 
-None. In an existing application, merge rather than replace: keep its `name`, scripts, and `AGENTS.md` content, and add what is missing.
+None. In an existing application, merge rather than replace: keep its `name`, scripts, and `AGENTS.md` content, and add what is missing. Run `pnpm format` and commit the result alone before any other change.
 
 ## Configuration
 
