@@ -3,70 +3,70 @@
 
 # ras-stack
 
-**Full-stack application code you copy, own, and keep up to date.**
+**Opinionated recipes for the stack I build on. Copy them in, extend them, own them.**
 
 [Recipes](#recipes-) · [Get started](#get-started-) · [Documentation](docs/README.md) · [npm](https://www.npmjs.com/package/ras-stack)
 
 [![npm](https://img.shields.io/npm/v/ras-stack)](https://www.npmjs.com/package/ras-stack) [![Build](https://img.shields.io/github/actions/workflow/status/richardsolomou/ras-stack/ci.yml?branch=main)](https://github.com/richardsolomou/ras-stack/actions/workflows/ci.yml) [![License](https://img.shields.io/github/license/richardsolomou/ras-stack)](LICENSE)
 
-Recipes for the parts every web application needs: the app shell, accounts, email, databases, realtime, uploads, analytics, deploys, previews, and CI. An agent copies a recipe into your application, and later merges the recipe's fixes into the copy you have changed.
+Working, tested code for the parts my applications keep needing: the app shell, accounts, email, databases, realtime, uploads, analytics, deploys, and CI. The configuration is still there; you just don't have to think about it.
 
 </div>
 
 ## How it works ✨
 
-Think [shadcn/ui](https://ui.shadcn.com), but for full-stack application code and how it runs in production. A recipe is not a dependency. It is working code, with its tests, that you copy into your repository once and then own.
+Think [shadcn/ui](https://ui.shadcn.com), for the rest of the stack. A recipe is not a dependency: once you copy it in, it's yours.
 
-1. **Pick recipes** for what the application needs, from the [catalogue](#recipes-) or the [decision guide](recipes/README.md).
-2. **Your agent adds them** with the [`ras-recipes` skill](skills/ras-recipes/SKILL.md): it copies the files, installs the packages, wires the recipe into the files other recipes own, and records what it took in `ras-recipes.json`.
-3. **Change the code freely.** It is yours, so you and your agent read and edit it like the rest of the application, and write down deliberate differences as notes.
-4. **Take updates when you want them.** The skill three-way merges each recipe change into your edited copy, using the commit you took it from as the base, and walks you through anything it cannot merge.
+1. **Pick recipes** from the [catalogue](#recipes-) or the [decision guide](recipes/README.md).
+2. **Your agent adds them** with the [`ras-recipes` skill](skills/ras-recipes/SKILL.md), which copies the files, wires them in, and records them in `ras-recipes.json`.
+3. **Extend them.** The code lives in your repository, so change it like any other code.
+4. **Update when you want.** The skill merges recipe fixes into your edited copy and asks about anything it can't merge.
 
 ## Why copy instead of depend? 🔁
 
-A runtime library hides its code behind an API. When it does almost what you need, you wait for a release, wrap it, or fork it, and your agent can only guess at what happens inside. A recipe puts the code where you and your agent can read it, debug it, and change it in place.
+A library hides its code behind an API: when it almost fits, you wait for a release, wrap it, or fork it. A recipe puts the code where you and your agent can read and change it.
 
-Copying usually means losing updates. Recipes keep them: `ras-recipes.json` records the commit each recipe came from, so a fix to a recipe merges into your copy without overwriting your changes, and its changelog says why it changed and what a merge cannot do for you.
+Copying usually means losing updates. Recipes keep them: `ras-recipes.json` records where each recipe came from, so later fixes merge into your copy without overwriting your changes.
 
 ## Opinionated on purpose 🎯
 
-Each recipe makes one choice and writes down why, including the incidents behind it, so whoever changes the code next knows what it protects against. The recipes come from applications running in production, and many of the reasons are what broke there. From [`email-posthog`](recipes/email-posthog):
+These are the tools I use and trust, not a menu of every option. Each recipe makes one choice and writes down why, often because of something that broke in production. From [`email-posthog`](recipes/email-posthog):
 
 > **Errors throw.** `posthog.emails.send` resolves `{ data, error }` and never rejects; the adapter turns `error` into a rejection, so a failed reset email fails the request instead of silently succeeding.
 
 The choices the recipes make:
 
-- **One shell for every application**: TanStack Start, React, TanStack Query, and Tailwind, with request security and recovery from deploys built in. Even a browser-only tool uses it, so every application has the same shape.
-- **SQLite unless you need more**: one file, online backup, and no database server. Postgres when you need replicas or a managed database, Convex for a live, collaborative product, and SpacetimeDB for a game.
-- **PostHog for analytics, errors, logs, traces, and transactional email**, so one account covers them and every email joins the recipient's product history.
-- **Better Auth for accounts**, on the application's own database.
-- **Two ways to deploy**: a container on an arm64 Dokploy server for anything that keeps state, with a preview per pull request, and Cloudflare Workers for prerendered pages and stateless server functions.
-- **One `pnpm check`** across Oxfmt, type-aware Oxlint, TypeScript, and Vitest, which CI runs on every pull request, and packages must be a week old before they install.
+- **TanStack Start, React, Query, and Tailwind** for every app, even browser-only tools.
+- **SQLite** unless you need more: Postgres, Convex, or SpacetimeDB.
+- **PostHog** for analytics, errors, logs, traces, and email.
+- **Better Auth** for accounts.
+- **Dokploy** for anything with state, **Cloudflare Workers** for the rest.
+- **One `pnpm check`** for formatting, linting, types, and tests.
 
 ## Recipes 📚
 
-| Area          | Recipe                                                   | What it adds                                                                                                 |
-| ------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Foundation    | [`tooling`](recipes/tooling)                             | TypeScript, Oxlint, Oxfmt, and Vitest on the shared presets, behind one `pnpm check`.                        |
-|               | [`start-app`](recipes/start-app)                         | The TanStack Start, React, Query, and Tailwind shell, with request security and deploy survival.             |
-|               | [`ci`](recipes/ci)                                       | `pnpm check` on every pull request and push to main, with a grouped, cooled-down Dependabot policy.          |
-| Data          | [`database-sqlite`](recipes/database-sqlite)             | SQLite through better-sqlite3 and Drizzle, migrated at startup, with online backup and validated restore.    |
-|               | [`database-libsql`](recipes/database-libsql)             | SQLite through the libsql client and Drizzle, with no native build step.                                     |
-|               | [`database-postgres`](recipes/database-postgres)         | PostgreSQL through Postgres.js and Drizzle, migrated at startup.                                             |
-|               | [`convex`](recipes/convex)                               | Convex as the backend, with Convex queries served through TanStack Query.                                    |
-|               | [`spacetimedb`](recipes/spacetimedb)                     | A SpacetimeDB module beside the application, with committed bindings and a guarded publish.                  |
-| Accounts      | [`auth`](recipes/auth)                                   | Email, password, and social sign-in with Better Auth, and sessions for server functions.                     |
-| Email         | [`email-posthog`](recipes/email-posthog)                 | Transactional email from PostHog email templates.                                                            |
-|               | [`email-smtp`](recipes/email-smtp)                       | Transactional email through an SMTP server, with a hard deadline on every exchange.                          |
-| Features      | [`realtime`](recipes/realtime)                           | Centrifugo live updates with signed tokens, React hooks, and a container supervisor.                         |
-|               | [`uploads`](recipes/uploads)                             | Resumable tus uploads with owners, limits, and cleanup.                                                      |
-| Observability | [`posthog-web`](recipes/posthog-web)                     | Browser PostHog with privacy defaults, a same-origin ingest proxy, error capture, and source-map upload.     |
-|               | [`posthog-server`](recipes/posthog-server)               | Server analytics, exceptions, logs, metrics, and spans, flushed on shutdown.                                 |
-|               | [`posthog-auth-identity`](recipes/posthog-auth-identity) | PostHog identity from the Better Auth session, in the browser and on the server.                             |
-| Deploy        | [`deploy-dokploy`](recipes/deploy-dokploy)               | A small non-root image deployed to Dokploy from main by digest, with a preview per pull request.             |
-|               | [`deploy-cloudflare`](recipes/deploy-cloudflare)         | Cloudflare Workers with prerendered pages and security headers on static assets, deployed by Workers Builds. |
+| Area          | Recipe                                                   | What it adds                                                  |
+| ------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
+| Foundation    | [`tooling`](recipes/tooling)                             | Shared presets and one `pnpm check`.                          |
+|               | [`start-app`](recipes/start-app)                         | The app shell, with request security and deploy recovery.     |
+|               | [`ci`](recipes/ci)                                       | Checks on every pull request, and grouped Dependabot updates. |
+| Data          | [`database-sqlite`](recipes/database-sqlite)             | SQLite with Drizzle, migrations, and backups.                 |
+|               | [`database-libsql`](recipes/database-libsql)             | SQLite through libsql, with no native build.                  |
+|               | [`database-postgres`](recipes/database-postgres)         | PostgreSQL with Drizzle and migrations.                       |
+|               | [`convex`](recipes/convex)                               | Convex served through TanStack Query.                         |
+|               | [`spacetimedb`](recipes/spacetimedb)                     | A SpacetimeDB module with a guarded publish.                  |
+| Accounts      | [`auth`](recipes/auth)                                   | Better Auth sign-in and server sessions.                      |
+| Email         | [`email-posthog`](recipes/email-posthog)                 | Transactional email from PostHog templates.                   |
+|               | [`email-smtp`](recipes/email-smtp)                       | Transactional email over SMTP.                                |
+| Features      | [`realtime`](recipes/realtime)                           | Live updates with Centrifugo.                                 |
+|               | [`uploads`](recipes/uploads)                             | Resumable uploads with limits.                                |
+| Observability | [`posthog-web`](recipes/posthog-web)                     | PostHog in the browser, with a same-origin proxy.             |
+|               | [`posthog-server`](recipes/posthog-server)               | PostHog on the server: events, errors, logs, and traces.      |
+|               | [`posthog-auth-identity`](recipes/posthog-auth-identity) | PostHog people from the signed-in user.                       |
+| Deploy        | [`deploy-dokploy`](recipes/deploy-dokploy)               | A container on Dokploy, with a preview per pull request.      |
+|               | [`deploy-cloudflare`](recipes/deploy-cloudflare)         | Cloudflare Workers with prerendered pages.                    |
 
-Each recipe's page covers when to use it, every decision and why, its files, the wiring into other recipes' files, configuration, and how to verify it. The [decision guide](recipes/README.md) picks the recipes for an application.
+Each recipe's page explains when to use it, its decisions, and how to wire and verify it.
 
 ## Get started 🚀
 
@@ -76,16 +76,16 @@ Install the skill into your coding agent:
 npx skills add richardsolomou/ras-stack
 ```
 
-Or clone this repository and link `skills/ras-recipes` into your agent's skills directory. The skill reads recipes from this repository's `main` branch, from the clone it sits in or from one it makes in `~/.cache/ras-stack`, and needs Node 24 and git.
+Or link `skills/ras-recipes` from a clone into your agent's skills directory. It needs Node 24 and git.
 
 Then ask your agent in plain words:
 
 - **A new application**: "Start a new app with ras recipes: SQLite, accounts, PostHog email, deployed to Dokploy."
 - **A new capability**: "Add the uploads recipe."
-- **Existing code**: "Adopt the ras recipes for what this app already does." The skill records the recipe over your code instead of copying it twice, so future updates merge.
-- **Updates**: "Update the ras recipes." The skill shows what changed and why, merges each recipe, and asks you to resolve real conflicts.
+- **Existing code**: "Adopt the ras recipes for what this app already does."
+- **Updates**: "Update the ras recipes."
 
-The skill's script does the mechanical part, and you can run it yourself from the application's root:
+Or run the skill's script yourself from the application's root:
 
 ```sh
 node <skill>/scripts/recipes.mjs list                   # every recipe, its version, and summary
@@ -94,11 +94,9 @@ node <skill>/scripts/recipes.mjs status                 # what you took, what yo
 node <skill>/scripts/recipes.mjs update database-sqlite # merge the recipe's changes into your copy
 ```
 
-The wiring and configuration in each recipe's page are for you or your agent to apply.
-
 ## Stacks 🧱
 
-Every recipe is proven in a stack: a complete application assembled from recipes, wired, and checked in CI on every change. When a recipe's wiring is unclear, read the matching stack.
+Each stack is a complete application built from recipes and checked in CI, so every recipe is proven working together with the others.
 
 | Stack                               | Shape                                                                               |
 | ----------------------------------- | ----------------------------------------------------------------------------------- |
@@ -110,9 +108,7 @@ Every recipe is proven in a stack: a complete application assembled from recipes
 
 ## The npm package 📦
 
-Applications copy almost everything. The [`ras-stack`](packages/ras-stack/README.md) package holds the little they share instead: the TypeScript and Oxlint presets the `tooling` recipe extends, and the `ras preview` command the Dokploy preview workflows run. This repository also publishes GitHub Actions, reusable workflows, and a runtime binaries image; see [repository tooling](docs/repository-tooling.md).
-
-Coming from v5, whose runtime helpers these recipes replace? Follow [Migrate from v5](docs/upgrades.md).
+The [`ras-stack`](packages/ras-stack/README.md) package holds the little that stays shared: the TypeScript and Oxlint presets, and `ras preview` for Dokploy previews. The repository also publishes [GitHub Actions and reusable workflows](docs/repository-tooling.md). Coming from v5? See [Migrate from v5](docs/upgrades.md).
 
 ## Development 🛠️
 
