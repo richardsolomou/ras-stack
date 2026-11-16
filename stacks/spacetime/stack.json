@@ -1,0 +1,4 @@
+{
+  "recipes": ["tooling", "start-app", "ci", "posthog-web", "posthog-server", "auth", "database-libsql", "spacetimedb", "deploy-dokploy"],
+  "checks": ["format:check", "lint", "build", "typecheck", "test"]
+}

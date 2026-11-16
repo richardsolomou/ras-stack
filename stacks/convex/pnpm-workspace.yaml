@@ -1,0 +1,9 @@
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - 'posthog-*'
+  - '@posthog/*'
+allowBuilds:
+  '@posthog/cli': true
+  core-js: false
+  esbuild: true
+  workerd: true

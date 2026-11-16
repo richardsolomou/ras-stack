@@ -1,0 +1,25 @@
+{
+  "name": "app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node .output/server/index.mjs",
+    "realtime": "node scripts/realtime.ts dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test",
+    "db:generate": "drizzle-kit generate",
+    "db:backup": "node scripts/database.ts backup",
+    "db:restore": "node scripts/database.ts restore"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

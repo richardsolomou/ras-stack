@@ -1,0 +1,17 @@
+{
+  "name": "app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

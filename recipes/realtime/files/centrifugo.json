@@ -1,0 +1,9 @@
+{
+  "channel": {
+    "namespaces": [
+      { "name": "user", "history_size": 10, "history_ttl": "5m", "force_recovery": true },
+      { "name": "updates", "history_size": 10, "history_ttl": "5m", "force_recovery": true }
+    ]
+  },
+  "health": { "enabled": true }
+}

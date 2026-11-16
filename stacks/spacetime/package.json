@@ -1,0 +1,23 @@
+{
+  "name": "app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p spacetimedb",
+    "lint": "oxlint --type-aware --deny-warnings .",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm build && pnpm typecheck && pnpm test",
+    "db:generate": "drizzle-kit generate",
+    "spacetime:generate": "spacetime generate --lang typescript --module-path spacetimedb --out-dir src/spacetime/generated --yes"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.0"
+}

@@ -1,8 +1,8 @@
 packages:
   - .
   - apps/*
-  - examples/*
   - packages/*
+  - recipes
 allowBuilds:
   '@posthog/cli': true
   better-sqlite3: true
@@ -13,7 +13,7 @@ allowBuilds:
   unrs-resolver: true
   workerd: true
 minimumReleaseAge: 10080
-# Better Auth 1.7 is the compatibility target exercised by the full-stack reference.
+# Better Auth 1.7 is the compatibility target the auth recipe and its stacks exercise.
 minimumReleaseAgeExclude:
   - ras-stack
   - better-auth

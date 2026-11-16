@@ -1,0 +1,452 @@
+import { execFile } from 'node:child_process'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { promisify } from 'node:util'
+import { afterEach, describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
+
+const exec = promisify(execFile)
+
+const roots: string[] = []
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
+// The script is read out of the workflow rather than copied here, so this cannot drift from what CI runs.
+async function workflowStep(file: string, job: string, name: string) {
+  const source = await readFile(new URL(`../../../.github/workflows/${file}`, import.meta.url), 'utf8')
+  const workflow = parse(source) as { jobs: Record<string, { steps: { name?: string; run?: string }[] }> }
+  const step = workflow.jobs[job]?.steps.find((candidate) => candidate.name === name)
+  if (!step?.run) throw new Error(`${file} ${job} is missing the ${name} script`)
+  return step.run
+}
+
+const releaseScript = () => workflowStep('release-changesets.yml', 'release', 'Release pending changesets')
+const publicationScript = () => workflowStep('ci.yml', 'publish', 'Publish through the OIDC-trusted workflow')
+const compatibilityTagScript = () => workflowStep('ci.yml', 'publish', 'Promote compatibility tag')
+const releaseVerificationScript = () => workflowStep('release.yml', 'publish', 'Verify release version')
+
+describe('changeset release workflow', () => {
+  it('stands down when the branch carries no changesets', async () => {
+    const fixture = await repository({ changesets: false })
+
+    const { stdout } = await run(fixture, fixture.head)
+
+    expect(await outputs(fixture)).toEqual({ created: 'false', tag: '', sha: fixture.head })
+    expect(stdout).not.toContain('::notice::')
+  })
+
+  // A second merge moves the branch while the first run is still queued, which is ordinary rather than broken.
+  it('stands down when the branch advanced past the commit that triggered it', async () => {
+    const fixture = await repository({ changesets: true })
+
+    const { stdout } = await run(fixture, fixture.previous)
+
+    expect(await outputs(fixture)).toEqual({ created: 'false', tag: '', sha: fixture.previous })
+    expect(stdout).toContain(`::notice::main advanced past ${fixture.previous}`)
+  })
+
+  it('keeps releasing when the triggering commit is still the branch head', async () => {
+    const fixture = await repository({ changesets: true })
+
+    // The version command is the first thing past the guard, so reaching it proves the guard let the run through.
+    await expect(run(fixture, fixture.head, { VERSION_COMMAND: 'echo reached-version-command >&2 && exit 3' })).rejects.toMatchObject({
+      stderr: expect.stringContaining('reached-version-command'),
+    })
+  })
+
+  it('suppresses checks when a release does not use pull request validation', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_LOG: fake.log,
+      GITHUB_REPOSITORY: 'example/repository',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const releaseMessage = (await exec('git', ['log', '-1', '--format=%B'], { cwd: fixture.work })).stdout
+
+    expect(releaseMessage).toMatch(/\[(?:skip ci|ci skip)\]/i)
+  })
+
+  it('validates and merges a release pull request before tagging the protected branch', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      RELEASE_TOKEN_PRESENT: 'true',
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const released = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
+    const releaseCommit = (await exec('git', ['rev-parse', `${released}^2`], { cwd: fixture.work })).stdout.trim()
+    const releaseMessage = (await exec('git', ['log', '-1', '--format=%B', releaseCommit], { cwd: fixture.work })).stdout
+    const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+
+    expect(remoteMain).toBe(released)
+    expect(releaseMessage).not.toMatch(/\[(?:skip ci|ci skip)\]/i)
+    expect(releaseBranches).toBe('')
+    expect(calls.findIndex((call) => call.startsWith('pr create '))).toBeLessThan(calls.findIndex((call) => call.startsWith('run watch ')))
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
+    expect(calls.some((call) => call.includes('run list') && call.includes('--event pull_request'))).toBe(true)
+    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr merge ')))
+    expect(calls.find((call) => call.startsWith('pr merge '))).toContain('--auto')
+    expect(calls.find((call) => call.startsWith('pr merge '))).toContain(`--match-head-commit ${releaseCommit}`)
+    expect(calls.findIndex((call) => call.startsWith('run watch '))).toBeLessThan(calls.findIndex((call) => call.startsWith('pr view ')))
+    expect(calls.findIndex((call) => call.startsWith('pr view '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('release create ')),
+    )
+    expect(calls.findIndex((call) => call.startsWith('pr merge '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('release create ')),
+    )
+  })
+
+  it('merges an already mergeable release pull request directly when GitHub refuses auto-merge', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_AUTO_MERGE_CLEAN: '1',
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      RELEASE_TOKEN_PRESENT: 'true',
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const merges = (await readFile(fake.log, 'utf8'))
+      .trim()
+      .split('\n')
+      .filter((call) => call.startsWith('pr merge '))
+    expect(merges.map((call) => call.includes('--auto'))).toEqual([true, false])
+  })
+
+  it('reruns pull-request validation when the release token is absent', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+    const merge = calls.find((call) => call.startsWith('pr merge '))
+
+    expect(calls.some((call) => call.startsWith('run rerun 123 '))).toBe(true)
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
+    expect(merge).toContain('--auto')
+    expect(merge).not.toContain('--admin')
+  })
+
+  it('discovers approval-gated runs independently of the validation workflow', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+    const approvalBin = join(fixture.work, 'approval-bin')
+    const approvalGh = join(approvalBin, 'gh')
+    await mkdir(approvalBin)
+    await writeFile(
+      approvalGh,
+      '#!/bin/sh\nif [ "$1 $2" = "run list" ] && echo "$*" | grep -q -- \'--event pull_request\' && ! echo "$*" | grep -q -- \'--workflow\'; then\n  printf \'%s\\n\' "$*" >> "$GH_LOG"\n  sha="$(git rev-parse HEAD)"\n  printf \'[{"databaseId":123,"headSha":"%s"},{"databaseId":456,"headSha":"%s"}]\\n\' "$sha" "$sha"\n  exit 0\nfi\nPATH="${PATH#*:}" exec gh "$@"\n',
+    )
+    await chmod(approvalGh, 0o755)
+
+    await run(fixture, fixture.head, {
+      GH_DISPATCHED: fake.dispatched,
+      GH_LOG: fake.log,
+      GH_PR_CREATED: fake.prCreated,
+      GITHUB_REPOSITORY: 'example/repository',
+      GITHUB_RUN_ID: '42',
+      PATH: `${approvalBin}:${fake.bin}:${process.env.PATH ?? ''}`,
+      VALIDATION_WORKFLOW: 'ci.yml',
+      VERSION_COMMAND: 'printf release > release.txt',
+    })
+
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+
+    expect(
+      calls.some((call) => call.startsWith('run list ') && call.includes('--event pull_request') && !call.includes('--workflow')),
+    ).toBe(true)
+    expect(calls.some((call) => call.startsWith('run rerun 456 '))).toBe(true)
+    expect(calls.findIndex((call) => call.startsWith('run watch 456 '))).toBeLessThan(
+      calls.findIndex((call) => call.startsWith('pr merge ')),
+    )
+  })
+
+  it('leaves the protected branch unchanged when release validation fails', async () => {
+    const fixture = await repository({ changesets: true })
+    const fake = await releaseGh(fixture.work)
+
+    await expect(
+      run(fixture, fixture.head, {
+        GH_DISPATCHED: fake.dispatched,
+        GH_LOG: fake.log,
+        GH_PR_CREATED: fake.prCreated,
+        GH_WATCH_EXIT: '1',
+        GITHUB_REPOSITORY: 'example/repository',
+        GITHUB_RUN_ID: '42',
+        PATH: `${fake.bin}:${process.env.PATH ?? ''}`,
+        VALIDATION_WORKFLOW: 'ci.yml',
+        VERSION_COMMAND: 'printf release > release.txt',
+      }),
+    ).rejects.toMatchObject({ code: 1 })
+
+    const remoteMain = (await exec('git', ['ls-remote', 'origin', 'refs/heads/main'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseBranches = (await exec('git', ['ls-remote', '--heads', 'origin', 'release-candidate/*'], { cwd: fixture.work })).stdout
+    const releaseTags = (await exec('git', ['ls-remote', '--tags', 'origin', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout
+    const calls = (await readFile(fake.log, 'utf8')).trim().split('\n')
+
+    expect(remoteMain).toBe(fixture.head)
+    expect(releaseBranches).toBe('')
+    expect(releaseTags).toBe('')
+    expect(calls.some((call) => call.includes('run list') && call.includes('--event pull_request'))).toBe(true)
+    expect(calls.some((call) => call.startsWith('run rerun 123 '))).toBe(true)
+    expect(calls.some((call) => call.startsWith('workflow run '))).toBe(false)
+    expect(calls.some((call) => call.startsWith('pr close '))).toBe(true)
+  })
+})
+
+describe('npm publication dispatch', () => {
+  it('watches the newly dispatched tagged workflow instead of stale runs', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ras-stack-publication-'))
+    const bin = join(root, 'bin')
+    const dispatched = join(root, 'dispatched')
+    const log = join(root, 'gh.log')
+    const gh = join(bin, 'gh')
+    await mkdir(bin)
+    await writeFile(
+      gh,
+      '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if [ -e "$GH_DISPATCHED" ]; then\n    printf \'%s\\n\' \'[{"databaseId":41,"displayTitle":"Release v1.2.3","conclusion":"success"},{"databaseId":42,"displayTitle":"Release v1.2.3","conclusion":"failure"},{"databaseId":123,"displayTitle":"Release v1.2.3","conclusion":null}]\'\n  else\n    printf \'%s\\n\' \'[{"databaseId":41,"displayTitle":"Release v1.2.3","conclusion":"success"},{"databaseId":42,"displayTitle":"Release v1.2.3","conclusion":"failure"}]\'\n  fi\nfi\n',
+    )
+    await chmod(gh, 0o755)
+
+    await exec('bash', ['-c', await publicationScript()], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH ?? ''}`,
+        GH_DISPATCHED: dispatched,
+        GH_LOG: log,
+        GH_TOKEN: 'unused',
+        GITHUB_REPOSITORY: 'richardsolomou/ras-stack',
+        RELEASE_TAG: 'v1.2.3',
+      },
+    })
+
+    const calls = (await readFile(log, 'utf8')).trim().split('\n')
+    expect(calls).toContain('workflow run release.yml --repo richardsolomou/ras-stack --ref v1.2.3 -f release_tag=v1.2.3')
+    expect(calls.at(-1)).toBe('run watch 123 --repo richardsolomou/ras-stack --exit-status')
+  })
+
+  it('moves the compatibility tag forward without letting an older release roll it back', async () => {
+    const fixture = await compatibilityRepository()
+    const script = await compatibilityTagScript()
+
+    await exec('bash', ['-c', script], {
+      cwd: fixture.work,
+      env: { ...process.env, RELEASE_TAG: 'v1.2.3' },
+    })
+    await exec('bash', ['-c', script], {
+      cwd: fixture.work,
+      env: { ...process.env, RELEASE_TAG: 'v1.1.0' },
+    })
+
+    const compatibilityTag = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseTag = (await exec('git', ['rev-parse', 'refs/tags/v1.2.3'], { cwd: fixture.work })).stdout.trim()
+
+    expect(compatibilityTag).toBe(releaseTag)
+  })
+
+  it('keeps the action contract at v1 across runtime package majors', async () => {
+    const fixture = await compatibilityRepository()
+    const script = await compatibilityTagScript()
+    await exec('bash', ['-c', script], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'v3.0.0' } })
+    await exec('bash', ['-c', script], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'v1.2.3' } })
+    const compatibilityTag = (await exec('git', ['ls-remote', 'origin', 'refs/tags/v1'], { cwd: fixture.work })).stdout.split('\t')[0]
+    const releaseTag = (await exec('git', ['rev-parse', 'refs/tags/v3.0.0'], { cwd: fixture.work })).stdout.trim()
+    expect(compatibilityTag).toBe(releaseTag)
+  })
+
+  it('rejects retired configuration-only release tags', async () => {
+    const fixture = await compatibilityRepository()
+    await expect(
+      exec('bash', ['-c', await compatibilityTagScript()], { cwd: fixture.work, env: { ...process.env, RELEASE_TAG: 'config-v1.0.0' } }),
+    ).rejects.toMatchObject({ code: 1, stderr: 'Invalid release tag: config-v1.0.0\n' })
+  })
+})
+
+describe('npm publication verification', () => {
+  it('rejects a manual dispatch running from the default branch', async () => {
+    const fixture = await publicationRepository()
+
+    await expect(runPublicationVerification(fixture, 'refs/heads/main', fixture.head)).rejects.toMatchObject({ code: 1 })
+  })
+
+  it('rejects a provenance SHA that differs from the checked-out release', async () => {
+    const fixture = await publicationRepository()
+
+    await expect(runPublicationVerification(fixture, 'refs/tags/v1.2.3', '0000000000000000000000000000000000000000')).rejects.toMatchObject(
+      { code: 1 },
+    )
+  })
+
+  it('accepts a workflow executing at the requested tag and checkout', async () => {
+    const fixture = await publicationRepository()
+
+    await expect(runPublicationVerification(fixture, 'refs/tags/v1.2.3', fixture.head)).resolves.toBeDefined()
+  })
+})
+
+async function run(fixture: Fixture, sha: string, overrides: Record<string, string> = {}) {
+  return exec('bash', ['-c', await releaseScript()], {
+    cwd: fixture.work,
+    env: {
+      PATH: process.env.PATH ?? '',
+      HOME: fixture.work,
+      GITHUB_OUTPUT: fixture.output,
+      GITHUB_SHA: sha,
+      GITHUB_REF_NAME: 'main',
+      GH_TOKEN: 'unused',
+      RELEASE_TOKEN_PRESENT: 'false',
+      TAG_PREFIX: 'v',
+      VALIDATION_WORKFLOW: '',
+      VERSION_COMMAND: 'true',
+      VERSION_FILE: 'package.json',
+      ...overrides,
+    },
+  })
+}
+
+async function outputs(fixture: Fixture) {
+  const written = await readFile(fixture.output, 'utf8')
+  return Object.fromEntries(
+    written
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => {
+        const separator = line.indexOf('=')
+        return [line.slice(0, separator), line.slice(separator + 1)]
+      }),
+  ) as Record<string, string>
+}
+
+async function runPublicationVerification(fixture: PublicationFixture, ref: string, sha: string) {
+  return exec('bash', ['-c', await releaseVerificationScript()], {
+    cwd: fixture.work,
+    env: {
+      ...process.env,
+      GITHUB_REF: ref,
+      GITHUB_SHA: sha,
+      RELEASE_TAG: 'v1.2.3',
+    },
+  })
+}
+
+type Fixture = { work: string; output: string; head: string; previous: string }
+type PublicationFixture = { work: string; head: string }
+
+async function releaseGh(work: string) {
+  const bin = join(work, 'bin')
+  const dispatched = join(work, 'dispatched')
+  const log = join(work, 'gh.log')
+  const prCreated = join(work, 'pr-created')
+  const gh = join(bin, 'gh')
+  const sleep = join(bin, 'sleep')
+  await mkdir(bin)
+  await writeFile(
+    gh,
+    '#!/bin/sh\nprintf \'%s\\n\' "$*" >> "$GH_LOG"\nif [ "$1 $2" = "workflow run" ]; then\n  touch "$GH_DISPATCHED"\nfi\nif [ "$1 $2" = "run list" ]; then\n  if echo "$*" | grep -q -- \'--event pull_request\' && [ -e "$GH_PR_CREATED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  elif [ -e "$GH_DISPATCHED" ]; then\n    sha="$(git rev-parse HEAD)"\n    printf \'[{"databaseId":123,"headSha":"%s"}]\\n\' "$sha"\n  else\n    printf \'[]\\n\'\n  fi\nfi\nif [ "$1 $2" = "run watch" ]; then\n  if [ "${GH_WATCH_EXIT:-0}" = "0" ]; then\n    touch "$GH_LOG.watched"\n  fi\n  exit "${GH_WATCH_EXIT:-0}"\nfi\nif [ "$1 $2" = "pr create" ]; then\n  touch "$GH_PR_CREATED"\n  printf \'%s\\n\' \'https://github.com/example/repository/pull/1\'\nfi\nif [ "$1 $2" = "pr merge" ]; then\n  if [ "${GH_AUTO_MERGE_CLEAN:-}" = "1" ] && echo "$*" | grep -q -- \'--auto\'; then\n    echo \'Pull request is in clean status (enablePullRequestAutoMerge)\' >&2\n    exit 1\n  fi\n  touch "$GH_LOG.auto"\nfi\nif [ "$1 $2" = "pr view" ]; then\n  if [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.viewed" ]; then\n    touch "$GH_LOG.viewed"\n  elif [ -e "$GH_LOG.auto" ] && [ -e "$GH_LOG.watched" ] && [ ! -e "$GH_LOG.merged" ]; then\n    touch "$GH_LOG.merged"\n    release_sha="$(git rev-parse HEAD)"\n    release_branch="$(git ls-remote --heads origin \'release-candidate/*\' | awk \'{sub("refs/heads/", "", $2); print $2}\')"\n    git fetch origin main >/dev/null 2>&1\n    git checkout -B release-merge origin/main >/dev/null 2>&1\n    git merge --no-ff "$release_sha" -m \'Merge release\' >/dev/null 2>&1\n    git push origin HEAD:main >/dev/null 2>&1\n    git push origin --delete "$release_branch" >/dev/null 2>&1\n  fi\n  if [ -e "$GH_LOG.merged" ]; then\n    printf \'%s\\n\' \'MERGED\'\n  else\n    printf \'%s\\n\' \'OPEN\'\n  fi\nfi\n',
+  )
+  await writeFile(sleep, '#!/bin/sh\nexit 0\n')
+  await Promise.all([chmod(gh, 0o755), chmod(sleep, 0o755)])
+  return { bin, log, dispatched, prCreated }
+}
+
+async function publicationRepository(): Promise<PublicationFixture> {
+  const work = await mkdtemp(join(tmpdir(), 'ras-stack-publication-verification-'))
+  roots.push(work)
+  await mkdir(join(work, 'packages/ras-stack'), { recursive: true })
+  await writeFile(join(work, 'packages/ras-stack/package.json'), JSON.stringify({ name: 'ras-stack', version: '1.2.3' }))
+  await exec('git', ['init', '--initial-branch=main'], { cwd: work })
+  await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
+  await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
+  await exec('git', ['add', '-A'], { cwd: work })
+  await exec('git', ['commit', '-m', 'release'], { cwd: work })
+  const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: work })).stdout.trim()
+  return { work, head }
+}
+
+async function compatibilityRepository() {
+  const remote = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-origin-'))
+  const work = await mkdtemp(join(tmpdir(), 'ras-stack-compatibility-'))
+  roots.push(remote, work)
+  await exec('git', ['init', '--bare', '--initial-branch=main'], { cwd: remote })
+  await exec('git', ['init', '--initial-branch=main'], { cwd: work })
+  await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
+  await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
+  await exec('git', ['remote', 'add', 'origin', remote], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'old')
+  await exec('git', ['add', 'release.txt'], { cwd: work })
+  await exec('git', ['commit', '-m', 'old release'], { cwd: work })
+  await exec('git', ['tag', 'v1.1.0'], { cwd: work })
+  await exec('git', ['tag', 'v1'], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'new')
+  await exec('git', ['commit', '-am', 'new release'], { cwd: work })
+  await exec('git', ['tag', 'v1.2.3'], { cwd: work })
+  await writeFile(join(work, 'release.txt'), 'new major')
+  await exec('git', ['commit', '-am', 'major release'], { cwd: work })
+  await exec('git', ['tag', 'v3.0.0'], { cwd: work })
+  await exec('git', ['push', 'origin', 'main', 'v1', 'v1.1.0', 'v1.2.3', 'v3.0.0'], { cwd: work })
+  return { work }
+}
+
+async function repository(options: { changesets: boolean }): Promise<Fixture> {
+  const remote = await mkdtemp(join(tmpdir(), 'ras-stack-release-origin-'))
+  const work = await mkdtemp(join(tmpdir(), 'ras-stack-release-'))
+  roots.push(remote, work)
+  await exec('git', ['init', '--bare', '--initial-branch=main'], { cwd: remote })
+  await exec('git', ['init', '--initial-branch=main'], { cwd: work })
+  await exec('git', ['config', 'user.name', 'Test'], { cwd: work })
+  await exec('git', ['config', 'user.email', 'test@example.com'], { cwd: work })
+  await exec('git', ['remote', 'add', 'origin', remote], { cwd: work })
+  await writeFile(join(work, 'package.json'), JSON.stringify({ name: 'example', version: '1.2.3' }))
+
+  if (options.changesets) {
+    await mkdir(join(work, '.changeset'), { recursive: true })
+    await writeFile(join(work, '.changeset/pending.md'), "---\n'example': minor\n---\n\nA pending change.\n")
+  }
+
+  await writeFile(join(work, 'file.txt'), 'first')
+  await exec('git', ['add', '-A'], { cwd: work })
+  await exec('git', ['commit', '-m', 'first'], { cwd: work })
+  const previous = (await exec('git', ['rev-parse', 'HEAD'], { cwd: work })).stdout.trim()
+
+  await writeFile(join(work, 'file.txt'), 'second')
+  await exec('git', ['commit', '-am', 'second'], { cwd: work })
+  const head = (await exec('git', ['rev-parse', 'HEAD'], { cwd: work })).stdout.trim()
+  await exec('git', ['push', 'origin', 'main'], { cwd: work })
+
+  return { work, output: join(work, 'github-output'), head, previous }
+}

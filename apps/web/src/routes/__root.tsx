@@ -2,7 +2,7 @@ import { HeadContent, Outlet, Scripts, createRootRoute } from '@tanstack/react-r
 import styles from '../styles.css?url'
 
 const title = 'ras-stack — TypeScript application infrastructure'
-const description = 'Shared application mechanics for TanStack projects, without hiding the libraries underneath.'
+const description = 'Copy-and-own recipes for TanStack applications, with the decisions behind them written down.'
 
 export const Route = createRootRoute({
   head: () => ({
