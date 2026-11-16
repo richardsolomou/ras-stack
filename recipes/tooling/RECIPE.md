@@ -42,6 +42,11 @@ Every application starts here. The other recipes assume its scripts, compiler se
 
 None. In an existing application, merge rather than replace: keep its `name`, scripts, and `AGENTS.md` content, and add what is missing. Run `pnpm format` and commit the result alone before any other change.
 
+- **The reformat goes first.** Commit `.oxfmtrc.json` and the `pnpm format` result before the rest of the recipe. A pre-commit hook that formats the whole repository, such as lefthook running `pnpm fix` with `stage_fixed: true`, otherwise reformats files into whichever commit comes next.
+- **A committed route tree keeps its formatter ignore.** Oxfmt skips what `.gitignore` lists, which does not cover a tracked file. An application that commits `src/routeTree.gen.ts` keeps its own `ignorePatterns` entry for it in `.oxfmtrc.json` until `start-app` untracks the file.
+- **`layers.json` can go when no layered directory exists.** It only restricts imports between `src/routes`, `src/client`, `src/server`, `src/adapters`, `src/db`, and `src/contracts`. An application with none of them can drop it from `.oxlintrc.json` and record a note; add it back with the first recipe that adds files there.
+- **Without TypeScript**, `--skip tsconfig.json`; drop the `typecheck` script and its step in `check`, `--type-aware` from `lint`, and `typescript`, `oxlint-tsgolint`, and `@types/node`. With no tests, also `--skip vitest.config.ts` and drop the `test` script, its step in `check`, and `vitest`. Record each as a note.
+
 ## Configuration
 
 Rename `"name": "app"` in `package.json` to the application's name.
