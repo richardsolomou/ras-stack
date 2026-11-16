@@ -134,8 +134,37 @@ describe('add', () => {
     expect(run('add', 'greet').output).not.toContain('pnpm add')
   })
 
-  it('says skipped files may leave a printed package unused', () => {
-    expect(run('add', 'greet', '--skip', 'src/core/old.ts').output).toContain('install only the packages')
+  describe('with a package only one file imports', () => {
+    beforeEach(() => {
+      write(source, 'recipes/greet/files/src/core/old.ts', "import { z } from 'zod'\n\nexport const old = z.number()\n")
+      commit('old imports zod')
+    })
+
+    it('leaves out a package only skipped files import', () => {
+      expect(run('add', 'greet', '--skip', 'src/core/old.ts').output).not.toContain('pnpm add')
+    })
+
+    it('names the package it left out', () => {
+      expect(run('add', 'greet', '--skip', 'src/core/old.ts').output).toContain('Only skipped files import: zod')
+    })
+
+    it('keeps a package a copied file imports', () => {
+      expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7')
+    })
+  })
+
+  it('leaves out a skipped starter file', () => {
+    const { status } = run('add', 'greet', '--skip', 'src/core/starter.ts')
+    expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
+  })
+
+  it('leaves out a skipped starter directory', () => {
+    const { status } = run('add', 'greet', '--skip', 'src/core/')
+    expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
+  })
+
+  it('refuses to skip a path the recipe does not ship', () => {
+    expect(run('add', 'greet', '--skip', 'src/core/missing.ts').status).toBe(1)
   })
 
   describe('with a recipe that wires pnpm-workspace.yaml', () => {

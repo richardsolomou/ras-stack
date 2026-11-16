@@ -18,7 +18,7 @@ const USAGE = `Usage: recipes.mjs <command> [arguments] [--app DIR] [--ref REF]
                                 Merge the recipe's changes since the recorded commit into the application.
 
 --app defaults to the current directory and --ref to origin/main, fetched first.
---map places a recipe file at another application path; --skip records a file the application leaves out.
+--map places a recipe file at another application path; --skip records a file the application leaves out, or leaves out a starter file or directory.
 The ras-stack checkout is $RAS_STACK_DIR, the repository this script is in, or a clone in ~/.cache/ras-stack.`
 
 const MANIFEST = 'ras-recipes.json'
@@ -198,7 +198,30 @@ function rasStackHelperImport(app, dir = '') {
   return undefined
 }
 
-function printPackages(app, recipe, testedVersion, previous) {
+const importSpecifier = /(?:\bfrom\s*|\bimport\s*\(\s*|^\s*import\s+)['"]([^'"]+)['"]/gm
+
+/** Packages that skipped files import and no copied file does, which the application need not install. */
+function packagesOnlySkippedImport(commit, name, paths, skipped) {
+  const imports = (path) =>
+    [...(readAt(commit, `recipes/${name}/files/${path}`) ?? '').matchAll(importSpecifier)]
+      .map(([, specifier]) => specifier)
+      .filter((specifier) => !/^[./#]/.test(specifier) && !specifier.includes(':'))
+      .map((specifier) =>
+        specifier
+          .split('/')
+          .slice(0, specifier.startsWith('@') ? 2 : 1)
+          .join('/'),
+      )
+  const kept = new Set(paths.filter((path) => !skipped(path)).flatMap(imports))
+  return new Set(
+    paths
+      .filter(skipped)
+      .flatMap(imports)
+      .filter((pkg) => !kept.has(pkg)),
+  )
+}
+
+function printPackages(app, recipe, testedVersion, previous, unused = new Set()) {
   const installed = installedPackages(app)
   const versionOf = (name) => rangeStyle(installed)(testedVersion(name))
   let installs = 0
@@ -206,10 +229,11 @@ function printPackages(app, recipe, testedVersion, previous) {
     ['dependencies', ''],
     ['devDependencies', ' -D'],
   ]) {
-    const missing = recipe[kind].filter((name) => !installed[name] && !previous?.[kind].includes(name))
+    const wanted = recipe[kind].filter((name) => !unused.has(name))
+    const missing = wanted.filter((name) => !installed[name] && !previous?.[kind].includes(name))
     if (missing.length > 0) console.log(`  pnpm add${flag} ${missing.map((name) => `${name}@${versionOf(name)}`).join(' ')}`)
     installs += missing.length
-    const outdated = recipe[kind].filter((name) => installed[name] && isOlder(installed[name], testedVersion(name)))
+    const outdated = wanted.filter((name) => installed[name] && isOlder(installed[name], testedVersion(name)))
     for (const name of outdated) {
       const helperImport = name === 'ras-stack' && majorOf(installed[name]) < 6 && rasStackHelperImport(app)
       if (helperImport && majorOf(installed[name]) < 5) {
@@ -235,6 +259,9 @@ function printPackages(app, recipe, testedVersion, previous) {
     if (dropped.length > 0)
       console.log(`  The recipe no longer uses: ${dropped.join(', ')}. Remove each unless the application uses it elsewhere.`)
   }
+  const leftOut = [...recipe.dependencies, ...recipe.devDependencies].filter((name) => unused.has(name))
+  if (leftOut.length > 0)
+    console.log(`  Only skipped files import: ${leftOut.join(', ')}. Install each only if the application uses it elsewhere.`)
   if (installs > 0 && recipe.wires.includes('pnpm-workspace.yaml'))
     console.log('  Apply the pnpm-workspace.yaml wiring (allowBuilds) before installing.')
 }
@@ -368,15 +395,20 @@ async function add(app, commit, name, options) {
     (other, index) => recipe.conflicts.includes(other) || recorded[index]?.conflicts.includes(name),
   )
   if (conflicting.length > 0) throw new Error(`${name} conflicts with ${conflicting.join(', ')}`)
-  for (const path of [...Object.keys(options.map), ...options.skip]) {
+  const covers = (skip, path) => skip === path || (skip.endsWith('/') && path.startsWith(skip))
+  const skipped = (path) => options.skip.some((skip) => covers(skip, path))
+  for (const path of Object.keys(options.map)) {
     if (!recipe.files.includes(path)) throw new Error(`${name} has no tracked file ${path}`)
+  }
+  for (const skip of options.skip) {
+    if (![...recipe.files, ...recipe.starterFiles].some((path) => covers(skip, path))) throw new Error(`${name} has no file ${skip}`)
   }
   checkTargets(app, name, Object.values(options.map))
 
   const files = {}
   const existing = []
   for (const path of recipe.files) {
-    if (options.skip.includes(path)) {
+    if (skipped(path)) {
       files[path] = null
       continue
     }
@@ -385,7 +417,7 @@ async function add(app, commit, name, options) {
     if (existsSync(join(app, target))) existing.push(target === path ? path : `${target} (recipe ${path})`)
     else writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
   }
-  const starters = recipe.starterFiles.filter((path) => !existsSync(join(app, path)))
+  const starters = recipe.starterFiles.filter((path) => !skipped(path) && !existsSync(join(app, path)))
   for (const path of starters) writeAppFile(app, path, readAt(commit, `recipes/${name}/files/${path}`))
   manifest.recipes[name] = { version: recipe.version, commit, files, notes: [] }
   saveManifest(app, manifest)
@@ -401,9 +433,8 @@ async function add(app, commit, name, options) {
     for (const item of items) console.log(`  ${item}`)
   }
   console.log('\nPackages:')
-  printPackages(app, recipe, packageVersions(commit))
-  if (options.skip.length > 0)
-    console.log("  Some packages may be imported only by the skipped files; install only the packages the application's copies import.")
+  const unused = packagesOnlySkippedImport(commit, name, [...recipe.files, ...recipe.starterFiles], skipped)
+  printPackages(app, recipe, packageVersions(commit), undefined, unused)
   console.log(`\nNext: apply Wiring and Configuration from \`recipes.mjs show ${name}\`, format, then run the application's checks.`)
 }
 
