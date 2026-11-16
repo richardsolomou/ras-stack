@@ -1,11 +1,11 @@
 ---
 name: posthog-auth-identity
-version: 1
+version: 2
 summary: Identify and reset PostHog from the Better Auth session in the browser, and link server telemetry to the signed-in person.
 requires: [posthog-web, auth]
 conflicts: []
 dependencies: ['@posthog/react']
-devDependencies: [react-test-renderer, '@types/react-test-renderer']
+devDependencies: [happy-dom]
 wires: [src/routes/__root.tsx, src/server/rpc.ts]
 ---
 
