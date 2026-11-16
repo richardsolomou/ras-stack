@@ -24,7 +24,7 @@ RUN apk upgrade --no-cache \
     && chown node:node /data
 COPY --from=build --chown=node:node /app/.output ./.output
 COPY --from=build --chown=node:node /app/drizzle ./drizzle
-COPY --from=build --chown=node:node /app/scripts/database.ts ./.output/server/database.ts
+COPY --from=build --chown=node:node /app/scripts/database.ts /app/scripts/databaseFile.ts ./.output/server/
 COPY --from=runtime-binaries /usr/local/bin/caddy /usr/local/bin/caddy
 COPY --from=runtime-binaries /usr/local/bin/centrifugo /usr/local/bin/centrifugo
 COPY --chown=node:node centrifugo.json ./
