@@ -1,5 +1,11 @@
 # ras-stack
 
+## 6.0.1
+
+### Patch Changes
+
+- c17d7b4: Turn off `unicorn/no-useless-spread` in the lint presets. It judges by method name, so its fix turned `[...table.index.filter(key)]` from a SpacetimeDB module, which returns an iterator, into the bare iterator and broke `.length` and `.some` on the result.
+
 ## 6.0.0
 
 ### Major Changes
