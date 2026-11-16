@@ -1,0 +1,4 @@
+{
+  "recipes": ["tooling", "start-app", "ci", "posthog-web", "convex", "deploy-cloudflare"],
+  "checks": ["format:check", "lint", "build", "typecheck", "test"]
+}

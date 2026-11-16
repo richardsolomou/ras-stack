@@ -1,0 +1,4 @@
+{
+  "extends": "./node_modules/ras-stack/config/typescript/vite.json",
+  "include": ["src", "scripts", "e2e", "*.ts"]
+}

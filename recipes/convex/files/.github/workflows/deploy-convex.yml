@@ -1,0 +1,26 @@
+name: Deploy Convex
+
+on:
+  push:
+    branches: [main]
+    paths: ['convex/**', 'package.json', 'pnpm-lock.yaml', '.github/workflows/deploy-convex.yml']
+  workflow_dispatch:
+
+# A deploy that is cancelled halfway leaves functions and schema from different commits, so deploys queue instead.
+concurrency:
+  group: deploy-convex
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: richardsolomou/ras-stack/actions/setup-js@v1
+      - name: Deploy functions and schema
+        run: pnpm exec convex deploy --typecheck enable
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

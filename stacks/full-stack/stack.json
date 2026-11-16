@@ -1,0 +1,17 @@
+{
+  "recipes": [
+    "tooling",
+    "start-app",
+    "ci",
+    "posthog-web",
+    "posthog-server",
+    "auth",
+    "posthog-auth-identity",
+    "email-posthog",
+    "database-sqlite",
+    "realtime",
+    "uploads",
+    "deploy-dokploy"
+  ],
+  "checks": ["format:check", "lint", "build", "typecheck", "test"]
+}

@@ -1,0 +1,452 @@
+#!/usr/bin/env node
+import { execFileSync, spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
+import { dirname, join, posix, relative, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const USAGE = `Usage: recipes.mjs <command> [arguments] [--app DIR] [--ref REF]
+
+  list                          Every recipe at REF with its version and summary.
+  show <recipe>                 RECIPE.md at REF.
+  show <recipe> --file PATH     One recipe file at REF.
+  show <recipe> --since COMMIT  The recipe's changelog, and its diff and wired stack files from COMMIT to REF.
+  status                        The application's recipes, local edits, and newer versions at REF.
+  add <recipe> [--map FROM=TO]... [--skip FROM]...
+                                Copy the recipe's missing files into the application and record it.
+  update <recipe> [--allow-dirty]
+                                Merge the recipe's changes since the recorded commit into the application.
+
+--app defaults to the current directory and --ref to origin/main, fetched first.
+--map places a recipe file at another application path; --skip records a file the application leaves out.
+The ras-stack checkout is $RAS_STACK_DIR, the repository this script is in, or a clone in ~/.cache/ras-stack.`
+
+const MANIFEST = 'ras-recipes.json'
+const REPOSITORY = 'https://github.com/richardsolomou/ras-stack'
+const BUFFER = 64 * 1024 * 1024
+
+function findSource() {
+  if (process.env.RAS_STACK_DIR) return resolve(process.env.RAS_STACK_DIR)
+  const enclosing = resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), '../../..')
+  if (existsSync(join(enclosing, '.git')) && existsSync(join(enclosing, 'recipes'))) return enclosing
+  const cache = join(process.env.XDG_CACHE_HOME ?? join(homedir(), '.cache'), 'ras-stack')
+  if (!existsSync(cache)) {
+    console.error(`Cloning ${REPOSITORY} into ${cache}`)
+    execFileSync('git', ['clone', '--quiet', '--filter=blob:none', REPOSITORY, cache], { stdio: 'inherit' })
+  }
+  return cache
+}
+
+const source = findSource()
+
+function git(args) {
+  return execFileSync('git', ['-C', source, ...args], { encoding: 'utf8', maxBuffer: BUFFER })
+}
+
+function readAt(commit, path) {
+  const result = spawnSync('git', ['-C', source, 'show', `${commit}:${path}`], { encoding: 'utf8', maxBuffer: BUFFER })
+  return result.status === 0 ? result.stdout : undefined
+}
+
+function resolveCommit(ref, fetch) {
+  if (fetch && spawnSync('git', ['-C', source, 'fetch', '--quiet', 'origin'], { stdio: 'ignore' }).status !== 0) {
+    console.error(`warning: could not fetch ${source}; using the local ${ref}`)
+  }
+  return git(['rev-parse', '--verify', `${ref}^{commit}`]).trim()
+}
+
+const parsers = new Map()
+
+/** Each commit's recipes are read with that commit's parser, so a format change never misreads an older recipe. */
+async function parserAt(commit) {
+  if (!parsers.has(commit)) {
+    const code = readAt(commit, 'recipes/recipe.mjs')
+    if (code === undefined) throw new Error(`no recipes/recipe.mjs at ${commit.slice(0, 12)}`)
+    parsers.set(commit, await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`))
+  }
+  return parsers.get(commit)
+}
+
+async function recipeAt(commit, name) {
+  const text = readAt(commit, `recipes/${name}/RECIPE.md`)
+  if (text === undefined) return undefined
+  const parser = await parserAt(commit)
+  const recipe = parser.parseRecipe(text, `recipes/${name}/RECIPE.md at ${commit.slice(0, 12)}`)
+  recipe.starters ??= []
+  const starter = (path) => recipe.starters.some((entry) => (entry.endsWith('/') ? path.startsWith(entry) : path === entry))
+  const all = git(['ls-tree', '-r', '--name-only', commit, `recipes/${name}/files/`])
+    .split('\n')
+    .filter(Boolean)
+    .map((path) => path.slice(`recipes/${name}/files/`.length))
+  recipe.files = all.filter((path) => !starter(path))
+  recipe.starterFiles = all.filter(starter)
+  return recipe
+}
+
+function recipeNames(commit) {
+  return git(['ls-tree', '-d', '--name-only', commit, 'recipes/'])
+    .split('\n')
+    .filter(Boolean)
+    .map((path) => path.slice('recipes/'.length))
+    .filter((name) => readAt(commit, `recipes/${name}/RECIPE.md`) !== undefined)
+}
+
+function packageVersions(commit) {
+  const recipes = JSON.parse(readAt(commit, 'recipes/package.json'))
+  const rasStack = JSON.parse(readAt(commit, 'packages/ras-stack/package.json')).version
+  const versions = { ...recipes.dependencies, ...recipes.devDependencies }
+  return (name) => (versions[name] === 'workspace:*' ? `^${rasStack}` : versions[name])
+}
+
+function changelogEntries(commit, name, after) {
+  const text = readAt(commit, `recipes/${name}/CHANGELOG.md`) ?? ''
+  return text
+    .split(/^(?=## \d+$)/m)
+    .filter((entry) => Number(/^## (\d+)$/m.exec(entry)?.[1]) > after)
+    .map((entry) => entry.trim())
+}
+
+function loadManifest(app) {
+  const path = join(app, MANIFEST)
+  if (!existsSync(path)) return { source: REPOSITORY, recipes: {} }
+  return JSON.parse(readFileSync(path, 'utf8'))
+}
+
+const byName = ([a], [b]) => a.localeCompare(b)
+
+function saveManifest(app, manifest) {
+  manifest.recipes = Object.fromEntries(Object.entries(manifest.recipes).toSorted(byName))
+  for (const entry of Object.values(manifest.recipes)) entry.files = Object.fromEntries(Object.entries(entry.files).toSorted(byName))
+  writeFileSync(join(app, MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`)
+  // Formats the manifest the way the application's formatter would, so recording a recipe adds no formatting diff.
+  const oxfmt = join(app, 'node_modules', '.bin', 'oxfmt')
+  if (existsSync(oxfmt)) spawnSync(oxfmt, [MANIFEST], { cwd: app, stdio: 'ignore' })
+}
+
+function writeAppFile(app, path, content) {
+  mkdirSync(dirname(join(app, path)), { recursive: true })
+  writeFileSync(join(app, path), content)
+}
+
+function readAppFile(app, path) {
+  return existsSync(join(app, path)) ? readFileSync(join(app, path), 'utf8') : undefined
+}
+
+function installedPackages(app) {
+  const path = join(app, 'package.json')
+  if (!existsSync(path)) return {}
+  const manifest = JSON.parse(readFileSync(path, 'utf8'))
+  return { ...manifest.dependencies, ...manifest.devDependencies }
+}
+
+const majorOf = (range) => Number(/(\d+)/.exec(range ?? '')?.[1])
+
+function printPackages(app, recipe, versionOf, previous) {
+  const installed = installedPackages(app)
+  for (const [kind, flag] of [
+    ['dependencies', ''],
+    ['devDependencies', ' -D'],
+  ]) {
+    const missing = recipe[kind].filter((name) => !installed[name] && !previous?.[kind].includes(name))
+    if (missing.length > 0) console.log(`  pnpm add${flag} ${missing.map((name) => `${name}@${versionOf(name)}`).join(' ')}`)
+    const outdated = recipe[kind].filter((name) => installed[name] && majorOf(installed[name]) < majorOf(versionOf(name)))
+    for (const name of outdated) {
+      console.log(
+        `  pnpm add${flag} ${name}@${versionOf(name)}   (the application has ${installed[name]}; the recipe is tested on this major)`,
+      )
+    }
+  }
+  if (previous) {
+    const current = new Set([...recipe.dependencies, ...recipe.devDependencies])
+    const dropped = [...previous.dependencies, ...previous.devDependencies].filter((name) => !current.has(name))
+    if (dropped.length > 0)
+      console.log(`  The recipe no longer uses: ${dropped.join(', ')}. Remove each unless the application uses it elsewhere.`)
+  }
+  if (recipe.wires.includes('pnpm-workspace.yaml')) console.log('  Apply the pnpm-workspace.yaml wiring (allowBuilds) before installing.')
+}
+
+/** Three-way merges a recipe file change into the application's copy, leaving diff3 conflict markers. */
+function mergeFile(appContent, base, next, labels) {
+  const dir = mkdtempSync(join(tmpdir(), 'ras-recipe-'))
+  try {
+    const files = ['app', 'base', 'next'].map((name) => join(dir, name))
+    for (const [index, content] of [appContent, base, next].entries()) writeFileSync(files[index], content)
+    const result = spawnSync('git', ['merge-file', '-p', '--diff3', ...labels.flatMap((label) => ['-L', label]), ...files], {
+      encoding: 'utf8',
+      maxBuffer: BUFFER,
+    })
+    if (result.status === null || result.status < 0 || result.error) throw new Error(`git merge-file failed: ${result.stderr}`)
+    return { content: result.stdout, conflicts: result.status }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+const stripExtension = (path) => path.replace(/\.(m?[jt]sx?)$/, '')
+
+/** Recipe files whose relative imports reach a file the application moved, which the move leaves pointing nowhere. */
+function importsOfMoved(commit, name, recipe, map) {
+  const moved = new Map(Object.entries(map).map(([from, to]) => [stripExtension(from), to]))
+  const warnings = []
+  for (const path of recipe.files) {
+    const content = readAt(commit, `recipes/${name}/files/${path}`) ?? ''
+    for (const [, specifier] of content.matchAll(/(?:from\s*|import\s*\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g)) {
+      const target = moved.get(stripExtension(posix.normalize(posix.join(posix.dirname(path), specifier))))
+      if (target) warnings.push(`${map[path] ?? path} imports ${specifier}, which the application keeps at ${target}`)
+    }
+  }
+  return warnings
+}
+
+function parseArgs(argv) {
+  const options = { positional: [], map: {}, skip: [], allowDirty: false }
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]
+    const value = () => {
+      const next = argv[++index]
+      if (next === undefined) throw new Error(`${arg} needs a value`)
+      return next
+    }
+    if (arg === '--app') options.app = value()
+    else if (arg === '--ref') options.ref = value()
+    else if (arg === '--file') options.file = value()
+    else if (arg === '--since') options.since = value()
+    else if (arg === '--skip') options.skip.push(value())
+    else if (arg === '--allow-dirty') options.allowDirty = true
+    else if (arg === '--map') {
+      const [from, to] = value().split('=')
+      if (!from || !to) throw new Error('--map takes FROM=TO')
+      options.map[from] = to
+    } else if (arg.startsWith('--')) throw new Error(`unknown option ${arg}`)
+    else options.positional.push(arg)
+  }
+  return options
+}
+
+async function list(commit) {
+  for (const name of recipeNames(commit)) {
+    const recipe = await recipeAt(commit, name)
+    console.log(`${name.padEnd(24)} v${String(recipe.version).padEnd(4)} ${recipe.summary}`)
+  }
+}
+
+async function show(commit, name, options) {
+  const recipe = await recipeAt(commit, name)
+  if (!recipe) throw new Error(`no recipe ${name} at ${commit.slice(0, 12)}`)
+  if (options.file) {
+    const content = readAt(commit, `recipes/${name}/files/${options.file}`)
+    if (content === undefined) throw new Error(`recipe ${name} has no file ${options.file}`)
+    process.stdout.write(content)
+  } else if (options.since) {
+    const since = resolveCommit(options.since, false)
+    const before = await recipeAt(since, name)
+    console.log(changelogEntries(commit, name, before?.version ?? 0).join('\n\n') || 'No changelog entries.')
+    console.log()
+    const wired = recipe.wires.map((path) => `:(glob)stacks/*/${path}`)
+    process.stdout.write(git(['diff', since, commit, '--', `recipes/${name}`, ...wired]))
+  } else process.stdout.write(readAt(commit, `recipes/${name}/RECIPE.md`))
+}
+
+async function status(app, commit) {
+  const manifest = loadManifest(app)
+  const entries = Object.entries(manifest.recipes)
+  if (entries.length === 0) return console.log(`No ${MANIFEST} recipes in ${app}.`)
+  for (const [name, entry] of entries) {
+    const latest = await recipeAt(commit, name)
+    const behind = latest && latest.version > entry.version
+    const state = !latest
+      ? 'removed from ras-stack'
+      : behind
+        ? `behind: v${entry.version} → v${latest.version}`
+        : `current at v${entry.version}`
+    const mapped = Object.entries(entry.files).filter(([, path]) => path !== null)
+    const missing = mapped.filter(([, path]) => !existsSync(join(app, path))).map(([, path]) => path)
+    const edited = mapped.filter(([from, path]) => {
+      const current = readAppFile(app, path)
+      return current !== undefined && current !== readAt(entry.commit, `recipes/${name}/files/${from}`)
+    })
+    const details = [edited.length > 0 && `${edited.length} edited here`, missing.length > 0 && `missing: ${missing.join(', ')}`].filter(
+      Boolean,
+    )
+    console.log(`${name.padEnd(24)} ${state}${details.length > 0 ? ` (${details.join('; ')})` : ''}`)
+    if (behind)
+      for (const changelog of changelogEntries(commit, name, entry.version))
+        console.log(`    ${changelog.split('\n').find((line) => line && !line.startsWith('#'))}`)
+  }
+}
+
+async function add(app, commit, name, options) {
+  const manifest = loadManifest(app)
+  if (manifest.recipes[name]) throw new Error(`${name} is already recorded; use update`)
+  const recipe = await recipeAt(commit, name)
+  if (!recipe) throw new Error(`no recipe ${name} at ${commit.slice(0, 12)}`)
+  const missing = recipe.requires.filter((required) => !manifest.recipes[required])
+  if (missing.length > 0) throw new Error(`${name} requires ${missing.join(', ')}; add those first`)
+  const conflicting = recipe.conflicts.filter((other) => manifest.recipes[other])
+  if (conflicting.length > 0) throw new Error(`${name} conflicts with ${conflicting.join(', ')}`)
+  for (const path of [...Object.keys(options.map), ...options.skip]) {
+    if (!recipe.files.includes(path)) throw new Error(`${name} has no tracked file ${path}`)
+  }
+  for (const target of Object.values(options.map)) {
+    if (relative(app, resolve(app, target)).startsWith('..')) throw new Error(`--map target ${target} is outside the application`)
+  }
+
+  const files = {}
+  const existing = []
+  for (const path of recipe.files) {
+    if (options.skip.includes(path)) {
+      files[path] = null
+      continue
+    }
+    const target = options.map[path] ?? path
+    files[path] = target
+    if (existsSync(join(app, target))) existing.push(target === path ? path : `${target} (recipe ${path})`)
+    else writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
+  }
+  const starters = recipe.starterFiles.filter((path) => !existsSync(join(app, path)))
+  for (const path of starters) writeAppFile(app, path, readAt(commit, `recipes/${name}/files/${path}`))
+  manifest.recipes[name] = { version: recipe.version, commit, files, notes: [] }
+  saveManifest(app, manifest)
+
+  console.log(`Recorded ${name} v${recipe.version} at ${commit.slice(0, 12)} in ${MANIFEST}.`)
+  for (const [title, items] of /** @type {Array<[string, string[]]>} */ ([
+    ['These files already existed and were left alone. Reconcile each with the recipe version by hand', existing],
+    ['Starter files copied for the application to replace; updates never touch them', starters],
+    ['Imports to fix after moving files', importsOfMoved(commit, name, recipe, options.map)],
+  ])) {
+    if (items.length === 0) continue
+    console.log(`\n${title}:`)
+    for (const item of items) console.log(`  ${item}`)
+  }
+  console.log('\nPackages:')
+  printPackages(app, recipe, packageVersions(commit))
+  console.log(`\nNext: apply Wiring and Configuration from \`recipes.mjs show ${name}\`, format, then run the application's checks.`)
+}
+
+function dirtyFiles(app) {
+  const result = spawnSync('git', ['-C', app, 'status', '--porcelain'], { encoding: 'utf8' })
+  return result.status === 0 ? result.stdout.trim() : ''
+}
+
+async function update(app, commit, name, options) {
+  const manifest = loadManifest(app)
+  const entry = manifest.recipes[name]
+  if (!entry) throw new Error(`${name} is not recorded in ${MANIFEST}; use add`)
+  if (entry.commit === commit) return console.log(`${name} is already at ${commit.slice(0, 12)}.`)
+  if (!options.allowDirty && dirtyFiles(app))
+    throw new Error('the application has uncommitted changes; commit them so the update is reviewable, or pass --allow-dirty')
+  const previous = await recipeAt(entry.commit, name)
+  if (!previous) throw new Error(`${name} does not exist at its recorded commit ${entry.commit.slice(0, 12)}`)
+  const next = await recipeAt(commit, name)
+  if (!next) throw new Error(`${name} no longer exists at ${commit.slice(0, 12)}; read its changelog and remove it by hand`)
+  const labels = ['application', `${name}@v${entry.version}`, `${name}@v${next.version}`]
+
+  const files = { ...entry.files }
+  const writes = []
+  const removals = []
+  /** @type {{ updated: string[], conflicted: string[], manual: string[] }} */
+  const report = { updated: [], conflicted: [], manual: [] }
+  for (const path of [...new Set([...previous.files, ...next.files])].toSorted((a, b) => a.localeCompare(b))) {
+    const base = readAt(entry.commit, `recipes/${name}/files/${path}`)
+    const latest = next.files.includes(path) ? readAt(commit, `recipes/${name}/files/${path}`) : undefined
+    if (base === latest) continue
+    const target = files[path]
+    if (target === null) {
+      report.manual.push(`${path}: changed in the recipe, but the application left it out. Check whether the change matters.`)
+      continue
+    }
+    if (target === undefined && base !== undefined) {
+      report.manual.push(`${path}: changed in the recipe, but ${MANIFEST} does not track it. Map it in \`files\` to take recipe changes.`)
+      continue
+    }
+    if (target === undefined) {
+      if (existsSync(join(app, path))) {
+        files[path] = null
+        report.manual.push(
+          `${path}: new in the recipe, but the application already has a file there; recorded as left out. To take it, move the application's file and map \`files["${path}"]\` to where the recipe's version goes.`,
+        )
+      } else {
+        writes.push([path, latest])
+        files[path] = path
+        report.updated.push(`${path} (new)`)
+      }
+      continue
+    }
+    const current = readAppFile(app, target)
+    if (current === undefined) {
+      report.manual.push(`${target}: missing from the application, so the recipe change was not applied.`)
+      continue
+    }
+    if (latest === undefined) {
+      delete files[path]
+      if (current === base) {
+        removals.push(target)
+        report.updated.push(`${target} (removed)`)
+      } else
+        report.manual.push(
+          `${target}: the recipe removed it, but the application changed it. Decide whether to keep it; it is no longer tracked.`,
+        )
+      continue
+    }
+    if (current === base) {
+      writes.push([target, latest])
+      report.updated.push(target)
+      continue
+    }
+    const merged = mergeFile(current, base, latest, labels)
+    writes.push([target, merged.content])
+    if (merged.conflicts > 0) report.conflicted.push(`${target} (${merged.conflicts} conflict${merged.conflicts === 1 ? '' : 's'})`)
+    else report.updated.push(`${target} (merged with local changes)`)
+  }
+
+  for (const [path, content] of writes) writeAppFile(app, path, content)
+  for (const path of removals) rmSync(join(app, path))
+  manifest.recipes[name] = { ...entry, version: next.version, commit, files }
+  saveManifest(app, manifest)
+
+  console.log(`Updated ${name} v${entry.version} → v${next.version} (${entry.commit.slice(0, 12)} → ${commit.slice(0, 12)}).`)
+  /** @type {Array<[string, string[]]>} */
+  const sections = [
+    ['Applied', report.updated],
+    ['Conflicts to resolve (diff3 markers show application, old recipe, new recipe)', report.conflicted],
+    ['Needs a decision', report.manual],
+  ]
+  for (const [title, items] of sections) {
+    if (items.length === 0) continue
+    console.log(`\n${title}:`)
+    for (const item of items) console.log(`  ${item}`)
+  }
+  for (const required of next.requires) {
+    const recorded = manifest.recipes[required]
+    const latest = recorded && (await recipeAt(commit, required))
+    if (latest && latest.version > recorded.version)
+      console.log(`\nwarning: ${name} requires ${required}, which is behind; update it first.`)
+  }
+  console.log('\nPackages:')
+  printPackages(app, next, packageVersions(commit), previous)
+  console.log(`\nChangelog:\n${changelogEntries(commit, name, entry.version).join('\n\n') || '  No entries.'}`)
+  console.log(
+    `\nReview wiring changes with \`recipes.mjs show ${name} --since ${entry.commit.slice(0, 12)}\`, format, then run the application's checks.`,
+  )
+}
+
+try {
+  const [command, ...rest] = process.argv.slice(2)
+  if (!['list', 'show', 'status', 'add', 'update'].includes(command)) {
+    console.log(USAGE)
+    process.exit(command && !['help', '--help', '-h'].includes(command) ? 1 : 0)
+  }
+  const options = parseArgs(rest)
+  const app = resolve(options.app ?? process.cwd())
+  const commit = resolveCommit(options.ref ?? 'origin/main', options.ref === undefined)
+  const [name] = options.positional
+  if (command !== 'list' && command !== 'status' && !name) throw new Error(`${command} needs a recipe name`)
+  if (command === 'list') await list(commit)
+  else if (command === 'show') await show(commit, name, options)
+  else if (command === 'status') await status(app, commit)
+  else if (command === 'add') await add(app, commit, name, options)
+  else await update(app, commit, name, options)
+} catch (error) {
+  console.error(`error: ${error.message}`)
+  process.exit(1)
+}

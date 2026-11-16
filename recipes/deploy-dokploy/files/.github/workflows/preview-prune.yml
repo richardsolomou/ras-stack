@@ -1,0 +1,22 @@
+name: PR preview prune
+
+on:
+  schedule:
+    - cron: '43 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  previews:
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: read
+    uses: richardsolomou/ras-stack/.github/workflows/prune-dokploy-previews.yml@v1
+    with:
+      package: app
+      application-prefix: app
+      port: 3000
+      domain: ras.sh
+      subdomain-prefix: app-pr
+      cloudflare-zone-id: ${{ vars.CLOUDFLARE_ZONE_ID }}
+    secrets: inherit

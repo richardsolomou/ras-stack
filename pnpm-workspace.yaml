@@ -3,6 +3,7 @@ packages:
   - apps/*
   - examples/*
   - packages/*
+  - recipes
 allowBuilds:
   '@posthog/cli': true
   better-sqlite3: true

@@ -5,14 +5,15 @@
   "scripts": {
     "build": "pnpm --filter ras-stack build && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build",
     "typecheck": "pnpm --filter ras-stack build && pnpm --filter ras-stack typecheck && pnpm --filter @ras-stack/example-full-stack typecheck && pnpm --filter @ras-stack/web typecheck",
-    "lint": "pnpm --filter ras-stack lint && pnpm --filter @ras-stack/example-full-stack lint && pnpm --filter @ras-stack/web lint && oxlint --type-aware --deny-warnings actions",
+    "lint": "pnpm --filter ras-stack lint && pnpm --filter @ras-stack/example-full-stack lint && pnpm --filter @ras-stack/web lint && oxlint --type-aware --deny-warnings actions && oxlint --type-aware --deny-warnings --config packages/ras-stack/config/oxlint/application.json recipes/check.mjs recipes/recipe.mjs skills",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
-    "test": "pnpm --filter ras-stack test && pnpm --filter @ras-stack/example-full-stack test",
+    "test": "pnpm --filter ras-stack test && pnpm --filter @ras-stack/example-full-stack test && pnpm --filter @ras-stack/recipes test",
     "package:check": "pnpm --filter ras-stack package:check",
     "runtime:pin": "pnpm --filter ras-stack runtime:pin",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm --filter @ras-stack/example-full-stack build && pnpm --filter @ras-stack/web build && pnpm package:check && node packages/ras-stack/dist/cli.js changesets check",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "recipes": "pnpm --filter @ras-stack/recipes check"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

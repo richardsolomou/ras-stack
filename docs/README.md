@@ -2,6 +2,10 @@
 
 RAS 5 manages opted-in dependency versions and configuration through the main `ras-stack` package. It keeps normal upstream imports, application-owned manifests, and native pnpm installs. The separate `ras-stack-config` package is retired.
 
+## Recipes
+
+New and updated applications take their runtime code from [recipes](../recipes/README.md): working code an application copies and owns, recorded in its `ras-recipes.json` and kept current with the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md). The guides below describe the package that recipes replace; they stay accurate for applications that have not moved yet.
+
 ## Set up or maintain an application
 
 | Need                                                       | Guide                                                                                                           |

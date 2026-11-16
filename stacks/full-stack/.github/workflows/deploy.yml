@@ -1,0 +1,60 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # A fork's pull request from its own `main` also matches the branch filter, so only pushes deploy.
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-24.04-arm
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+      - name: Publish production image
+        id: image
+        uses: richardsolomou/ras-stack/actions/publish-production-image@v1
+        with:
+          image: ghcr.io/${{ github.repository }}
+          sha: ${{ env.SHA }}
+          release-tag: production
+          token: ${{ github.token }}
+          platforms: linux/arm64
+          sbom: 'false'
+          provenance: 'false'
+          build-args: |
+            VITE_POSTHOG_PROJECT_TOKEN=${{ vars.VITE_POSTHOG_PROJECT_TOKEN }}
+            VITE_POSTHOG_HOST=${{ vars.VITE_POSTHOG_HOST }}
+            POSTHOG_UPLOAD_SOURCEMAPS=${{ secrets.POSTHOG_CLI_API_KEY != '' }}
+            POSTHOG_CLI_PROJECT_ID=${{ vars.POSTHOG_CLI_PROJECT_ID }}
+            POSTHOG_CLI_HOST=${{ vars.POSTHOG_CLI_HOST }}
+          secrets: |
+            posthog_cli_api_key=${{ secrets.POSTHOG_CLI_API_KEY }}
+      - name: Deploy to Dokploy
+        uses: richardsolomou/ras-stack/actions/deploy-dokploy-image@v1
+        with:
+          url: ${{ secrets.DOKPLOY_URL }}
+          api-key: ${{ secrets.DOKPLOY_API_KEY }}
+          application-id: ${{ secrets.DOKPLOY_APPLICATION_ID }}
+          image: ${{ steps.image.outputs.reference }}
+          registry-url: ${{ secrets.GHCR_PULL_TOKEN && 'ghcr.io' || '' }}
+          registry-username: ${{ secrets.GHCR_PULL_TOKEN && github.repository_owner || '' }}
+          registry-password: ${{ secrets.GHCR_PULL_TOKEN }}

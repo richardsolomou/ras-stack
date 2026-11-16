@@ -27,6 +27,8 @@ jobs:
         with:
           version: '1.58.0'
       - run: just check-actions
+      - name: Lint recipe and stack workflows
+        run: actionlint recipes/*/files/.github/workflows/*.yml stacks/*/.github/workflows/*.yml
 
   postgres:
     name: PostgreSQL integration
@@ -52,6 +54,70 @@ jobs:
         env:
           RAS_STACK_POSTGRES_URL: postgres://postgres:postgres@127.0.0.1:5432/ras_stack_test
         run: pnpm --filter ras-stack exec vitest run src/database/postgres-integration.test.ts --coverage.enabled=false
+
+  recipes:
+    name: Recipe stacks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - run: pnpm --filter ras-stack build
+      - name: Check every stack
+        env:
+          # Only the postgres stack reads it, to run its integration suites against a real server.
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+        run: pnpm recipes
+
+  recipe-image:
+    name: Full-stack recipe image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./actions/setup-js
+      - name: Assemble the full-stack stack with its own install
+        id: stack
+        shell: bash
+        run: |
+          node recipes/check.mjs --install full-stack | tee "$RUNNER_TEMP/assemble.log"
+          echo "directory=$(sed -n 's/^assembled full-stack in //p' "$RUNNER_TEMP/assemble.log")" >> "$GITHUB_OUTPUT"
+      - name: Build the image
+        env:
+          STACK_DIR: ${{ steps.stack.outputs.directory }}
+        run: docker build -t ras-stack-recipe:full-stack "$STACK_DIR"
+      - name: Boot, check health, and stop cleanly
+        run: |
+          docker volume create ras-stack-recipe-data
+          docker run -d --name ras-stack-recipe \
+            --mount source=ras-stack-recipe-data,target=/data \
+            -p 3120:3000 \
+            -e APP_URL=http://127.0.0.1:3120 \
+            -e BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+            ras-stack-recipe:full-stack
+          curl --fail --silent --show-error --retry 30 --retry-delay 1 --retry-all-errors http://127.0.0.1:3120/api/health
+          docker stop --time 15 ras-stack-recipe
+          test "$(docker inspect ras-stack-recipe --format '{{ .State.ExitCode }}')" = 0
+      - name: Capture container logs
+        if: failure()
+        run: docker logs ras-stack-recipe || true
+      - name: Remove image resources
+        if: always()
+        run: |
+          docker rm -f ras-stack-recipe 2>/dev/null || true
+          docker volume rm ras-stack-recipe-data 2>/dev/null || true
 
   runtime-pin:
     name: Runtime image pin
@@ -209,7 +275,7 @@ jobs:
 
   release:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [actions, check, example, postgres, runtime-pin]
+    needs: [actions, check, example, postgres, recipe-image, recipes, runtime-pin]
     permissions:
       actions: write
       contents: write

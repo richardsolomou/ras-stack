@@ -1,0 +1,10 @@
+{
+  "extends": "../node_modules/ras-stack/config/typescript/bundler.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "isolatedModules": true
+  },
+  "include": ["."],
+  "exclude": ["_generated"]
+}

@@ -1,0 +1,5 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./node_modules/ras-stack/config/oxlint/application.json"],
+  "ignorePatterns": ["node_modules/**", "dist/**", ".wrangler/**", "src/routeTree.gen.ts", "convex/_generated/**"]
+}
