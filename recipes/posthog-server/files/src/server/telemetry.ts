@@ -92,9 +92,17 @@ export function requestContext(request: Request, authenticatedDistinctId?: strin
   const claimed = boundedId(request.headers.get('x-posthog-distinct-id'))
   const sessionId = boundedId(request.headers.get('x-posthog-session-id'))
   return {
-    ...(authenticatedDistinctId && claimed === authenticatedDistinctId ? { distinctId: claimed } : {}),
+    ...(trustedPerson(claimed, authenticatedDistinctId) ? { distinctId: claimed } : {}),
     ...(sessionId ? { sessionId } : {}),
   }
+}
+
+// posthog-js names an anonymous browser person with a version 7 UUID, which Better Auth's 32-character ids never match, so a signed-out claim cannot land on an account.
+const anonymousPerson = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function trustedPerson(claimed: string | undefined, authenticatedDistinctId: string | undefined) {
+  if (!claimed) return false
+  return authenticatedDistinctId ? claimed === authenticatedDistinctId : anonymousPerson.test(claimed)
 }
 
 function boundedId(value: string | null) {

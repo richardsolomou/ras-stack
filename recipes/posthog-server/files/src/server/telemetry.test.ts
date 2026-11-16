@@ -184,6 +184,7 @@ describe('createTelemetry with a project token', () => {
 })
 
 describe('requestContext', () => {
+  const anonymousId = '019a8f2e-1c3b-7d5e-8f60-1a2b3c4d5e6f'
   const request = (headers: Record<string, string>) => new Request('https://app.example/_serverFn/abc', { headers })
 
   it('links the browser session', () => {
@@ -200,6 +201,18 @@ describe('requestContext', () => {
 
   it('ignores a claimed person without authentication', () => {
     expect(requestContext(request({ 'x-posthog-distinct-id': 'person-1' }))).toEqual({})
+  })
+
+  it('links a signed-out caller to their anonymous browser person', () => {
+    expect(requestContext(request({ 'x-posthog-distinct-id': anonymousId }))).toEqual({ distinctId: anonymousId })
+  })
+
+  it('ignores an anonymous person claimed by a signed-in caller', () => {
+    expect(requestContext(request({ 'x-posthog-distinct-id': anonymousId }), 'person-1')).toEqual({})
+  })
+
+  it('ignores an anonymous-looking id that is not a version 7 UUID', () => {
+    expect(requestContext(request({ 'x-posthog-distinct-id': '019a8f2e-1c3b-4d5e-8f60-1a2b3c4d5e6f' }))).toEqual({})
   })
 
   it.each(['s'.repeat(129), 'session 1', 'session<script>'])('ignores the session id %s', (sessionId) => {
