@@ -76,19 +76,19 @@ With `start-app`, see `stacks/postgres/`:
 
 ## Configuration
 
-| Variable                                                 | Where   | Value                                                                                                                                                   |
-| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_URL`                                                | Dokploy | The production origin, such as `https://example.com`.                                                                                                   |
-| `DOKPLOY_URL`                                            | Actions | Secret. The Dokploy base URL.                                                                                                                           |
-| `DOKPLOY_API_KEY`                                        | Actions | Secret. A Dokploy API key.                                                                                                                              |
-| `DOKPLOY_APPLICATION_ID`                                 | Actions | Secret. The production application's ID.                                                                                                                |
-| `DOKPLOY_ENVIRONMENT_ID`                                 | Actions | Secret. The Dokploy environment reserved for previews, never production's.                                                                              |
-| `CLOUDFLARE_API_TOKEN`                                   | Actions | Secret. DNS Write on the `ras.sh` zone only, for preview records.                                                                                       |
-| `CLOUDFLARE_ZONE_ID`                                     | Actions | Variable. The preview domain's Cloudflare zone, such as `ras.sh`'s.                                                                                     |
-| `GHCR_PULL_TOKEN`                                        | Actions | Optional secret. A token with `read:packages`, when the image is private.                                                                               |
-| `PREVIEW_REGISTRY_USERNAME`, `PREVIEW_REGISTRY_PASSWORD` | Actions | Optional secrets. The same GHCR credentials for previews of a private image.                                                                            |
-| `PREVIEW_APP_SECRETS`                                    | Actions | Optional secret. JSON of product secrets a custom preview `deploy-script` may read.                                                                     |
-| `SERVER_SHUTDOWN_TIMEOUT`                                | Dokploy | Optional. Seconds to drain requests on shutdown; 5 by default, and 1 under the realtime supervisor. See the shutdown budget in `start-app`'s RECIPE.md. |
+| Variable                                                 | Where   | Value                                                                                                                                                |
+| -------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                                                | Dokploy | The production origin, such as `https://example.com`.                                                                                                |
+| `DOKPLOY_URL`                                            | Actions | Secret. The Dokploy base URL.                                                                                                                        |
+| `DOKPLOY_API_KEY`                                        | Actions | Secret. A Dokploy API key.                                                                                                                           |
+| `DOKPLOY_APPLICATION_ID`                                 | Actions | Secret. The production application's ID.                                                                                                             |
+| `DOKPLOY_ENVIRONMENT_ID`                                 | Actions | Secret. The Dokploy environment reserved for previews, never production's.                                                                           |
+| `CLOUDFLARE_API_TOKEN`                                   | Actions | Secret. DNS Write on the `ras.sh` zone only, for preview records.                                                                                    |
+| `CLOUDFLARE_ZONE_ID`                                     | Actions | Variable. The preview domain's Cloudflare zone, such as `ras.sh`'s.                                                                                  |
+| `GHCR_PULL_TOKEN`                                        | Actions | Optional secret. A token with `read:packages`, when the image is private.                                                                            |
+| `PREVIEW_REGISTRY_USERNAME`, `PREVIEW_REGISTRY_PASSWORD` | Actions | Optional secrets. The same GHCR credentials for previews of a private image.                                                                         |
+| `PREVIEW_APP_SECRETS`                                    | Actions | Optional secret. JSON of product secrets a custom preview `deploy-script` may read.                                                                  |
+| `SERVER_SHUTDOWN_TIMEOUT`                                | Dokploy | Optional. Seconds to drain requests on shutdown; 5 by default, and 1 under the realtime supervisor. See the shutdown budget in `start-app`'s README. |
 
 In Dokploy:
 

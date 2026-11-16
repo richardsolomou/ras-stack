@@ -15,6 +15,6 @@ The `ras-stack` npm package holds what applications share without copying: the T
 
 ## Where guidance belongs
 
-A recipe's `RECIPE.md` owns its decisions, wiring, configuration, and verification; other pages link to it rather than repeating it. The guides here own the shared package, Actions, and workflow contracts. Application repositories keep their own commands, ports, credentials, product behaviour, and operating procedures, and record their differences from a recipe in `ras-recipes.json`.
+A recipe's `README.md` owns its decisions, wiring, configuration, and verification; other pages link to it rather than repeating it. The guides here own the shared package, Actions, and workflow contracts. Application repositories keep their own commands, ports, credentials, product behaviour, and operating procedures, and record their differences from a recipe in `ras-recipes.json`.
 
 [Package overview](../README.md) · [Contributing to RAS](../CONTRIBUTING.md)

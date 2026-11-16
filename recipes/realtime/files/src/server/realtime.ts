@@ -14,7 +14,7 @@ const apiUrl = 'http://127.0.0.1:8000/api'
 // `scripts/realtime.ts dev` starts Centrifugo with this secret, so the two must match.
 const developmentSecret = 'development-realtime-secret'
 const tokenLifetimeSeconds = 5 * 60
-// Part of the shutdown budget in start-app's RECIPE.md; publications still queued after it are dropped.
+// Part of the shutdown budget in start-app's README; publications still queued after it are dropped.
 const shutdownDeadlineMs = 1_000
 
 export function realtimeSecret(environment: NodeJS.ProcessEnv = process.env) {

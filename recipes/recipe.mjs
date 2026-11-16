@@ -1,8 +1,8 @@
 const LIST_KEYS = ['requires', 'conflicts', 'dependencies', 'devDependencies', 'wires', 'starters']
 const KEYS = new Set(['name', 'version', 'summary', ...LIST_KEYS])
 
-/** Parses RECIPE.md frontmatter, which allows only `key: scalar` and `key: [a, b]` lines. */
-export function parseRecipe(text, source = 'RECIPE.md') {
+/** Parses a recipe README's frontmatter, which allows only `key: scalar` and `key: [a, b]` lines. */
+export function parseRecipe(text, source = 'README.md') {
   const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
   if (!match) throw new Error(`${source}: missing frontmatter`)
   const fields = {}

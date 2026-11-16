@@ -4,37 +4,37 @@ Recipes are how Richard's applications are built: working code an application co
 
 ## Choosing
 
-Every application starts with [`tooling`](tooling/RECIPE.md), [`start-app`](start-app/RECIPE.md), [`posthog-web`](posthog-web/RECIPE.md), and [`ci`](ci/RECIPE.md). Then answer these in order.
+Every application starts with [`tooling`](tooling/README.md), [`start-app`](start-app/README.md), [`posthog-web`](posthog-web/README.md), and [`ci`](ci/README.md). Then answer these in order.
 
 **Where does the data live?**
 
 | The application                                                    | Recipes                                                                                                  |
 | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
 | Has no backend data: a tool that runs in the browser               | none, and deploy to Cloudflare                                                                           |
-| Keeps relational data on its own server                            | [`database-sqlite`](database-sqlite/RECIPE.md), the default: one file, online backup, no database server |
-| Needs SQLite without a native build                                | [`database-libsql`](database-libsql/RECIPE.md)                                                           |
-| Needs several replicas, a managed database, or Postgres features   | [`database-postgres`](database-postgres/RECIPE.md)                                                       |
-| Is a live, collaborative product and should not run its own server | [`convex`](convex/RECIPE.md)                                                                             |
-| Is a game or simulation whose state and rules live in the database | [`spacetimedb`](spacetimedb/RECIPE.md), usually beside a SQL database for accounts                       |
+| Keeps relational data on its own server                            | [`database-sqlite`](database-sqlite/README.md), the default: one file, online backup, no database server |
+| Needs SQLite without a native build                                | [`database-libsql`](database-libsql/README.md)                                                           |
+| Needs several replicas, a managed database, or Postgres features   | [`database-postgres`](database-postgres/README.md)                                                       |
+| Is a live, collaborative product and should not run its own server | [`convex`](convex/README.md)                                                                             |
+| Is a game or simulation whose state and rules live in the database | [`spacetimedb`](spacetimedb/README.md), usually beside a SQL database for accounts                       |
 
 **Where does it run?**
 
 | The application                                      | Recipe                                               |
 | ---------------------------------------------------- | ---------------------------------------------------- |
-| Has a server process, a database file, or Centrifugo | [`deploy-dokploy`](deploy-dokploy/RECIPE.md) on hera |
-| Is prerendered pages and stateless server functions  | [`deploy-cloudflare`](deploy-cloudflare/RECIPE.md)   |
+| Has a server process, a database file, or Centrifugo | [`deploy-dokploy`](deploy-dokploy/README.md) on hera |
+| Is prerendered pages and stateless server functions  | [`deploy-cloudflare`](deploy-cloudflare/README.md)   |
 
 **What else does it need?**
 
 | Need                                                | Recipe                                                                         |
 | --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Server analytics, errors, logs, metrics, and traces | [`posthog-server`](posthog-server/RECIPE.md), for every application on Dokploy |
-| Accounts                                            | [`auth`](auth/RECIPE.md), with a SQL database                                  |
-| Analytics tied to the signed-in user                | [`posthog-auth-identity`](posthog-auth-identity/RECIPE.md)                     |
-| Transactional email                                 | [`email-posthog`](email-posthog/RECIPE.md), the default                        |
-| Email through a mail server someone else configures | [`email-smtp`](email-smtp/RECIPE.md)                                           |
-| Live updates on top of a SQL application            | [`realtime`](realtime/RECIPE.md)                                               |
-| File uploads                                        | [`uploads`](uploads/RECIPE.md)                                                 |
+| Server analytics, errors, logs, metrics, and traces | [`posthog-server`](posthog-server/README.md), for every application on Dokploy |
+| Accounts                                            | [`auth`](auth/README.md), with a SQL database                                  |
+| Analytics tied to the signed-in user                | [`posthog-auth-identity`](posthog-auth-identity/README.md)                     |
+| Transactional email                                 | [`email-posthog`](email-posthog/README.md), the default                        |
+| Email through a mail server someone else configures | [`email-smtp`](email-smtp/README.md)                                           |
+| Live updates on top of a SQL application            | [`realtime`](realtime/README.md)                                               |
+| File uploads                                        | [`uploads`](uploads/README.md)                                                 |
 
 Resend and other email providers are not recipes: PostHog sends the same email without another account, and its sends join the recipient's product history.
 

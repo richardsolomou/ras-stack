@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 const USAGE = `Usage: recipes.mjs <command> [arguments] [--app DIR] [--ref REF]
 
   list                          Every recipe at REF with its version and summary.
-  show <recipe>                 RECIPE.md at REF.
+  show <recipe>                 The recipe's README.md at REF.
   show <recipe> --file PATH     One recipe file at REF.
   show <recipe> --since COMMIT  The recipe's changelog, and its diff and wired stack files from COMMIT to REF.
   status                        The application's recipes, local edits, and newer versions at REF.
@@ -68,11 +68,20 @@ async function parserAt(commit) {
   return parsers.get(commit)
 }
 
+/** Older commits describe a recipe in RECIPE.md, and applications keep those commits as merge bases. */
+function recipeDocumentAt(commit, name) {
+  for (const path of [`recipes/${name}/README.md`, `recipes/${name}/RECIPE.md`]) {
+    const text = readAt(commit, path)
+    if (text !== undefined) return { path, text }
+  }
+  return undefined
+}
+
 async function recipeAt(commit, name) {
-  const text = readAt(commit, `recipes/${name}/RECIPE.md`)
-  if (text === undefined) return undefined
+  const document = recipeDocumentAt(commit, name)
+  if (!document) return undefined
   const parser = await parserAt(commit)
-  const recipe = parser.parseRecipe(text, `recipes/${name}/RECIPE.md at ${commit.slice(0, 12)}`)
+  const recipe = parser.parseRecipe(document.text, `${document.path} at ${commit.slice(0, 12)}`)
   const starter = (path) => parser.isStarter(recipe, path)
   const all = git(['ls-tree', '-r', '--name-only', commit, `recipes/${name}/files/`])
     .split('\n')
@@ -88,7 +97,7 @@ function recipeNames(commit) {
     .split('\n')
     .filter(Boolean)
     .map((path) => path.slice('recipes/'.length))
-    .filter((name) => readAt(commit, `recipes/${name}/RECIPE.md`) !== undefined)
+    .filter((name) => recipeDocumentAt(commit, name) !== undefined)
 }
 
 function packageVersions(commit) {
@@ -349,7 +358,7 @@ async function show(commit, name, options) {
         `The diff includes the stack files this recipe wires (${recipe.wires.join(', ')}) with every change in this range, including other recipes' changes; apply only this recipe's part.\n`,
       )
     process.stdout.write(git(['diff', since, commit, '--', `recipes/${name}`, ...wired]))
-  } else process.stdout.write(readAt(commit, `recipes/${name}/RECIPE.md`))
+  } else process.stdout.write(recipeDocumentAt(commit, name).text)
 }
 
 async function status(app, commit) {

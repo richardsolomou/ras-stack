@@ -28,9 +28,9 @@ const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
 async function loadRecipes(versions) {
   const recipes = new Map()
   for (const entry of await readdir(recipesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !existsSync(join(recipesDir, entry.name, 'RECIPE.md'))) continue
+    if (!entry.isDirectory() || !existsSync(join(recipesDir, entry.name, 'README.md'))) continue
     const dir = join(recipesDir, entry.name)
-    const recipe = parseRecipe(await readFile(join(dir, 'RECIPE.md'), 'utf8'), `recipes/${entry.name}/RECIPE.md`)
+    const recipe = parseRecipe(await readFile(join(dir, 'README.md'), 'utf8'), `recipes/${entry.name}/README.md`)
     if (recipe.name !== entry.name) throw new Error(`recipes/${entry.name}: name is ${recipe.name}`)
     const changelog = existsSync(join(dir, 'CHANGELOG.md')) ? await readFile(join(dir, 'CHANGELOG.md'), 'utf8') : ''
     const latest = /^## (\d+)$/m.exec(changelog)?.[1]
@@ -197,7 +197,7 @@ try {
     const unstacked = [...recipes.keys()].filter((name) => ![...stacks.values()].some((stack) => stack.recipes.includes(name)))
     if (unstacked.length > 0) throw new Error(`recipes in no stack: ${unstacked.join(', ')}`)
     const readme = await readFile(join(recipesDir, 'README.md'), 'utf8')
-    const unlisted = [...recipes.keys()].filter((name) => !readme.includes(`[\`${name}\`](${name}/RECIPE.md)`))
+    const unlisted = [...recipes.keys()].filter((name) => !readme.includes(`[\`${name}\`](${name}/README.md)`))
     if (unlisted.length > 0) throw new Error(`recipes/README.md does not link: ${unlisted.join(', ')}`)
     const tested = new Set(assembled.flatMap(({ stack }) => [...stack.testedWiring]))
     const untested = [...recipes.values()]

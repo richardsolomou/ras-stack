@@ -5,7 +5,7 @@ description: Add, update, adopt, or check RAS recipes, the copy-and-own code Ric
 
 # RAS recipes
 
-A recipe is working code an application copies once and then owns, plus the instructions to wire it in. Recipes live in [ras-stack](https://github.com/richardsolomou/ras-stack) under `recipes/<name>/`: `RECIPE.md` (when to use it, the decisions and why, files, wiring, configuration, verification), `CHANGELOG.md`, and `files/`. Each application records what it took in `ras-recipes.json`:
+A recipe is working code an application copies once and then owns, plus the instructions to wire it in. Recipes live in [ras-stack](https://github.com/richardsolomou/ras-stack) under `recipes/<name>/`: `README.md` (when to use it, the decisions and why, files, wiring, configuration, verification), `CHANGELOG.md`, and `files/`. Each application records what it took in `ras-recipes.json`:
 
 ```json
 {
@@ -30,7 +30,7 @@ A recipe is working code an application copies once and then owns, plus the inst
 | Command                                           | Does                                                                          |
 | ------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `recipes.mjs list`                                | Every recipe, its version, and summary.                                       |
-| `recipes.mjs show <recipe>`                       | The recipe's `RECIPE.md`.                                                     |
+| `recipes.mjs show <recipe>`                       | The recipe's `README.md`.                                                     |
 | `recipes.mjs show <recipe> --file <path>`         | One recipe file.                                                              |
 | `recipes.mjs show <recipe> --since <commit>`      | Changelog entries, the recipe diff, and the wired stack files since a commit. |
 | `recipes.mjs status`                              | The application's recipes, how many files it edited, and which are behind.    |
@@ -43,7 +43,7 @@ The decision guide is `recipes/README.md` in ras-stack (`git -C <ras-stack> show
 
 ## Add a recipe
 
-1. Read the decision guide and the recipe's `RECIPE.md` in full. Confirm it fits under **Use it when**, and add its `requires` first, in order. A new application starts with `tooling` and `start-app`.
+1. Read the decision guide and the recipe's `README.md` in full. Confirm it fits under **Use it when**, and add its `requires` first, in order. A new application starts with `tooling` and `start-app`.
 2. Choose where the files go. Keep recipe paths unless the application already has a different layout, then `--map` each file. `--skip` a file only when the application deliberately does without it; `--skip` also keeps a starter file, or a starter directory given with a trailing `/`, from being copied over code the application already has.
 3. Run `add`. It copies files that do not exist, copies starter files, leaves existing files alone, and records the recipe. When it lists imports broken by `--map`, fix them in the application's copies.
 4. Apply the `pnpm-workspace.yaml` wiring first when the recipe has it, because pnpm refuses to install a package with build scripts that `allowBuilds` does not list. Then install the packages it prints with the application's package manager; it leaves out packages only skipped files import. Keep a version the application already has when it is newer within the same major.
