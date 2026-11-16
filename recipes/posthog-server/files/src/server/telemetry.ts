@@ -3,7 +3,7 @@ import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs'
 import { PostHog } from 'posthog-node'
-import { postHogEnvironment, serviceName } from '../contracts/posthog'
+import { hostVariable, postHogEnvironment, projectTokenVariable, serviceName } from '../contracts/posthog'
 import { currentServerFunction } from './serverFunction'
 
 export type Telemetry = ReturnType<typeof createTelemetry>
@@ -13,10 +13,10 @@ const severities = { debug: SeverityNumber.DEBUG, info: SeverityNumber.INFO, war
 
 /**
  * Server analytics, exceptions, metrics, and spans through `posthog`, plus OTLP logs through `log`. Without
- * `VITE_POSTHOG_PROJECT_TOKEN` it sends nothing, and `withSpan` still runs its work.
+ * the project token it sends nothing, and `withSpan` still runs its work.
  */
 export function createTelemetry(env: Record<string, string | undefined> = process.env) {
-  const environment = postHogEnvironment({ projectToken: env.VITE_POSTHOG_PROJECT_TOKEN, host: env.VITE_POSTHOG_HOST })
+  const environment = postHogEnvironment({ projectToken: env[projectTokenVariable], host: env[hostVariable] })
   const service = { serviceName: `${serviceName}-server`, environment: env.NODE_ENV ?? 'development' }
   const posthog = new PostHog(environment?.projectToken ?? 'disabled', {
     host: environment?.host,

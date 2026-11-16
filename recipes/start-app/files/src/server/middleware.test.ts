@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { contentSecurityPolicy } from './contentSecurityPolicy'
 import {
   canonicalHost,
   canonicalRedirect,
@@ -70,6 +71,11 @@ describe('security headers', () => {
       'DENY',
       true,
     ])
+  })
+
+  it("builds the policy from the application's sources", async () => {
+    const headers = headersOf(await run(new Response('page')))
+    expect(headers.get('content-security-policy')).toContain(`connect-src ${contentSecurityPolicy['connect-src']?.join(' ')};`)
   })
 
   it('keeps a header the route set itself', async () => {

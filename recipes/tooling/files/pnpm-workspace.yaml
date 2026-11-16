@@ -2,5 +2,6 @@ minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - 'posthog-*'
   - '@posthog/*'
+  - ras-stack
 allowBuilds:
   esbuild: true

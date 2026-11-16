@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import { chunkRecoveryScript, updateNoticeId } from '../client/chunkRecovery'
 import { PostHogIntegration } from '../client/posthog'
 import { SpacetimeProvider } from '../client/spacetime'
@@ -11,10 +12,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [{ rel: 'stylesheet', href: styles }],
     scripts: [{ children: chunkRecoveryScript }],
   }),
+  shellComponent: Document,
   component: Root,
 })
 
-function Root() {
+// A shell keeps the root's error and not-found pages inside the document, and `Root`'s providers inside the root's error boundary.
+function Document({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -24,13 +27,19 @@ function Root() {
         <p id={updateNoticeId} hidden className="bg-amber-100 px-4 py-2 text-center text-sm text-amber-950">
           A new version is available. Reload the page to continue.
         </p>
-        <PostHogIntegration>
-          <SpacetimeProvider>
-            <Outlet />
-          </SpacetimeProvider>
-        </PostHogIntegration>
+        {children}
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function Root() {
+  return (
+    <PostHogIntegration>
+      <SpacetimeProvider>
+        <Outlet />
+      </SpacetimeProvider>
+    </PostHogIntegration>
   )
 }

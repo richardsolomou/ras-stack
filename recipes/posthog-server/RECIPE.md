@@ -1,6 +1,6 @@
 ---
 name: posthog-server
-version: 1
+version: 2
 summary: Server PostHog analytics, exceptions, logs, metrics, and spans, with server function telemetry and shutdown flushing.
 requires: [start-app, posthog-web]
 conflicts: [deploy-cloudflare]

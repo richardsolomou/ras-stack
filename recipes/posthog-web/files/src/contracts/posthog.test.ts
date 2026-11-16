@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { postHogEnvironment } from './posthog'
+import { defaultHost, hostVariable, postHogEnvironment, projectTokenVariable } from './posthog'
 
 describe('postHogEnvironment', () => {
   it('stays off without a project token or host', () => {
@@ -12,12 +12,16 @@ describe('postHogEnvironment', () => {
 
   it('refuses a host without a project token', () => {
     expect(() => postHogEnvironment({ host: 'https://eu.i.posthog.com' })).toThrow(
-      'VITE_POSTHOG_PROJECT_TOKEN is required when VITE_POSTHOG_HOST is set',
+      `${projectTokenVariable} is required when ${hostVariable} is set`,
     )
   })
 
-  it('uses US Cloud by default', () => {
-    expect(postHogEnvironment({ projectToken: ' phc_test ' })).toEqual({
+  it('uses the default host without a configured one', () => {
+    expect(postHogEnvironment({ projectToken: ' phc_test ' })?.host).toBe(defaultHost)
+  })
+
+  it('derives the US Cloud hosts', () => {
+    expect(postHogEnvironment({ projectToken: 'phc_test', host: 'https://us.i.posthog.com' })).toEqual({
       projectToken: 'phc_test',
       host: 'https://us.i.posthog.com',
       uiHost: 'https://us.posthog.com',
@@ -47,7 +51,7 @@ describe('postHogEnvironment', () => {
     'rejects %s as a host',
     (host) => {
       expect(() => postHogEnvironment({ projectToken: 'phc_test', host })).toThrow(
-        'VITE_POSTHOG_HOST must be an HTTP URL without credentials, query, or fragment',
+        `${hostVariable} must be an HTTP URL without credentials, query, or fragment`,
       )
     },
   )

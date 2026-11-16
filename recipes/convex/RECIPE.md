@@ -1,12 +1,12 @@
 ---
 name: convex
-version: 1
+version: 2
 summary: Convex as the backend of a TanStack Start application, with Convex queries served through TanStack Query.
 requires: [start-app]
 conflicts: []
 dependencies: [convex, '@convex-dev/react-query']
 devDependencies: []
-wires: [package.json, .oxlintrc.json, .oxfmtrc.json, vite.config.ts, src/router.tsx, src/server/middleware.ts]
+wires: [package.json, .oxlintrc.json, .oxfmtrc.json, vite.config.ts, src/router.tsx, src/server/contentSecurityPolicy.ts]
 starters: [convex/schema.ts, convex/notes.ts, convex/_generated/]
 ---
 
@@ -52,7 +52,7 @@ Use a database recipe (`database-sqlite`, `database-libsql`, `database-postgres`
 With `start-app`, see `stacks/convex/`:
 
 - `src/router.tsx`: after `createQueryClient()`, call `const convex = connectConvex(queryClient)`, and pass `Wrap: ({ children }) => <ConvexProvider client={convex.convexClient}>{children}</ConvexProvider>` to `createRouter` (`ConvexProvider` from `convex/react`).
-- `src/server/middleware.ts`: build `connect-src` in `securityHeaders` as `["'self'", ...convexConnectSources(import.meta.env.VITE_CONVEX_URL)].join(' ')`, making the policy a template string.
+- `src/server/contentSecurityPolicy.ts`: add `...convexConnectSources(import.meta.env.VITE_CONVEX_URL)` to `connect-src`.
 - `package.json`: `"dev": "convex dev --start 'vite dev'"`.
 - `.oxlintrc.json`: add `convex/_generated/**` to `ignorePatterns`.
 - `.oxfmtrc.json`: add `"ignorePatterns": ["convex/_generated/**"]`.

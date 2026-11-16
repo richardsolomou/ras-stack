@@ -119,6 +119,28 @@ describe('add', () => {
     expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7   (the application has ^3.0.0')
   })
 
+  describe('with an application on an older ras-stack', () => {
+    beforeEach(() => {
+      write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7', 'ras-stack': 'workspace:*' } }))
+      write(source, 'packages/ras-stack/package.json', JSON.stringify({ version: '6.0.0' }))
+      write(source, 'recipes/greet/RECIPE.md', recipe(1, undefined, { dependencies: '[ras-stack]' }))
+      commit('greet on ras-stack')
+      write(app, 'package.json', JSON.stringify({ devDependencies: { 'ras-stack': '^5.2.0' } }))
+    })
+
+    it('keeps the older major while the source imports its helpers', () => {
+      write(app, 'src/router.tsx', "import { createRouter } from 'ras-stack/tanstack/router'\n")
+      expect(run('add', 'greet').output).toContain(
+        'Keep ras-stack at ^5.2.0 while src/router.tsx imports its helpers; bump it to ^6.0.0 once none do.',
+      )
+    })
+
+    it('asks for the newer major once nothing imports its helpers', () => {
+      write(app, 'src/router.tsx', "import { createRouter } from '@tanstack/react-router'\n")
+      expect(run('add', 'greet').output).toContain('pnpm add ras-stack@^6.0.0   (the application has ^5.2.0')
+    })
+  })
+
   it('copies a starter file without tracking it', () => {
     run('add', 'greet')
     expect([read('src/core/starter.ts'), 'src/core/starter.ts' in manifest().recipes.greet.files]).toEqual([
