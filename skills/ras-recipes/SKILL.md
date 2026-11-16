@@ -1,6 +1,6 @@
 ---
 name: ras-recipes
-description: Add, update, adopt, or check RAS recipes, the copy-and-own code Richard's applications are built from (TanStack Start shell, PostHog, Better Auth, email, databases, realtime, uploads, Convex, SpacetimeDB, Dokploy and Cloudflare deploys, CI). Use when starting an application, adding one of those capabilities, updating an application's recipes, checking how far an application has drifted, or working in a repository with a ras-recipes.json.
+description: Add, update, adopt, or check RAS recipes, copy-and-own application code (TanStack Start shell, PostHog, Better Auth, email, databases, realtime, uploads, Convex, SpacetimeDB, Dokploy and Cloudflare deploys, CI). Use when starting an application, adding one of those capabilities, updating an application's recipes, checking how far an application has drifted, or working in a repository with a ras-recipes.json.
 ---
 
 # RAS recipes
@@ -49,7 +49,7 @@ The decision guide is `recipes/README.md` in ras-stack (`git -C <ras-stack> show
 4. Apply the `pnpm-workspace.yaml` wiring first when the recipe has it, because pnpm refuses to install a package with build scripts that `allowBuilds` does not list. Then install the packages it prints with the application's package manager; it leaves out packages only skipped files import. Keep a version the application already has when it is newer within the same major.
 5. Reconcile each existing file it lists: bring the recipe's behaviour into the application's file and keep the application's own content.
 6. Apply every other **Wiring** step, using the stack files as the reference.
-7. Apply **Configuration**: add variables to `.env.example`, change the names and values the recipe asks the application to choose, and collect secrets and outside setup (PostHog templates, DNS, provider credentials) into a short list for Richard.
+7. Apply **Configuration**: add variables to `.env.example`, change the names and values the recipe asks the application to choose, and collect secrets and outside setup (PostHog templates, DNS, provider credentials) into a short list for the user.
 8. Run the formatter, then the application's checks and the recipe's **Verify** steps.
 9. Add a `notes` entry for every deliberate difference, one sentence each with the reason.
 
@@ -86,4 +86,4 @@ Run `status --app <dir>` for each application. Report behind recipes with the ch
 
 ## Problems in a recipe
 
-When a recipe is wrong for every application, not just this one, fix the application, record a note, and tell Richard so the fix can go into ras-stack. Changes to recipes follow `recipes/AUTHORING.md` in ras-stack.
+When a recipe is wrong for every application, not just this one, fix the application, record a note, and tell the user so the fix can go into ras-stack as an issue or pull request. Changes to recipes follow `recipes/AUTHORING.md` in ras-stack.

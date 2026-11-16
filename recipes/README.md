@@ -1,6 +1,6 @@
 # Recipes
 
-Recipes are how Richard's applications are built: working code an application copies once and then owns, with the decisions behind it written down. Each application records the recipes it took in `ras-recipes.json`, and the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) adds them, merges later recipe changes into the application's own copy, and reports drift. To change a recipe, follow [AUTHORING.md](AUTHORING.md).
+A recipe is working code an application copies once and then owns, with the decisions behind it written down. Each application records the recipes it took in `ras-recipes.json`, and the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) adds them, merges later recipe changes into the application's own copy, and reports drift. To change a recipe, follow [AUTHORING.md](AUTHORING.md).
 
 ## Choosing
 
@@ -19,10 +19,10 @@ Every application starts with [`tooling`](tooling/README.md), [`start-app`](star
 
 **Where does it run?**
 
-| The application                                      | Recipe                                               |
-| ---------------------------------------------------- | ---------------------------------------------------- |
-| Has a server process, a database file, or Centrifugo | [`deploy-dokploy`](deploy-dokploy/README.md) on hera |
-| Is prerendered pages and stateless server functions  | [`deploy-cloudflare`](deploy-cloudflare/README.md)   |
+| The application                                      | Recipe                                             |
+| ---------------------------------------------------- | -------------------------------------------------- |
+| Has a server process, a database file, or Centrifugo | [`deploy-dokploy`](deploy-dokploy/README.md)       |
+| Is prerendered pages and stateless server functions  | [`deploy-cloudflare`](deploy-cloudflare/README.md) |
 
 **What else does it need?**
 

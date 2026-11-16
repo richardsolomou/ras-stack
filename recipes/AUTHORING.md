@@ -1,6 +1,6 @@
 # Authoring recipes
 
-A recipe is code an application copies and then owns. It records one decision about how Richard's applications do something, such as sending email or deploying to Dokploy, as complete, working files plus the instructions to wire them in. Applications record which recipes they took in `ras-recipes.json`, and the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) applies and updates them.
+A recipe is code an application copies and then owns. It records one decision about how an application does something, such as sending email or deploying to Dokploy, as complete, working files plus the instructions to wire them in. Applications record which recipes they took in `ras-recipes.json`, and the [`ras-recipes` skill](../skills/ras-recipes/SKILL.md) applies and updates them.
 
 Recipes replace shared runtime code because an application that owns its code can be read, changed, and extended in place. Write a recipe the way the code should look in the application, not as a library for every application.
 
