@@ -1,5 +1,11 @@
 # start-app
 
+## 3
+
+`healthResponse` takes only the check, and a dependency's code comes from `checkDependency(code, message, check)` around that dependency's own check. A mapping passed to `healthResponse` applied to every failure, so a missing secret that `app()` threw was reported as `database_unavailable`.
+
+Upgrade: in `src/routes/api/health.ts`, move a failure mapping's code and message into `checkDependency` around the dependency's check, and leave `app()` outside it.
+
 ## 2
 
 Move the Content Security Policy's sources into `src/server/contentSecurityPolicy.ts`, a starter the application owns, so its own sources no longer conflict with updates to `src/server/middleware.ts`.

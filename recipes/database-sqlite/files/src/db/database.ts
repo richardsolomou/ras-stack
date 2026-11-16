@@ -6,13 +6,9 @@ import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import * as schema from './schema'
 
-export type AppDatabase = ReturnType<typeof openDatabase>
+export { databaseFile } from '../../scripts/databaseFile'
 
-/** `$DATA_DIR/app.sqlite`; `DATA_DIR` is required in production so data never lands in the container's own filesystem. */
-export function databaseFile(env: NodeJS.ProcessEnv = process.env) {
-  if (!env.DATA_DIR && env.NODE_ENV === 'production') throw new Error('DATA_DIR is required in production')
-  return path.join(path.resolve(env.DATA_DIR ?? '.data'), 'app.sqlite')
-}
+export type AppDatabase = ReturnType<typeof openDatabase>
 
 /**
  * Opens the database with the standard safety settings and applies pending migrations. Migrations resolve from the

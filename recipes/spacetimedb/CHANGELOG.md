@@ -1,5 +1,11 @@
 # spacetimedb
 
+## 3
+
+`SpacetimeRequestError` declares `status` as a field instead of a parameter property, which Node's type stripping refused, so scripts run with `node` can import `src/server/spacetime.ts`. A connection takes an optional `fetch`.
+
+Upgrade: none.
+
 ## 2
 
 Wire the Content Security Policy through `start-app`'s `src/server/contentSecurityPolicy.ts`, so the application's policy changes stay out of the recipe-owned middleware.

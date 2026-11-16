@@ -1,11 +1,11 @@
 ---
 name: auth
-version: 1
+version: 2
 summary: Email, password, and social sign-in with Better Auth, sessions for server functions, and the client pieces sign-in pages share.
 requires: [start-app]
 conflicts: []
-dependencies: [better-auth, drizzle-orm]
-devDependencies: [react-test-renderer, '@types/react-test-renderer']
+dependencies: [better-auth, drizzle-orm, zod]
+devDependencies: [happy-dom]
 wires: [src/server/app.ts, src/db/schema.ts, drizzle/meta/_journal.json, .github/workflows/preview-deploy.yml]
 ---
 
@@ -21,6 +21,7 @@ An application whose backend owns identity, such as Convex Auth or SpacetimeDB's
 
 - **The application keeps Better Auth's whole configuration in one file.** `src/server/auth.ts` calls `betterAuth` directly with the standard values written in, instead of composing option helpers. Change a value there; plugins (admin, two-factor, organization) go in `plugins` before `tanstackStartCookies()`.
 - **`createAuth` takes the database adapter.** The Drizzle adapter is created in `createApp` next to the database, so `auth.ts` does not depend on which database recipe the application uses, and its tests run on Better Auth's memory adapter. Do not turn on the Drizzle adapter's `transaction` option with `better-sqlite3`: Better Auth's transactions are asynchronous and `better-sqlite3`'s must be synchronous.
+- **The application declares `zod`.** Better Auth 1.7 needs zod 4.5 or later, and the built server keeps one copy of each package it bundles. With an older `zod` in the application's own dependencies, that copy can be the application's: development worked, and every sign-in in the built server answered 500. Keep `zod` at the version in `recipes/package.json` or later.
 - **The Better Auth tables are in `src/db/authSchema.ts`, in Better Auth's generator layout** (snake_case columns, its index names), so a plugin's new columns can be copied from `auth generate` output. It is SQLite's dialect, which `database-sqlite` and `database-libsql` share; `database-postgres` replaces the file with the `pg-core` equivalent. Better Auth 1.7 checks the Drizzle schema against its configuration on first use and fails with the missing columns, so a forgotten migration fails loudly.
 - **OAuth access and refresh tokens are encrypted at rest** (`encryptOAuthTokens`), with the auth secret. ID tokens are not. Turning this on in a running deployment needs a drain: an old replica cannot read a token a new one encrypted, and rolling back after an encrypted write has the same problem.
 - **Sessions last 90 days and refresh once a day**, so people who come back within three months stay signed in, at one session write per day.
@@ -35,7 +36,7 @@ An application whose backend owns identity, such as Convex Auth or SpacetimeDB's
 - **Account linking keeps Better Auth's safeguards.** A provider sign-in joins an existing account with the same email only when the provider verified the email and, when required, the local account did too. Listing providers in `trustedProviders` skips that check, which hands an account to anyone who controls a provider account with that address.
 - **`currentSession` asks once per request.** A server-rendered page runs many server functions inside one request, and each would otherwise query the session. The answer is kept in a `WeakMap` keyed by the request, so it never outlives or crosses requests, and a failed lookup is dropped so the next caller asks again.
 - **`requireUser` throws a 401 `Response`**, which `start-app`'s `rpc` turns into an error whose message reaches the client, without reporting it as a server failure.
-- **Sign-in failure classification puts 429 first**, because a rate-limited attempt can still carry the credential code. Callback classification lowercases Better Auth 1.7's `?error=` codes and treats `access_denied` (and Apple's `user_cancelled_authorize`) as a cancelled sign-in rather than an error.
+- **Sign-in failure classification puts 429 first**, because a rate-limited attempt can still carry the credential code. Callback classification lowercases Better Auth 1.7's `?error=` codes, including the link-account step's `account not linked`, which has spaces, and treats `access_denied` (and Apple's `user_cancelled_authorize`) as a cancelled sign-in rather than an error.
 - **`localRedirectPath` resolves a `?next=` destination against a fixed origin twice.** `//evil.example`, `/\evil.example`, and dot segments that normalize into `//evil.example` (`/a/..//evil.example`, `/a/%2e%2e//evil.example`) are local as written but leave the site once the browser navigates.
 - **`useAuthAction` is busy until hydration.** A server-rendered form submitted before React hydrates posts natively as a `GET`, putting the password in the URL and the server log; a submit button disabled while `busy` cannot do that. Only the latest call of a mounted component updates the state, so a slow earlier answer cannot overwrite a newer one, and a thrown transport failure comes back as the result's `error` like Better Auth's own.
 - **No sign-in pages.** Every application builds them differently (shadcn cards, translated copy, two-factor steps, provider buttons, invitation flows), so the recipe ships what they share and `stacks/full-stack/src/routes/sign-in.tsx` and `sign-up.tsx` show the shape. Forms read their values with `FormData` in `onSubmit`, not from `onChange` state, so values a password manager filled without input events are sent.

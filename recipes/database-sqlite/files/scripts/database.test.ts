@@ -3,24 +3,20 @@ import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { databaseFile } from '../src/db/database'
-import { databasePath, runDatabaseCommand } from './database'
+import { runDatabaseCommand } from './database'
+import { databaseFileName } from './databaseFile'
 
 let directory: string
 let source: string
 
 beforeEach(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), 'app-backup-'))
-  source = path.join(directory, 'app.sqlite')
+  source = path.join(directory, databaseFileName)
   writeValue(source, 'before')
 })
 
 afterEach(async () => {
   await rm(directory, { recursive: true, force: true })
-})
-
-it('resolves the same file as the application', () => {
-  expect(databasePath({ DATA_DIR: directory })).toBe(databaseFile({ DATA_DIR: directory }))
 })
 
 it('backs up and restores a validated database', async () => {

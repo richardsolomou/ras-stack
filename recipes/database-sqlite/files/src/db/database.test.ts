@@ -4,6 +4,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promis
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, expect, it } from 'vitest'
+import { databaseFileName } from '../../scripts/databaseFile'
 import { databaseFile, openDatabase } from './database'
 import * as schema from './schema'
 
@@ -85,7 +86,7 @@ it('requires DATA_DIR in production', () => {
 })
 
 it('stores the database in DATA_DIR', () => {
-  expect(databaseFile({ DATA_DIR: '/data' })).toBe('/data/app.sqlite')
+  expect(databaseFile({ DATA_DIR: '/data' })).toBe(`/data/${databaseFileName}`)
 })
 
 it('has a migration for every schema change', async () => {

@@ -1,12 +1,13 @@
 ---
 name: realtime
-version: 1
+version: 2
 summary: Centrifugo live updates with signed tokens, React hooks, a Docker dev server, and a container supervisor.
 requires: [start-app]
 conflicts: []
 dependencies: [centrifuge]
-devDependencies: [react-test-renderer, '@types/react-test-renderer']
+devDependencies: [happy-dom]
 wires: [package.json, pnpm-workspace.yaml, vite.config.ts, src/server/app.ts, Dockerfile, .github/dependabot.yml]
+starters: [src/server/realtimeChannels.ts, src/server/realtimeChannels.test.ts]
 ---
 
 # realtime
@@ -22,11 +23,11 @@ It assumes one container on Dokploy, where Centrifugo and Caddy run beside the a
 - **Centrifugo, in the same container as the app.** It is one static binary with history, recovery, presence, and an HTTP publish API, so the app needs no hosted service or extra account. Browsers reach it at `/connection/websocket` on the app's own origin, so cookies, the Content Security Policy, and proxies treat it as part of the app. Start's `connect-src 'self'` already allows the same-origin WebSocket.
 - **Signed tokens, not Centrifugo's connect proxy.** The browser asks `POST /api/realtime/token` for a five-minute HS256 token, and Centrifugo verifies it with the shared secret. The connect proxy instead has Centrifugo call back into the app with the browser's cookies, which needs a proxy secret, a route reachable from Centrifugo (`host.docker.internal` and Vite's `allowedHosts` in development), and origin checks that work on a request the browser did not send. A canonical-host redirect once turned that callback's POST into a GET that returned HTML, and Centrifugo retried it forever. With tokens, the token route is an ordinary same-origin request, Centrifugo never calls the app, and every token refresh re-checks access, so revoking a user takes effect within five minutes.
 - **The token route is a POST behind `requireSameOrigin`.** A same-origin `fetch` GET carries no `Origin` header, so only a POST can be held to the same origin check as every other mutation. Tokens are `no-store`.
-- **Two kinds of channel.** Channels in the connection token's `channels` claim are server-side subscriptions: the browser cannot leave or forge them, which suits per-user channels such as `user:<id>`. Every other channel needs a subscription token, which `canSubscribe` grants or refuses per channel. Both rules live in `src/server/realtimeChannels.ts`, the application's policy file.
+- **Two kinds of channel.** Channels in the connection token's `channels` claim are server-side subscriptions: the browser cannot leave or forge them, which suits per-user channels such as `user:<id>`. Every other channel needs a subscription token, which `canSubscribe` grants or refuses per channel. Both rules are the application's `channelPolicy` in `src/server/realtimeChannels.ts`, a starter the application rewrites; `createApp` passes it to `createRealtime`, and the recipe's tests use a policy of their own, so changing the rules breaks none of them. Both rules may be asynchronous. A rule that reads the database, such as group membership, turns `channelPolicy` into a function of the services it needs and is called with them in `createApp`, so the policy never imports `app()` and creates no import cycle.
 - **A refusal stops the client; anything else retries.** The token route answers 401 when the viewer lookup refuses and 403 for a channel the policy refuses. The client turns both into Centrifuge's `UnauthorizedError`, which stops reconnecting or resubscribing; a 5xx or network failure is retried with backoff.
 - **Who may connect is decided in `src/server/app.ts`.** `createRealtime` takes a viewer lookup, so the auth recipe's session becomes the realtime identity in the composition root, and the recipe never imports auth. Without auth, the lookup returns an anonymous viewer (`id: ''`), which may follow public `updates:` channels and has no server-side channels.
 - **One secret.** `REALTIME_SECRET` signs connection and subscription tokens and is Centrifugo's API key. The API listens only on loopback inside the container, so a separate key would guard nothing more. The container generates the secret once into `$DATA_DIR/realtime-secret` (48 random bytes, mode 0600, created through a hard link so two starts cannot write different secrets) and hands it to the app and Centrifugo through the environment, so redeploys keep existing tokens valid. Outside production, the app and the development command fall back to the same fixed development secret; in production the app refuses to start without one.
-- **The publisher never blocks a request.** `publish` queues and returns at once. Publications to one channel keep their order and coalesce to the latest while one is in flight, so a payload should say what changed (`{ type: 'list.changed', id }`) rather than carry state a client must not miss. At most 8 channels publish at once and 1,024 wait; past that `publish` returns `false` and reports why. Network failures, timeouts (5 seconds), 5xx and 429 answers, and Centrifugo's internal error (code 100, which it reports inside a 200 response) are retried three times a second apart; other errors are reported once. `onError` can never throw into the queue, and a publication queued while an earlier one fails still goes out. A publication to an empty channel name drains instead of stalling the queue.
+- **The publisher never blocks a request.** `publish` queues and returns at once. Publications to one channel keep their order and coalesce to the latest while one is in flight, so a payload should say what changed (`{ type: 'list.changed', id }`) rather than carry state a client must not miss. A publication that must arrive even when a newer one follows, such as a typing ping on a channel that also carries changes, passes `{ coalesce: false }`: it is never replaced and never replaces a change, without a second publisher. At most 8 channels publish at once, 1,024 channels wait, and 64 publications that do not coalesce wait on one channel, so a change is always accepted behind them; past those bounds `publish` returns `false` and reports why. Network failures, timeouts (5 seconds), 5xx and 429 answers, and Centrifugo's internal error (code 100, which it reports inside a 200 response) are retried three times a second apart; other errors are reported once. `onError` can never throw into the queue, and a publication queued while an earlier one fails still goes out. A publication to an empty channel name drains instead of stalling the queue.
 - **Shutdown drains publications for at most one second.** `close` refuses new publications and waits for accepted ones and their retries, but stops waiting at one second so a dead Centrifugo cannot hold the container past Docker's kill, and telemetry, which closes after it, keeps its slot in the shutdown budget. Publications still queued then are dropped, which payloads that say what changed tolerate.
 - **Best effort, with recovery.** A publication can be lost if Centrifugo is down for longer than the retries. The default namespaces keep the last 10 publications for 5 minutes with `force_recovery`, so a reconnecting client replays what it missed, and `useServerChannel`'s `unrecovered` callback tells it when it could not, so it refetches. When a lost event costs more than a refetch, write an outbox row in the same database transaction as the change and publish from a worker. Have it retry the oldest row first with capped backoff, so a failing row is never overtaken, cap the queue so writes answer 503 rather than grow it without end, and move a row that keeps failing aside where readiness reports it. That needs a database, so it is application code.
 - **One connection per page, from `RealtimeProvider`.** The provider connects after mount and disconnects on unmount. Its client and hooks return `undefined` whenever the connection is torn down, so a caller never holds a disconnected client after its inputs change. Key the provider by the signed-in user, because the connection token belongs to whoever was signed in when it connected. Hook callbacks must keep their identity, because a new one restarts the connection or subscription. A `configure` callback that throws is passed to `reportError`, where PostHog's exception autocapture sees it, and leaves the client or subscription `undefined`; rethrowing from the effect would unmount the whole page for a live-update feature.
@@ -44,14 +45,14 @@ It assumes one container on Dokploy, where Centrifugo and Caddy run beside the a
 | `centrifugo.json`                        | Channel namespaces and their history; secrets and addresses come from the environment.                       |
 | `scripts/realtime.ts`                    | `dev`: Centrifugo in Docker. `container`: the persisted secret, the Caddyfile, and the supervisor.           |
 | `src/server/realtime.ts`                 | `createRealtime`, the token route's handler, token signing, and the secret.                                  |
-| `src/server/realtimeChannels.ts`         | Application policy: server-side channels per viewer, and which channels a browser may subscribe to.          |
+| `src/server/realtimeChannels.ts`         | Starter: `channelPolicy`, the server-side channels per viewer and which channels a browser may subscribe to. |
 | `src/server/realtimePublisher.ts`        | `CentrifugoPublisher`: ordered, coalescing, bounded, retrying background publication.                        |
 | `src/routes/api/realtime.token.ts`       | `POST /api/realtime/token`.                                                                                  |
 | `src/client/realtime.ts`                 | The same-origin client, token requests, subscription options, and `watchServerChannel`.                      |
 | `src/client/useRealtime.tsx`             | `RealtimeProvider`, `useRealtimeClient`, `useRealtimeSubscription`, `useServerChannel`, and the client hook. |
 | `scripts/*.test.ts`, `src/**/*.test.ts*` | The supervisor's shutdown order and deadlines, Caddy routes, the secret, tokens, the publisher, the hooks.   |
 
-Publish from server code with `app().realtime.publish(channel, data)`. In the browser, wrap the part of the page that listens in `<RealtimeProvider key={user?.id}>`, then use `useRealtimeSubscription('updates:<id>', configure)` for channels the browser picks, or `useServerChannel('user:<id>', publication, unrecovered)` for channels its token grants.
+Publish from server code with `app().realtime.publish(channel, data)`, or `publish(channel, data, { coalesce: false })` for a publication a newer one must not replace. In the browser, wrap the part of the page that listens in `<RealtimeProvider key={user?.id}>`, then use `useRealtimeSubscription('updates:<id>', configure)` for channels the browser picks, or `useServerChannel('user:<id>', publication, unrecovered)` for channels its token grants.
 
 ## Wiring
 
@@ -63,7 +64,7 @@ See `stacks/full-stack/`:
 - `src/server/app.ts`: create the instance in `createApp` with the viewer lookup and return it. Create it before resources that publish, such as uploads, so it closes after them:
 
   ```ts
-  const realtime = resources.adopt(createRealtime(viewer), (instance) => instance.close())
+  const realtime = resources.adopt(createRealtime(viewer, channelPolicy), (instance) => instance.close())
   return { realtime, close: () => resources.disposeAsync() }
   ```
 
@@ -109,7 +110,7 @@ See `stacks/full-stack/`:
 | `PORT`            | Container   | Caddy's public port; 3000 by default.                                                                                                                                                    |
 | `DATA_DIR`        | Container   | Where the generated secret lives; `/data` by default.                                                                                                                                    |
 
-Docker must be running for `pnpm realtime`. Change channels in `src/server/realtimeChannels.ts` and their namespaces in `centrifugo.json` together; Centrifugo rejects a channel whose namespace it does not know.
+Docker must be running for `pnpm realtime`. Change channels in `src/server/realtimeChannels.ts`, with its test, and their namespaces in `centrifugo.json` together; Centrifugo rejects a channel whose namespace it does not know.
 
 ## Verify
 

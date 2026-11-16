@@ -182,11 +182,14 @@ function isOlder(range, tested) {
   return index !== -1 && have[index] < want[index]
 }
 
-/** Writes a tested version as a range in the application's style: exact when every version range it has is exact, caret otherwise. */
+/**
+ * Writes a tested version as a range in the application's style: exact when every version range it has is exact, caret
+ * otherwise. A version `recipes/package.json` pins exactly stays exact, because the recipe needs that one.
+ */
 function rangeStyle(installed) {
   const ranges = Object.values(installed).filter((range) => /^[\^~]?\d/.test(range))
   const exact = ranges.length > 0 && ranges.every((range) => /^\d/.test(range))
-  return (version) => (exact ? version.replace(/^[\^~]/, '') : `^${version.replace(/^[\^~]/, '')}`)
+  return (version) => (exact || /^\d/.test(version) ? version.replace(/^[\^~]/, '') : `^${version.replace(/^[\^~]/, '')}`)
 }
 
 /** The first application source file that imports a `ras-stack/` runtime helper, which only v5 and earlier ship. */
@@ -292,13 +295,18 @@ function mergeFile(appContent, base, next, labels) {
   }
 }
 
+/** The starter directory that holds `path` when the application already has that directory, whose contents it owns. */
+function ownedStarterDirectory(app, recipe, path) {
+  return recipe.starters.find((starter) => starter.endsWith('/') && path.startsWith(starter) && existsSync(join(app, starter)))
+}
+
 const stripExtension = (path) => path.replace(/\.(m?[jt]sx?)$/, '')
 
-/** Recipe files whose relative imports reach a file the application moved, which the move leaves pointing nowhere. */
-function importsOfMoved(commit, name, recipe, map) {
+/** Copied recipe files whose relative imports reach a file the application moved, which the move leaves pointing nowhere. */
+function importsOfMoved(commit, name, copied, map) {
   const moved = new Map(Object.entries(map).map(([from, to]) => [stripExtension(from), to]))
   const warnings = []
-  for (const path of recipe.files) {
+  for (const path of copied) {
     const content = readAt(commit, `recipes/${name}/files/${path}`) ?? ''
     for (const [, specifier] of content.matchAll(/(?:from\s*|import\s*\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g)) {
       const target = moved.get(stripExtension(posix.normalize(posix.join(posix.dirname(path), specifier))))
@@ -416,6 +424,7 @@ async function add(app, commit, name, options) {
 
   const files = {}
   const existing = []
+  const copied = []
   for (const path of recipe.files) {
     if (skipped(path)) {
       files[path] = null
@@ -424,9 +433,15 @@ async function add(app, commit, name, options) {
     const target = options.map[path] ?? path
     files[path] = target
     if (existsSync(join(app, target))) existing.push(target === path ? path : `${target} (recipe ${path})`)
-    else writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
+    else {
+      writeAppFile(app, target, readAt(commit, `recipes/${name}/files/${path}`))
+      copied.push(path)
+    }
   }
-  const starters = recipe.starterFiles.filter((path) => !skipped(path) && !existsSync(join(app, path)))
+  const owned = [...new Set(recipe.starterFiles.map((path) => ownedStarterDirectory(app, recipe, path)).filter(Boolean))]
+  const starters = recipe.starterFiles.filter(
+    (path) => !skipped(path) && !ownedStarterDirectory(app, recipe, path) && !existsSync(join(app, path)),
+  )
   for (const path of starters) writeAppFile(app, path, readAt(commit, `recipes/${name}/files/${path}`))
   manifest.recipes[name] = { version: recipe.version, commit, files, notes: [] }
   saveManifest(app, manifest)
@@ -435,14 +450,20 @@ async function add(app, commit, name, options) {
   for (const [title, items] of /** @type {Array<[string, string[]]>} */ ([
     ['These files already existed and were left alone. Reconcile each with the recipe version by hand', existing],
     ['Starter files copied for the application to replace; updates never touch them', starters],
-    ['Imports to fix after moving files', importsOfMoved(commit, name, recipe, options.map)],
+    ['Starter directories the application already has, left alone', owned],
+    ['Imports to fix after moving files', importsOfMoved(commit, name, copied, options.map)],
   ])) {
     if (items.length === 0) continue
     console.log(`\n${title}:`)
     for (const item of items) console.log(`  ${item}`)
   }
   console.log('\nPackages:')
-  const unused = packagesOnlySkippedImport(commit, name, [...recipe.files, ...recipe.starterFiles], skipped)
+  const unused = packagesOnlySkippedImport(
+    commit,
+    name,
+    [...recipe.files, ...recipe.starterFiles],
+    (path) => skipped(path) || Boolean(ownedStarterDirectory(app, recipe, path)),
+  )
   printPackages(app, recipe, packageVersions(commit), undefined, unused)
   console.log(`\nNext: apply Wiring and Configuration from \`recipes.mjs show ${name}\`, format, then run the application's checks.`)
 }
@@ -537,7 +558,10 @@ async function update(app, commit, name, options) {
 
   for (const path of next.starterFiles) {
     if (previous.starterFiles.includes(path) || previous.files.includes(path)) continue
-    if (existsSync(join(app, path)))
+    const directory = ownedStarterDirectory(app, next, path)
+    if (directory)
+      report.manual.push(`${path}: a new starter file in ${directory}, which the application owns. Copy it only if it applies.`)
+    else if (existsSync(join(app, path)))
       report.manual.push(`${path}: a new starter file, but the application already has a file there. Compare them by hand.`)
     else {
       writes.push([path, readAt(commit, `recipes/${name}/files/${path}`)])

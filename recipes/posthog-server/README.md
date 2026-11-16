@@ -1,6 +1,6 @@
 ---
 name: posthog-server
-version: 2
+version: 3
 summary: Server PostHog analytics, exceptions, logs, metrics, and spans, with server function telemetry and shutdown flushing.
 requires: [start-app, posthog-web]
 conflicts: [deploy-cloudflare]
@@ -33,6 +33,7 @@ It runs on Dokploy, not Cloudflare Workers: a Worker never closes the compositio
 - **A thrown 4xx `Response` is `refused`, not an error.** Applications throw 4xx responses on purpose, and counting them as failures made a signed-out caller's 401 inflate server error rates. The span records `http.response.status_code` and stays unfailed, and the request counts as `refused`; a 5xx counts as `error`, like any other throw.
 - **Failures are reported once, with only bounded details.** `reportServerFunctionFailure` replaces `start-app`'s `reportFailure`: it keeps the `server_function_failed` server log, captures the exception with the request method and path, the function name, and a thrown response's status, and writes an error log with the same properties. Without a person, `posthog-node` gives the exception a random distinct id without a person profile, rather than one `server` person collecting every failure. A telemetry error is logged and swallowed, so the client sees the application's failure.
 - **Shutdown has a two-second deadline.** `posthog.shutdown(timeoutMs)` bounds the client, and the log provider gets the same deadline, because a stalled OTLP connection otherwise held process exit open. Two seconds is telemetry's slot in the shutdown budget in `start-app`'s README: with ten, the drain and the other resources used Docker's whole grace period first and the container was killed before the events describing that slow shutdown were sent. After shutdown the client is disabled, so a request still running then cannot queue events that a later flush would send. Telemetry is not flushed early instead, because closing last is what lets it record the others closing, and the budget leaves it its slot.
+- **The application's additions go in `createTelemetry`'s `options`.** `serviceVersion` becomes `service.version` on logs, metrics, and spans, `resourceAttributes` adds attributes such as the deployment's host to all three, and `beforeSend` is `posthog-node`'s `before_send` for every event. They are passed in, not read from the environment, because a release name or host usually comes from the build or the application's own settings. The recipe's `service.name` and `deployment.environment` win over a resource attribute of the same name.
 - **The server reads the token at runtime.** `createTelemetry` reads `process.env`, so a server can be pointed at a project without rebuilding, the same variables `email-posthog` reads. It uses the same `postHogEnvironment` parsing as the browser.
 
 ## Files
@@ -48,7 +49,7 @@ It runs on Dokploy, not Cloudflare Workers: a Worker never closes the compositio
 
 With `start-app`, see `stacks/postgres/`:
 
-- `src/server/app.ts`: first in `createApp`, `const telemetry = resources.adopt(createTelemetry(), (created) => created.shutdown())`, and return `telemetry`.
+- `src/server/app.ts`: first in `createApp`, `const telemetry = resources.adopt(createTelemetry(), (created) => created.shutdown())`, and return `telemetry`. Pass `createTelemetry(process.env, { serviceVersion })` and the other options there when the application needs them.
 - `src/server/rpc.ts`: in `run`, take `const { telemetry } = app()` and return `observeServerFunction(telemetry, request, async () => { try { ... } catch { ... } })` around the existing `try`. Replace the `reportFailure(error, context)` call with `reportServerFunctionFailure(telemetry, error, context)` and delete `reportFailure`.
 
 With `auth`, `posthog-auth-identity` passes the session's user id as `observeServerFunction`'s fourth argument, `authenticatedDistinctId`, so server work joins the signed-in person; see `stacks/full-stack/src/server/rpc.ts`.

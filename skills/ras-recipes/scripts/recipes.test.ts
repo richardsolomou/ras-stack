@@ -52,7 +52,7 @@ beforeEach(() => {
   execFileSync('git', ['-C', source, 'config', 'user.name', 'Test'])
   cpSync(join(repository, 'skills/ras-recipes/scripts/recipes.mjs'), join(source, 'skills/ras-recipes/scripts/recipes.mjs'))
   cpSync(join(repository, 'recipes/recipe.mjs'), join(source, 'recipes/recipe.mjs'))
-  write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7' } }))
+  write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '^4.6.7' } }))
   write(source, 'packages/ras-stack/package.json', JSON.stringify({ version: '5.0.0' }))
   write(source, 'recipes/greet/README.md', recipe(1))
   write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 1\n\nGreets.\n')
@@ -114,6 +114,12 @@ describe('add', () => {
     expect(run('add', 'greet').output).toContain('pnpm add zod@^4.6.7')
   })
 
+  it('prints an exact version for a package the recipes pin exactly', () => {
+    write(source, 'recipes/package.json', JSON.stringify({ devDependencies: { zod: '4.6.7' } }))
+    commit('pin zod exactly')
+    expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7\n')
+  })
+
   it('prints exact versions when the application pins its packages exactly', () => {
     write(app, 'package.json', JSON.stringify({ dependencies: { react: '19.3.1' } }))
     expect(run('add', 'greet').output).toContain('pnpm add zod@4.6.7\n')
@@ -161,6 +167,36 @@ describe('add', () => {
   it('leaves out a skipped starter directory', () => {
     const { status } = run('add', 'greet', '--skip', 'src/core/')
     expect([status, existsSync(join(app, 'src/core/starter.ts'))]).toEqual([0, false])
+  })
+
+  describe('with a starter directory', () => {
+    beforeEach(() => {
+      write(source, 'recipes/greet/README.md', recipe(1, '[src/core/starter.ts, migrations/]'))
+      write(source, 'recipes/greet/files/migrations/0000_init.sql', 'CREATE TABLE note (id integer);\n')
+      commit('greet has starter migrations')
+    })
+
+    it('copies the directory when the application has none', () => {
+      run('add', 'greet')
+      expect(read('migrations/0000_init.sql')).toBe('CREATE TABLE note (id integer);\n')
+    })
+
+    it('leaves alone a directory the application already has', () => {
+      write(app, 'migrations/0000_existing.sql', 'CREATE TABLE list (id integer);\n')
+      run('add', 'greet')
+      expect(existsSync(join(app, 'migrations/0000_init.sql'))).toBe(false)
+    })
+
+    it('does not add a new starter file to a directory the application owns', () => {
+      write(app, 'migrations/0000_existing.sql', 'CREATE TABLE list (id integer);\n')
+      run('add', 'greet')
+      write(source, 'recipes/greet/README.md', recipe(2, '[src/core/starter.ts, migrations/]'))
+      write(source, 'recipes/greet/CHANGELOG.md', '# greet\n\n## 2\n\nMore.\n\n## 1\n\nGreets.\n')
+      write(source, 'recipes/greet/files/migrations/0001_more.sql', 'ALTER TABLE note ADD x integer;\n')
+      commit('greet v2')
+      run('update', 'greet')
+      expect(existsSync(join(app, 'migrations/0001_more.sql'))).toBe(false)
+    })
   })
 
   it('refuses to skip a path the recipe does not ship', () => {
@@ -229,6 +265,11 @@ describe('add', () => {
     expect(run('add', 'greet', '--map', 'src/core/greet.ts=src/lib/greet.ts').output).toContain(
       'src/core/shout.ts imports ./greet, which the application keeps at src/lib/greet.ts',
     )
+  })
+
+  it('leaves out the imports of a file it did not copy', () => {
+    write(app, 'src/core/shout.ts', 'mine\n')
+    expect(run('add', 'greet', '--map', 'src/core/greet.ts=src/lib/greet.ts').output).not.toContain('Imports to fix')
   })
 
   it('refuses a recipe that a recorded recipe conflicts with', () => {

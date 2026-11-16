@@ -3,15 +3,10 @@ import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rename, rm } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { databaseFile } from './databaseFile.ts'
 
 type FileOperations = { copyFile: typeof copyFile; mkdir: typeof mkdir; rename: typeof rename; rm: typeof rm }
 const defaultFileOperations: FileOperations = { copyFile, mkdir, rename, rm }
-
-/** The same file as `databaseFile()` in `src/db/database.ts`; this script runs alone in production, so it cannot import it. */
-export function databasePath(env: NodeJS.ProcessEnv = process.env) {
-  if (!env.DATA_DIR && env.NODE_ENV === 'production') throw new Error('DATA_DIR is required in production')
-  return path.join(path.resolve(env.DATA_DIR ?? '.data'), 'app.sqlite')
-}
 
 export async function runDatabaseCommand(
   command: 'backup' | 'restore',
@@ -19,7 +14,7 @@ export async function runDatabaseCommand(
   env: NodeJS.ProcessEnv = process.env,
   fileOperations: FileOperations = defaultFileOperations,
 ) {
-  const source = databasePath(env)
+  const source = databaseFile(env)
   const dataDirectory = path.dirname(source)
   if (command === 'backup') {
     const backupDirectory = path.join(dataDirectory, 'backups')

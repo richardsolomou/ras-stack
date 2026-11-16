@@ -21,8 +21,13 @@ runs:
       env:
         PLAYWRIGHT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
-        version="$(pnpm --dir "$PLAYWRIGHT_WORKING_DIRECTORY" exec playwright --version)"
-        echo "version=${version#Version }" >> "$GITHUB_OUTPUT"
+        # pnpm 11 installs first when node_modules is out of date, and prints that install on stdout before the version.
+        version="$(pnpm --dir "$PLAYWRIGHT_WORKING_DIRECTORY" exec playwright --version | sed -n 's/^Version //p')"
+        if [ -z "$version" ]; then
+          echo "::error::Could not read the Playwright version in $PLAYWRIGHT_WORKING_DIRECTORY" >&2
+          exit 1
+        fi
+        echo "version=$version" >> "$GITHUB_OUTPUT"
     - name: Cache Playwright browser
       id: cache
       uses: actions/cache@v6

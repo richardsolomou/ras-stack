@@ -1,6 +1,6 @@
 ---
 name: database-sqlite
-version: 1
+version: 2
 summary: SQLite through better-sqlite3 and Drizzle, migrated at startup, with online backup and validated restore.
 requires: [start-app]
 conflicts: [database-libsql, database-postgres]
@@ -43,20 +43,23 @@ Use `database-libsql` instead when the image must install without native build s
 
 ## Files
 
-| File                          | Job                                                                                      |
-| ----------------------------- | ---------------------------------------------------------------------------------------- |
-| `src/db/database.ts`          | `databaseFile()`, `openDatabase()`: pragmas, pre-migration backup, migrations, FK check. |
-| `src/db/schema.ts`            | The Drizzle schema. A starter `note` table; replace it.                                  |
-| `src/db/database.test.ts`     | Migration safety, backups, `DATA_DIR`, and schema-to-migration drift.                    |
-| `src/server/database.test.ts` | Conformance of the real startup connection: pragmas, location, migrations, a query.      |
-| `drizzle/`                    | Generated migrations for the starter schema.                                             |
-| `drizzle.config.ts`           | drizzle-kit configuration for `pnpm db:generate`.                                        |
-| `scripts/database.ts`         | `backup [destination]` and `restore <file>`.                                             |
-| `scripts/database.test.ts`    | Round trip, corrupt input, open-database refusal, and every rollback failure path.       |
+| File                          | Job                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------ |
+| `src/db/database.ts`          | `openDatabase()`: pragmas, pre-migration backup, migrations, FK check.               |
+| `scripts/databaseFile.ts`     | `databaseFileName` and `databaseFile()`, which the application and the backup share. |
+| `src/db/schema.ts`            | The Drizzle schema. A starter `note` table; replace it.                              |
+| `src/db/database.test.ts`     | Migration safety, backups, `DATA_DIR`, and schema-to-migration drift.                |
+| `src/server/database.test.ts` | Conformance of the real startup connection: pragmas, location, migrations, a query.  |
+| `drizzle/`                    | Generated migrations for the starter schema.                                         |
+| `drizzle.config.ts`           | drizzle-kit configuration for `pnpm db:generate`.                                    |
+| `scripts/database.ts`         | `backup [destination]` and `restore <file>`.                                         |
+| `scripts/database.test.ts`    | Round trip, corrupt input, open-database refusal, and every rollback failure path.   |
 
 In a new application, replace the `note` table in `src/db/schema.ts`, delete `drizzle/`, and run `pnpm db:generate` before the first deploy.
 
-In an existing application, keep its database file name and its migrations. Change `app.sqlite` in `databaseFile()` and in `databasePath()` in `scripts/database.ts` to the file the deployment already has, because the recipe's name would point production at a new, empty database. Keep the application's own `src/db/schema.ts` and `drizzle/` instead of the recipe's starter ones: Drizzle applies every migration newer than the last one recorded in `__drizzle_migrations`, so a replaced history either runs the starter migration against existing tables or leaves the next schema change unapplied.
+In an existing application, keep its database file name and its migrations. Set `databaseFileName` in `scripts/databaseFile.ts` to the file the deployment already has, because the recipe's name would point production at a new, empty database; the application, the backup script, and the tests all read it there. It lives in `scripts/` because the production image runs the backup script alone, and the script must not import application code. Keep the application's own `src/db/schema.ts` and `drizzle/` instead of the recipe's starter ones: Drizzle applies every migration newer than the last one recorded in `__drizzle_migrations`, so a replaced history either runs the starter migration against existing tables or leaves the next schema change unapplied.
+
+An existing database that Drizzle's migrator never ran, such as one migrated by the application's own runner, has no `__drizzle_migrations` table, so `openDatabase` would replay the first migration against existing tables and fail. Before the first start with the recipe, record what is already applied: create the table as Drizzle does (`CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY, hash text NOT NULL, created_at numeric)`) and insert a row for the last migration the database has, with `created_at` set to that migration's `when` in `drizzle/meta/_journal.json`. Drizzle compares only the latest `created_at`, so later migrations then apply as usual. Do it once, in a deploy step or a one-off script against a backup first. Where that is not practical, keep the application's own runner, skip the recipe's migration call, and record that as a note.
 
 ## Wiring
 
@@ -74,7 +77,7 @@ With `deploy-dokploy`, the `Dockerfile`'s runtime stage must:
 
 - keep `WORKDIR /app` and start the server from there (`node .output/server/index.mjs`), since migrations resolve from the working directory;
 - `COPY drizzle ./drizzle`;
-- `COPY scripts/database.ts .output/server/database.ts`, so the script resolves `better-sqlite3` from the `node_modules` Nitro traces into `.output/server`;
+- `COPY scripts/database.ts scripts/databaseFile.ts .output/server/`, so the script resolves `better-sqlite3` from the `node_modules` Nitro traces into `.output/server`, beside the file name it shares with the application;
 - keep `DATA_DIR=/data` and mount the volume there;
 - build `better-sqlite3` for the target architecture (`python3 make g++` in the build stage on Alpine, or a matching prebuilt binary).
 

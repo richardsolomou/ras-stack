@@ -6,6 +6,7 @@ import { databaseFile, openDatabase } from '../db/database'
 import { upload } from '../db/schema'
 import { createAuth } from './auth'
 import { createRealtime } from './realtime'
+import { channelPolicy } from './realtimeChannels'
 import { currentUser } from './session'
 import { createTelemetry } from './telemetry'
 import { createUploads } from './uploads'
@@ -39,7 +40,7 @@ function createApp() {
       createRealtime(async (request) => {
         const user = await currentUser(request)
         return user ? { id: user.id, info: { name: user.name } } : undefined
-      }),
+      }, channelPolicy),
       (instance) => instance.close(),
     )
     const uploads = resources.adopt(
