@@ -27,7 +27,7 @@ export function createTelemetry(env: Record<string, string | undefined> = proces
   }
   const posthog = new PostHog(environment?.projectToken ?? 'disabled', {
     host: environment?.host,
-    before_send: options.beforeSend,
+    beforeSend: options.beforeSend,
     disabled: !environment,
     enableExceptionAutocapture: Boolean(environment),
     metrics: service,

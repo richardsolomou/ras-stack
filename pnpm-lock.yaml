@@ -211,8 +211,8 @@ importers:
         specifier: ^1.445.4
         version: 1.445.4(@types/react@19.3.0)(react@19.3.1)
       posthog-node:
-        specifier: ^5.61.2
-        version: 5.61.2(@opentelemetry/api@1.9.1)
+        specifier: ^6.0.2
+        version: 6.0.2(@opentelemetry/api@1.9.1)
       ras-stack:
         specifier: workspace:*
         version: link:../packages/ras-stack
@@ -2094,6 +2094,9 @@ packages:
   '@posthog/core@1.63.1':
     resolution: {integrity: sha512-LcUSRUM8zoTdwQFH1kWDQDMOFwiFjJ2lVxOOtpOwp6ezcHdr94KjO84YcoEeYtMuIFVMjasDFWyrOuuMAAg52g==}
 
+  '@posthog/core@1.69.0':
+    resolution: {integrity: sha512-Dbzuba/INtfyXTaPFsNeVcXjZM2WWjwFmqNobOwuIEEp9HGMy/dEsxJB37r4rvlu0F4gBbYlTft2nWFcjK/cHQ==}
+
   '@posthog/plugin-utils@2.0.1':
     resolution: {integrity: sha512-ZiQfUcgY65EjF2vkqL4Aau6sx0aqvSWoXaGSGu9Solnmv6e6VRjQbAU0SCKbxpJxcEsCJof9vmvnrFTQIEOUAQ==}
 
@@ -2114,6 +2117,9 @@ packages:
 
   '@posthog/types@1.419.0':
     resolution: {integrity: sha512-XX7zRYt/vK8AzaD6V+oDquAzacZf5exJv971dja9En8Qf6g84Qvc3rpT0w6hDYYLWrjaSSkdjFfvvoXI0ouJDg==}
+
+  '@posthog/types@1.425.1':
+    resolution: {integrity: sha512-mh7jyQ5lN+XCeOnMdYkBEFtO/G0TxeLOKTWNH6E6OZjxS4nVM0Tb2xQt+FG5DCFM9qzL2HmuX6A793TwlJVDvw==}
 
   '@protobufjs/aspromise@1.1.2':
     resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
@@ -4184,14 +4190,17 @@ packages:
       react:
         optional: true
 
-  posthog-node@5.61.2:
-    resolution: {integrity: sha512-6pMhzR+APW+CBreUlHce3qrxwU7l90gYp1A5eN0kf/o3rVf++Zz2KPtZQC63ct+hWkzCwi3Arm+GT8EjUBrUag==}
+  posthog-node@6.0.2:
+    resolution: {integrity: sha512-UQtV03UkTWYxmyifwX/IVBBG61sutMOhIIQ0pwUe3Z31TfK3ElWRlT/J6wjXjYe8og+06B9R2Yqa6geDAt2Usg==}
     engines: {node: ^20.20.0 || >=22.22.0}
     peerDependencies:
       '@opentelemetry/api': ^1.2.0
+      '@react-email/render': ^2.1.0
       rxjs: ^7.0.0
     peerDependenciesMeta:
       '@opentelemetry/api':
+        optional: true
+      '@react-email/render':
         optional: true
       rxjs:
         optional: true
@@ -6244,6 +6253,10 @@ snapshots:
     dependencies:
       '@posthog/types': 1.419.0
 
+  '@posthog/core@1.69.0':
+    dependencies:
+      '@posthog/types': 1.425.1
+
   '@posthog/plugin-utils@2.0.1':
     dependencies:
       cross-spawn: 7.0.6
@@ -6263,6 +6276,8 @@ snapshots:
       rollup: 4.64.6
 
   '@posthog/types@1.419.0': {}
+
+  '@posthog/types@1.425.1': {}
 
   '@protobufjs/aspromise@1.1.2': {}
 
@@ -8108,9 +8123,9 @@ snapshots:
     transitivePeerDependencies:
       - preact-render-to-string
 
-  posthog-node@5.61.2(@opentelemetry/api@1.9.1):
+  posthog-node@6.0.2(@opentelemetry/api@1.9.1):
     dependencies:
-      '@posthog/core': 1.63.1
+      '@posthog/core': 1.69.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
 
