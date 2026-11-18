@@ -1,5 +1,11 @@
 # posthog-web
 
+## 5
+
+Use the slim browser SDK with explicit bundles for analytics, error tracking, feature flags, logs, metrics, replay and tracing. The provider supplies the same client even when no project token is configured.
+
+Upgrade: install `posthog-js` 1.450.1 or newer and use `@posthog/react` 1.11.3 or newer. Copy the two exact-match Vite aliases from a wired stack and move any alternative browser SDK imports to the same slim entry. Add bundles for any extra PostHog features the application uses to `__extensionClasses` in `src/client/posthogOptions.ts`.
+
 ## 4
 
 Read `import.meta.env` with an optional chain in `src/contracts/posthog.ts`, so a script run with Node or tsx can import the contract instead of failing on load.
