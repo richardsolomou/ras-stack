@@ -21,12 +21,11 @@ beforeAll(async () => {
       if (stallLogs && request.url === '/i/v1/logs') return
       const raw = Buffer.concat(chunks)
       const text = (request.headers['content-encoding'] === 'gzip' ? gunzipSync(raw) : raw).toString()
-      received.push({
-        path: request.url!.split('?')[0]!,
-        authorization: request.headers.authorization,
-        body: text ? JSON.parse(text) : undefined,
-      })
-      response.writeHead(200, { 'content-type': 'application/json' }).end('{}')
+      const body = text ? JSON.parse(text) : undefined
+      received.push({ path: request.url!.split('?')[0]!, authorization: request.headers.authorization, body })
+      // Capture answers each event by its uuid; posthog-node treats any other body as a failed batch.
+      const results = Object.fromEntries((body?.batch ?? []).map(({ uuid }: { uuid: string }) => [uuid, { result: 'ok' }]))
+      response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(body?.batch ? { results } : {}))
     })
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -44,6 +43,7 @@ beforeEach(() => {
 const enabledWith = (options: TelemetryOptions) =>
   createTelemetry({ [projectTokenVariable]: 'phc_test', [hostVariable]: host, NODE_ENV: 'production' }, options)
 const enabled = () => enabledWith({})
+const CAPTURE_PATH = '/i/v1/analytics/events'
 const sent = (path: string) => received.filter((request) => request.path === path)
 const logRecords = () => sent('/i/v1/logs').flatMap(({ body }) => body.resourceLogs[0].scopeLogs[0].logRecords)
 const attributes = (record: { attributes: { key: string; value: Record<string, unknown> }[] }) =>
@@ -70,7 +70,7 @@ describe('createTelemetry with a project token', () => {
     const telemetry = enabled()
     telemetry.posthog.capture({ distinctId: 'person-1', event: 'count_incremented' })
     await telemetry.shutdown()
-    expect(sent('/batch/').flatMap(({ body }) => body.batch.map(({ event }: { event: string }) => event))).toEqual(['count_incremented'])
+    expect(sent(CAPTURE_PATH).flatMap(({ body }) => body.batch.map(({ event }: { event: string }) => event))).toEqual(['count_incremented'])
   })
 
   it('authenticates logs with the project token', async () => {
@@ -180,7 +180,7 @@ describe('createTelemetry with a project token', () => {
     telemetry.posthog.capture({ distinctId: 'person-1', event: 'internal' })
     telemetry.posthog.capture({ distinctId: 'person-1', event: 'count_incremented' })
     await telemetry.shutdown()
-    expect(sent('/batch/').flatMap(({ body }) => body.batch.map(({ event }: { event: string }) => event))).toEqual(['count_incremented'])
+    expect(sent(CAPTURE_PATH).flatMap(({ body }) => body.batch.map(({ event }: { event: string }) => event))).toEqual(['count_incremented'])
   })
 
   it('sends queued events once when shut down twice', async () => {
@@ -188,7 +188,7 @@ describe('createTelemetry with a project token', () => {
     telemetry.posthog.capture({ distinctId: 'person-1', event: 'count_incremented' })
     await telemetry.shutdown()
     await telemetry.shutdown()
-    expect(sent('/batch/').flatMap(({ body }) => body.batch)).toHaveLength(1)
+    expect(sent(CAPTURE_PATH).flatMap(({ body }) => body.batch)).toHaveLength(1)
   })
 
   it('ignores captures after shutdown', async () => {

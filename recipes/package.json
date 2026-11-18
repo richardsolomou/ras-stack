@@ -43,7 +43,7 @@
     "oxlint-tsgolint": "^7.0.2006",
     "postgres": "^3.4.9",
     "posthog-js": "^1.445.4",
-    "posthog-node": "^5.61.2",
+    "posthog-node": "^6.0.2",
     "ras-stack": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

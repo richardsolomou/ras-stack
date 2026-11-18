@@ -61,7 +61,7 @@ export function reportServerFunctionFailure(telemetry: Telemetry, error: unknown
     ...(context.status === undefined ? {} : { response_status: context.status }),
   }
   try {
-    telemetry.posthog.captureException(error, undefined, properties)
+    telemetry.posthog.captureException(error, { properties })
     telemetry.log('error', 'server function failed', properties)
   } catch (telemetryError) {
     // The application's failure is the one the caller must see.

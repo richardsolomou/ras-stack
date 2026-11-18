@@ -150,11 +150,8 @@ describe('reportServerFunctionFailure', () => {
   it('captures the failure with only bounded request details', () => {
     const failure = new Error('broken')
     reportServerFunctionFailure(telemetry, failure, context)
-    expect(spies.captureException).toHaveBeenCalledWith(failure, undefined, {
-      request_method: 'POST',
-      request_path: '/_serverFn/abc',
-      server_function: 'breakCount',
-      response_status: 502,
+    expect(spies.captureException).toHaveBeenCalledWith(failure, {
+      properties: { request_method: 'POST', request_path: '/_serverFn/abc', server_function: 'breakCount', response_status: 502 },
     })
   })
 
