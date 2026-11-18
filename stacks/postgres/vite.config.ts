@@ -8,6 +8,12 @@ import { postHogSourceMaps } from './scripts/posthogSourceMaps.ts'
 export default defineConfig(({ mode }) => {
   const sourceMaps = postHogSourceMaps({ ...loadEnv(mode, process.cwd(), ''), ...process.env })
   return {
+    resolve: {
+      alias: [
+        { find: /^posthog-js$/, replacement: 'posthog-js/dist/module.slim.js' },
+        { find: /^@posthog\/react$/, replacement: '@posthog/react/slim' },
+      ],
+    },
     server: { port: 3000 },
     plugins: [
       tanstackStart(),
