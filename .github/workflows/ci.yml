@@ -60,6 +60,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: ./actions/setup-js
       - name: Assemble the full-stack stack with its own install
         id: stack
@@ -70,7 +72,19 @@ jobs:
       - name: Build the image
         env:
           STACK_DIR: ${{ steps.stack.outputs.directory }}
-        run: docker build -t ras-stack-recipe:full-stack "$STACK_DIR"
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          contexts=()
+          if [[ -n "$BASE_SHA" ]]; then
+            changed=$(git diff --name-only "$BASE_SHA" HEAD -- runtime/)
+            if [[ -n "$changed" ]]; then
+              candidate="$RUNNER_TEMP/runtime-binaries"
+              docker build -f runtime/Dockerfile --output "type=local,dest=$candidate" .
+              contexts+=(--build-context "runtime-binaries=$candidate")
+            fi
+          fi
+          docker build "${contexts[@]}" -t ras-stack-recipe:full-stack "$STACK_DIR"
       - name: Scan the image
         uses: anchore/scan-action@v7
         with:
