@@ -2,7 +2,7 @@
 ARG CADDY_VERSION=2.11.4
 ARG CENTRIFUGO_VERSION=6.9.6
 
-FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS centrifugo
+FROM --platform=$BUILDPLATFORM golang:1.26.11-alpine@sha256:ecb67f987aa1a57794c91d19ade7ae0209f2f0f5496aaef9e6ae85ddf92d02ab AS centrifugo
 ARG TARGETOS
 ARG TARGETARCH
 ARG CENTRIFUGO_VERSION
@@ -17,7 +17,7 @@ RUN wget -q "https://github.com/centrifugal/centrifugo/archive/${CENTRIFUGO_COMM
     && CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" go build -trimpath -ldflags="-s -w -X github.com/centrifugal/centrifugo/v6/internal/build.Version=${CENTRIFUGO_VERSION}" -o /out/centrifugo . \
     && cp LICENSE /out/CENTRIFUGO-LICENSE
 
-FROM --platform=$BUILDPLATFORM golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca AS caddy
+FROM --platform=$BUILDPLATFORM golang:1.26.11-alpine@sha256:ecb67f987aa1a57794c91d19ade7ae0209f2f0f5496aaef9e6ae85ddf92d02ab AS caddy
 ARG TARGETOS
 ARG TARGETARCH
 ARG CADDY_VERSION
@@ -32,7 +32,7 @@ RUN wget -q "https://github.com/caddyserver/caddy/archive/refs/tags/v${CADDY_VER
     && cp LICENSE /out/CADDY-LICENSE
 
 FROM scratch
-ARG RUNTIME_VERSION=1.0.9
+ARG RUNTIME_VERSION=1.0.10
 ARG CADDY_VERSION
 ARG CENTRIFUGO_VERSION
 LABEL org.opencontainers.image.title="ras-stack runtime binaries" \
