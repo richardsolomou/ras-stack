@@ -20,7 +20,7 @@
     "@changesets/get-release-plan": "5.0.2",
     "oxfmt": "^0.75.0",
     "oxlint": "^1.90.0",
-    "oxlint-tsgolint": "^7.0.2006",
+    "oxlint-tsgolint": "^7.0.2007",
     "vitest": "^4.1.12"
   },
   "engines": {
